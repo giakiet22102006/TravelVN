@@ -7,7 +7,6 @@ import {
   Loader2,
   MapPin,
   Send,
-  Sparkles,
   Star,
   X,
 } from "lucide-react";
@@ -264,10 +263,58 @@ export function AiTravelAssistant() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="ml-auto h-[46px] px-4 rounded-full bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[13px] shadow-[0_10px_28px_rgba(69,2,199,0.36)] inline-flex items-center gap-2 transition-transform hover:scale-[1.03]"
+        aria-label={open ? "Thu gọn Trợ lý AI" : "Mở Trợ lý AI VN.TRAVEL"}
+        title={open ? "Thu gọn Trợ lý AI" : "Trợ lý AI VN.TRAVEL"}
+        className="ml-auto relative w-14 h-14 rounded-full bg-gradient-to-br from-[#4502C7] to-[#6B28EB] hover:from-[#36019e] hover:to-[#591fd0] text-white shadow-[0_12px_30px_rgba(69,2,199,0.42)] ring-2 ring-white/30 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
       >
-        <Sparkles className="w-4 h-4 text-[#FFE066]" />
-        <span>{open ? "Thu gọn Trợ lý AI" : "Trợ lý AI VN.TRAVEL"}</span>
+        {open ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <>
+            <svg
+              viewBox="0 0 36 36"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-8 h-8"
+              aria-hidden="true"
+            >
+              {/* Antenna */}
+              <line
+                x1="18"
+                y1="4.5"
+                x2="18"
+                y2="9"
+                stroke="#FFE066"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <circle cx="18" cy="4" r="2.2" fill="#FFE066" />
+              {/* Ears */}
+              <rect x="4" y="15.5" width="3.5" height="7" rx="1.75" fill="#E9DDFF" />
+              <rect x="28.5" y="15.5" width="3.5" height="7" rx="1.75" fill="#E9DDFF" />
+              {/* Cute rounded head */}
+              <rect x="7" y="9" width="22" height="19" rx="8.5" fill="#FFFFFF" />
+              {/* Visor / Face */}
+              <rect x="10" y="12.5" width="16" height="11" rx="5.5" fill="#1E103C" />
+              {/* Eyes */}
+              <circle cx="14.5" cy="17.5" r="1.8" fill="#7DF9FF" />
+              <circle cx="21.5" cy="17.5" r="1.8" fill="#7DF9FF" />
+              <circle cx="15" cy="17" r="0.6" fill="#FFFFFF" />
+              <circle cx="22" cy="17" r="0.6" fill="#FFFFFF" />
+              {/* Rosy cheeks */}
+              <ellipse cx="12.2" cy="20.2" rx="1.3" ry="0.8" fill="#FF8FAB" fillOpacity="0.85" />
+              <ellipse cx="23.8" cy="20.2" rx="1.3" ry="0.8" fill="#FF8FAB" fillOpacity="0.85" />
+              {/* Cute smile */}
+              <path
+                d="M16 20.6C16.7 21.5 19.3 21.5 20 20.6"
+                stroke="#FFE066"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 ring-2 ring-[#4502C7]" />
+          </>
+        )}
       </button>
     </div>
   );
