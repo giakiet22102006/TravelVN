@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Calendar,
   ChevronDown,
   Flame,
   MapPin,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
 import { SmartImage } from "@/components/client/SmartImage";
+import { DatePickerInput } from "@/components/client/DatePickerInput";
 
 const HOT_DESTINATIONS = [
   "Nhật Bản",
@@ -109,6 +109,7 @@ export function HomePageClient({
   const [childCount, setChildCount] = useState(0);
   const [babyCount, setBabyCount] = useState(0);
   const [showDestinationPopup, setShowDestinationPopup] = useState(false);
+  const [showDatePopup, setShowDatePopup] = useState(false);
   const [showQuantityPopup, setShowQuantityPopup] = useState(false);
   const [liveSuggestions, setLiveSuggestions] = useState<TourCardData[]>([]);
 
@@ -150,6 +151,7 @@ export function HomePageClient({
         !searchWrapperRef.current.contains(e.target as Node)
       ) {
         setShowDestinationPopup(false);
+        setShowDatePopup(false);
         setShowQuantityPopup(false);
       }
     }
@@ -189,6 +191,7 @@ export function HomePageClient({
     if (childCount > 0) params.set("child", String(childCount));
     if (babyCount > 0) params.set("baby", String(babyCount));
     setShowDestinationPopup(false);
+    setShowDatePopup(false);
     setShowQuantityPopup(false);
     router.push(`/tours${params.toString() ? `?${params.toString()}` : ""}`);
   }
@@ -244,6 +247,7 @@ export function HomePageClient({
                     value={destination}
                     onFocus={() => {
                       setShowDestinationPopup(true);
+                      setShowDatePopup(false);
                       setShowQuantityPopup(false);
                     }}
                     onChange={(e) => {
@@ -319,23 +323,18 @@ export function HomePageClient({
               </div>
 
               {/* Input 2: Ngày khởi hành */}
-              <div className="md:col-span-3">
-                <div className="bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B]">
-                  <Calendar className="w-5 h-5 text-[#4502C7] shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-[10px] text-[#667479] leading-none mb-0.5">
-                      Lịch khởi hành
-                    </span>
-                    <input
-                      type="date"
-                      value={departureDate}
-                      onChange={(e) => setDepartureDate(e.target.value)}
-                      aria-label="Ngày khởi hành"
-                      className="w-full bg-transparent text-[13px] font-medium focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
+              <DatePickerInput
+                value={departureDate}
+                onChange={setDepartureDate}
+                open={showDatePopup}
+                onOpenChange={(nextOpen) => {
+                  setShowDatePopup(nextOpen);
+                  if (nextOpen) {
+                    setShowDestinationPopup(false);
+                    setShowQuantityPopup(false);
+                  }
+                }}
+              />
 
               {/* Input 3: Số lượng */}
               <div className="md:col-span-3 relative">
@@ -345,6 +344,7 @@ export function HomePageClient({
                   onClick={() => {
                     setShowQuantityPopup((v) => !v);
                     setShowDestinationPopup(false);
+                    setShowDatePopup(false);
                   }}
                   className="w-full bg-white rounded-[10px] h-[54px] px-3 flex items-center justify-between gap-2 text-[#25282B] text-left"
                 >
