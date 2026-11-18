@@ -1,5 +1,108 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { slugify } from "./format";
+
+export interface OrderItemStockInput {
+  tourId: string | null;
+  quantityAdult: number;
+  quantityChild: number;
+  quantityBaby: number;
+}
+
+/**
+ * Restores tour seat inventory atomically inside an open Prisma transaction
+ * when an order is cancelled or deleted before cancellation.
+ */
+export async function restoreOrderInventory(
+  tx: Prisma.TransactionClient,
+  items: OrderItemStockInput[]
+) {
+  for (const item of items) {
+    if (!item.tourId) continue;
+    await tx.tour.update({
+      where: { id: item.tourId },
+      data: {
+        stockAdult: { increment: item.quantityAdult },
+        stockChild: { increment: item.quantityChild },
+        stockBaby: { increment: item.quantityBaby },
+      },
+    });
+  }
+}
+
+export interface TourPriceInput {
+  priceAdult: number;
+  priceChild: number;
+  priceBaby: number;
+  priceNewAdult: number;
+  priceNewChild: number;
+  priceNewBaby: number;
+}
+
+export function validateTourPrices(prices: TourPriceInput): string | null {
+  const pairs: Array<{ label: string; oldPrice: number; newPrice: number }> = [
+    {
+      label: "Người lớn",
+      oldPrice: prices.priceAdult,
+      newPrice: prices.priceNewAdult,
+    },
+    {
+      label: "Trẻ em",
+      oldPrice: prices.priceChild,
+      newPrice: prices.priceNewChild,
+    },
+    {
+      label: "Em bé",
+      oldPrice: prices.priceBaby,
+      newPrice: prices.priceNewBaby,
+    },
+  ];
+
+  for (const { label, oldPrice, newPrice } of pairs) {
+    if (oldPrice < 0 || newPrice < 0) {
+      return `Giá ${label.toLowerCase()} không được là số âm`;
+    }
+    if (oldPrice > 0 && newPrice > oldPrice) {
+      return `Giá mới (${label}) không được lớn hơn giá gốc`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Prevents soft-deleting categories that still hold active child categories or active tours.
+ */
+export async function validateCategoriesDeletable(
+  ids: string[]
+): Promise<string | null> {
+  if (ids.length === 0) return null;
+
+  const [childCount, tourCount] = await Promise.all([
+    prisma.category.count({
+      where: {
+        parentId: { in: ids },
+        id: { notIn: ids },
+        deleted: false,
+      },
+    }),
+    prisma.tour.count({
+      where: {
+        categoryId: { in: ids },
+        deleted: false,
+      },
+    }),
+  ]);
+
+  if (tourCount > 0 || childCount > 0) {
+    const reasons: string[] = [];
+    if (tourCount > 0) reasons.push(`${tourCount} tour đang hoạt động`);
+    if (childCount > 0) reasons.push(`${childCount} danh mục con`);
+    return `Không thể xóa danh mục vì vẫn còn ${reasons.join(" và ")}. Vui lòng chuyển hoặc xóa các mục liên quan trước.`;
+  }
+
+  return null;
+}
 
 export function buildDateRangeFilter(
   startDate?: string | null,

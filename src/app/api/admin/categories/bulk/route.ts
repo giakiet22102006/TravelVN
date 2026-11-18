@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
+import { validateCategoriesDeletable } from "@/lib/admin-api";
 import { revalidateAllClientCatalogCache } from "@/lib/cache-tags";
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
-
     const body = await req.json();
     const action = String(body.action || "");
     const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+
+    const auth = await requireAdmin(
+      action === "DELETE" ? "category_delete" : "category_edit"
+    );
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     if (ids.length === 0) {
       return NextResponse.json(
@@ -31,6 +33,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "DELETE") {
+      const blockedMessage = await validateCategoriesDeletable(ids);
+      if (blockedMessage) {
+        return NextResponse.json({ message: blockedMessage }, { status: 400 });
+      }
+
       await prisma.category.updateMany({
         where: { id: { in: ids } },
         data: {

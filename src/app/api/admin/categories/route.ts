@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import {
   buildDateRangeFilter,
   generateUniqueCategorySlug,
@@ -10,13 +10,13 @@ import { revalidateAllClientCatalogCache } from "@/lib/cache-tags";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const all = req.nextUrl.searchParams.get("all") === "true";
+    const auth = await requireAdmin(
+      all ? ["category_view", "tour_create", "tour_edit"] : "category_view"
+    );
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
-    const all = searchParams.get("all") === "true";
 
     if (all) {
       const items = await prisma.category.findMany({
@@ -99,10 +99,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("category_create");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const body = await req.json();
     const name = String(body.name || "").trim();

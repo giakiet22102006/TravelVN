@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AdminAuthCard } from "@/components/admin/AdminAuthCard";
 
+const ALLOW_PUBLIC_REGISTER =
+  process.env.NEXT_PUBLIC_ALLOW_ADMIN_REGISTER === "true";
+
 export default function AdminRegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
@@ -16,6 +19,27 @@ export default function AdminRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  if (!ALLOW_PUBLIC_REGISTER) {
+    return (
+      <AdminAuthCard
+        title="Đăng Ký Nội Bộ"
+        subtitle="Tài khoản quản trị do Quản trị viên hệ thống cấp phát"
+      >
+        <div className="space-y-5 text-center">
+          <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-4 font-medium leading-relaxed">
+            Để đảm bảo an toàn hệ thống, chức năng tự đăng ký quản trị viên công khai đã được tắt. Vui lòng liên hệ Quản trị viên để được tạo tài khoản và phân quyền.
+          </div>
+          <Link
+            href="/admin/account/login"
+            className="w-full h-12 rounded-lg bg-[#4880FF] hover:bg-[#3a6ce0] text-white font-bold text-base transition-colors inline-flex items-center justify-center"
+          >
+            Quay lại Đăng nhập
+          </Link>
+        </div>
+      </AdminAuthCard>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

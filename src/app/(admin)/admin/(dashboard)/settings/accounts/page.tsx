@@ -12,6 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface RoleOption {
   id: string;
@@ -49,6 +50,10 @@ export default function AdminAccountsPage() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<
+    { kind: "one"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -100,35 +105,16 @@ export default function AdminAccountsPage() {
     setPage(1);
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Bạn có chắc muốn xóa tài khoản "${name}"?`)) return;
-    setError("");
-    const res = await fetch(`/api/admin/settings/accounts/${id}`, {
-      method: "DELETE",
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message || "Không thể xóa tài khoản");
-      return;
-    }
-    setNotice(data.message);
-    fetchAccounts();
+  function handleDelete(id: string, name: string) {
+    setConfirmState({ kind: "one", id, name });
   }
 
-  async function handleBulkApply() {
-    if (!bulkAction || selectedIds.length === 0) return;
-    if (
-      bulkAction === "DELETE" &&
-      !confirm(`Xóa ${selectedIds.length} tài khoản đã chọn?`)
-    ) {
-      return;
-    }
+  async function executeBulk(action: string) {
     setError("");
-
     const res = await fetch("/api/admin/settings/accounts", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: bulkAction, ids: selectedIds }),
+      body: JSON.stringify({ action, ids: selectedIds }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -138,6 +124,47 @@ export default function AdminAccountsPage() {
     setNotice(data.message);
     setBulkAction("");
     fetchAccounts();
+  }
+
+  async function handleBulkApply() {
+    if (!bulkAction || selectedIds.length === 0) return;
+    if (bulkAction === "DELETE") {
+      setConfirmState({ kind: "bulk", count: selectedIds.length });
+      return;
+    }
+    try {
+      await executeBulk(bulkAction);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    }
+  }
+
+  async function executeConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "one") {
+        const res = await fetch(
+          `/api/admin/settings/accounts/${confirmState.id}`,
+          { method: "DELETE" }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa tài khoản");
+          return;
+        }
+        setNotice(data.message);
+        fetchAccounts();
+      } else {
+        await executeBulk("DELETE");
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -456,6 +483,22 @@ export default function AdminAccountsPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa tài khoản"
+        description={
+          confirmState?.kind === "one"
+            ? `Bạn có chắc muốn xóa tài khoản "${confirmState.name}"?`
+            : confirmState?.kind === "bulk"
+              ? `Bạn có chắc muốn xóa ${confirmState.count} tài khoản đã chọn?`
+              : ""
+        }
+        confirmLabel="Xóa tài khoản"
+        loading={confirmLoading}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

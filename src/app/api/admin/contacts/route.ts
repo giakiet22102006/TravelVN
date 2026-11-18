@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { ContactStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { buildDateRangeFilter } from "@/lib/admin-api";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("contact_view");
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
+    const status = searchParams.get("status");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const search = searchParams.get("search")?.trim();
@@ -22,6 +21,10 @@ export async function GET(req: NextRequest) {
     );
 
     const where: Prisma.ContactWhereInput = { deleted: false };
+
+    if (status === ContactStatus.NEW || status === ContactStatus.PROCESSED) {
+      where.status = status;
+    }
 
     const createdAtFilter = buildDateRangeFilter(startDate, endDate);
     if (createdAtFilter) {
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
     const [items, total] = await Promise.all([
       prisma.contact.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -54,20 +57,37 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
-
     const body = await req.json();
     const action = String(body.action || "");
     const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+
+    const auth = await requireAdmin(
+      action === "DELETE" ? "contact_delete" : "contact_edit"
+    );
+    if (auth.error) return auth.error;
 
     if (ids.length === 0) {
       return NextResponse.json(
         { message: "Vui lòng chọn ít nhất một email liên hệ" },
         { status: 400 }
       );
+    }
+
+    if (action === "MARK_PROCESSED" || action === "MARK_NEW") {
+      const status =
+        action === "MARK_PROCESSED"
+          ? ContactStatus.PROCESSED
+          : ContactStatus.NEW;
+      await prisma.contact.updateMany({
+        where: { id: { in: ids }, deleted: false },
+        data: { status },
+      });
+      return NextResponse.json({
+        message:
+          action === "MARK_PROCESSED"
+            ? "Đã đánh dấu đã liên hệ!"
+            : "Đã chuyển về trạng thái chưa xử lý!",
+      });
     }
 
     if (action === "DELETE") {

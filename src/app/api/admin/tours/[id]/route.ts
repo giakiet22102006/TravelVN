@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
-import { generateUniqueTourSlug } from "@/lib/admin-api";
+import { requireAdmin } from "@/lib/auth";
+import { generateUniqueTourSlug, validateTourPrices } from "@/lib/admin-api";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 function parseNonNegativeInt(value: unknown, fallback = 0): number {
@@ -15,10 +15,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["tour_view", "tour_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.tour.findFirst({
@@ -47,10 +45,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("tour_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const existing = await prisma.tour.findFirst({
@@ -73,6 +70,19 @@ export async function PUT(
         { message: "Tên tour và danh mục là bắt buộc" },
         { status: 400 }
       );
+    }
+
+    const rawPrices = {
+      priceAdult: Number(body.priceAdult ?? 0),
+      priceChild: Number(body.priceChild ?? 0),
+      priceBaby: Number(body.priceBaby ?? 0),
+      priceNewAdult: Number(body.priceNewAdult ?? 0),
+      priceNewChild: Number(body.priceNewChild ?? 0),
+      priceNewBaby: Number(body.priceNewBaby ?? 0),
+    };
+    const priceError = validateTourPrices(rawPrices);
+    if (priceError) {
+      return NextResponse.json({ message: priceError }, { status: 400 });
     }
 
     const slug =
@@ -146,10 +156,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("tour_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     await prisma.tour.update({

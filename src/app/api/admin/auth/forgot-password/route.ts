@@ -18,10 +18,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!account) {
-      return NextResponse.json(
-        { message: "Email không tồn tại trong hệ thống" },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        message: "Nếu email tồn tại trong hệ thống, mã OTP khôi phục đã được gửi.",
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -32,12 +31,12 @@ export async function POST(req: NextRequest) {
       data: { email, otp, expiresAt },
     });
 
-    console.info(`[TravelVN Auth] OTP for ${email}: ${otp}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.info(`[TravelVN Auth][DEV] OTP for ${email}: ${otp}`);
+    }
 
     return NextResponse.json({
-      message: "Mã OTP đã được gửi!",
-      // Exposed when no external SMTP provider is wired so local testing works immediately
-      demoOtp: process.env.SMTP_HOST ? undefined : otp,
+      message: "Nếu email tồn tại trong hệ thống, mã OTP khôi phục đã được gửi.",
     });
   } catch (error) {
     console.error("Forgot password error:", error);

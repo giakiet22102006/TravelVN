@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { USER_PUBLIC_SELECT } from "@/lib/permissions";
 
 export async function GET(
@@ -9,10 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["user_view", "user_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.user.findFirst({
@@ -42,10 +40,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("user_edit");
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const existing = await prisma.user.findFirst({
@@ -114,10 +110,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("user_edit");
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const existing = await prisma.user.findFirst({

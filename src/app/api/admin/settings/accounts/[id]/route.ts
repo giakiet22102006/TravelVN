@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin, hashPassword } from "@/lib/auth";
+import { hashPassword, requireAdmin } from "@/lib/auth";
 import { ADMIN_ACCOUNT_PUBLIC_SELECT } from "@/lib/permissions";
 
 export async function GET(
@@ -9,10 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["admin_view", "admin_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.adminAccount.findFirst({
@@ -42,10 +40,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("admin_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const existing = await prisma.adminAccount.findFirst({
@@ -144,10 +141,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("admin_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     if (id === admin.id) {

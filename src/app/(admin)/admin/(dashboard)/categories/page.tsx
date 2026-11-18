@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatDateTimeVN } from "@/lib/format";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface CategoryRow {
   id: string;
@@ -51,6 +52,11 @@ export default function AdminCategoriesPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<
+    { kind: "one"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -110,37 +116,64 @@ export default function AdminCategoriesPage() {
     );
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Bạn có chắc muốn xóa danh mục "${name}"?`)) return;
-    const res = await fetch(`/api/admin/categories/${id}`, {
-      method: "DELETE",
+  function handleDelete(id: string, name: string) {
+    setConfirmState({ kind: "one", id, name });
+  }
+
+  async function executeBulk(action: string) {
+    setError("");
+    const res = await fetch("/api/admin/categories/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ids: selectedIds }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message || "Xóa danh mục thành công!");
-      fetchCategories();
+    if (!res.ok) {
+      setError(data.message || "Không thể thực hiện thao tác hàng loạt");
+      return;
     }
+    setNotice(data.message);
+    setBulkAction("");
+    fetchCategories();
   }
 
   async function handleBulkApply() {
     if (!bulkAction || selectedIds.length === 0) return;
-    if (
-      bulkAction === "DELETE" &&
-      !confirm(`Xóa ${selectedIds.length} danh mục đã chọn?`)
-    ) {
+    if (bulkAction === "DELETE") {
+      setConfirmState({ kind: "bulk", count: selectedIds.length });
       return;
     }
+    try {
+      await executeBulk(bulkAction);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    }
+  }
 
-    const res = await fetch("/api/admin/categories/bulk", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: bulkAction, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      setBulkAction("");
-      fetchCategories();
+  async function executeConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "one") {
+        const res = await fetch(`/api/admin/categories/${confirmState.id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa danh mục");
+          return;
+        }
+        setNotice(data.message || "Xóa danh mục thành công!");
+        fetchCategories();
+      } else {
+        await executeBulk("DELETE");
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -160,6 +193,19 @@ export default function AdminCategoriesPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs underline"
           >
             Đóng
@@ -437,6 +483,22 @@ export default function AdminCategoriesPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa danh mục"
+        description={
+          confirmState?.kind === "one"
+            ? `Bạn có chắc muốn xóa danh mục "${confirmState.name}"?`
+            : confirmState?.kind === "bulk"
+              ? `Bạn có chắc muốn xóa ${confirmState.count} danh mục đã chọn?`
+              : ""
+        }
+        confirmLabel="Xóa danh mục"
+        loading={confirmLoading}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

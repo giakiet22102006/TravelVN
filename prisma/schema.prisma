@@ -30,6 +30,11 @@ enum PaymentStatus {
   PAID
 }
 
+enum ContactStatus {
+  NEW
+  PROCESSED
+}
+
 model Category {
   id          String       @id @default(cuid())
   name        String
@@ -249,10 +254,11 @@ model Review {
 }
 
 model Contact {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   email     String
-  deleted   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  status    ContactStatus @default(NEW)
+  deleted   Boolean       @default(false)
+  createdAt DateTime      @default(now())
 }
 
 model WebsiteInfo {

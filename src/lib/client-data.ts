@@ -334,6 +334,7 @@ const executeToursQueryCached = unstable_cache(
     const andConditions: Prisma.TourWhereInput[] = [
       { deleted: false },
       { status: RecordStatus.ACTIVE },
+      { category: { deleted: false, status: RecordStatus.ACTIVE } },
     ];
 
     if (q.categoryIds && q.categoryIds.length > 0) {
@@ -515,6 +516,7 @@ const getClientTourBySlugCached = unstable_cache(
         slug,
         deleted: false,
         status: RecordStatus.ACTIVE,
+        category: { deleted: false, status: RecordStatus.ACTIVE },
       },
       include: {
         category: {
@@ -544,6 +546,7 @@ const getClientTourBySlugCached = unstable_cache(
           categoryId: tour.categoryId,
           deleted: false,
           status: RecordStatus.ACTIVE,
+          category: { deleted: false, status: RecordStatus.ACTIVE },
         },
         select: CLIENT_TOUR_SELECT,
         orderBy: [{ position: "asc" }, { createdAt: "desc" }],
@@ -609,7 +612,11 @@ const getClientTourBySlugCached = unstable_cache(
           id: { notIn: [tour.id, ...relatedTours.map((t) => t.id)] },
           deleted: false,
           status: RecordStatus.ACTIVE,
-          category: { parentId: tour.category.parentId },
+          category: {
+            parentId: tour.category.parentId,
+            deleted: false,
+            status: RecordStatus.ACTIVE,
+          },
         },
         select: CLIENT_TOUR_SELECT,
         orderBy: [{ position: "asc" }, { createdAt: "desc" }],
@@ -855,6 +862,7 @@ const getClientNewsBySlugCached = unstable_cache(
         where: {
           deleted: false,
           status: RecordStatus.ACTIVE,
+          category: { deleted: false, status: RecordStatus.ACTIVE },
         },
         select: {
           ...CLIENT_TOUR_SELECT,

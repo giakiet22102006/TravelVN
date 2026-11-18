@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { generateUniqueNewsSlug } from "@/lib/admin-api";
 import { revalidateClientNewsCache } from "@/lib/cache-tags";
 
@@ -11,10 +11,8 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["news_view", "news_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await context.params;
     const item = await prisma.newsArticle.findFirst({
@@ -43,10 +41,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("news_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await context.params;
     const existing = await prisma.newsArticle.findFirst({
@@ -156,10 +153,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("news_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await context.params;
     const existing = await prisma.newsArticle.findFirst({

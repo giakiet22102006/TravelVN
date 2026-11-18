@@ -6,4 +6,8 @@
   body {
     @apply antialiased;
   }
+
+  select {
+    line-height: 1.4;
+  }
 }

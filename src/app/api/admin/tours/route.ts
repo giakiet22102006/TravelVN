@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import {
   buildDateRangeFilter,
   generateUniqueTourCode,
   generateUniqueTourSlug,
+  validateTourPrices,
 } from "@/lib/admin-api";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const isDeleted = req.nextUrl.searchParams.get("deleted") === "true";
+    const auth = await requireAdmin(isDeleted ? "tour_trash" : "tour_view");
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
-    const isDeleted = searchParams.get("deleted") === "true";
     const status = searchParams.get("status");
     const createdById = searchParams.get("createdById");
     const categoryId = searchParams.get("categoryId");
@@ -118,10 +117,9 @@ function parseNonNegativeInt(value: unknown, fallback = 0): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("tour_create");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const body = await req.json();
     const name = String(body.name || "").trim();
@@ -132,6 +130,19 @@ export async function POST(req: NextRequest) {
         { message: "Tên tour và danh mục là bắt buộc" },
         { status: 400 }
       );
+    }
+
+    const rawPrices = {
+      priceAdult: Number(body.priceAdult ?? 0),
+      priceChild: Number(body.priceChild ?? 0),
+      priceBaby: Number(body.priceBaby ?? 0),
+      priceNewAdult: Number(body.priceNewAdult ?? 0),
+      priceNewChild: Number(body.priceNewChild ?? 0),
+      priceNewBaby: Number(body.priceNewBaby ?? 0),
+    };
+    const priceError = validateTourPrices(rawPrices);
+    if (priceError) {
+      return NextResponse.json({ message: priceError }, { status: 400 });
     }
 
     const [slug, code] = await Promise.all([

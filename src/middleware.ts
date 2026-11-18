@@ -15,7 +15,7 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isAuthPage && verified && pathname === "/admin/account/login") {
-      const targetUrl = new URL("/admin/tours", req.url);
+      const targetUrl = new URL("/admin/dashboard", req.url);
       return NextResponse.redirect(targetUrl);
     }
   }

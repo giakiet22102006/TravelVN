@@ -28,9 +28,6 @@ export default function AdminForgotPasswordPage() {
         return;
       }
       const query = new URLSearchParams({ email });
-      if (data.demoOtp) {
-        query.set("demoOtp", data.demoOtp);
-      }
       router.push(`/admin/account/otp-password?${query.toString()}`);
     } catch {
       setError("Không thể kết nối máy chủ");

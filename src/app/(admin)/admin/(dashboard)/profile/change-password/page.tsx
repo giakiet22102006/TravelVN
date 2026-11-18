@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 export default function AdminChangePasswordPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -16,8 +17,16 @@ export default function AdminChangePasswordPage() {
     setError("");
     setNotice("");
 
+    if (!currentPassword) {
+      setError("Vui lòng nhập mật khẩu hiện tại");
+      return;
+    }
     if (newPassword.length < 6) {
       setError("Mật khẩu mới phải có ít nhất 6 ký tự");
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setError("Mật khẩu mới phải khác mật khẩu hiện tại");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -30,7 +39,11 @@ export default function AdminChangePasswordPage() {
       const res = await fetch("/api/admin/profile/change-password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword, confirmPassword }),
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -38,6 +51,7 @@ export default function AdminChangePasswordPage() {
         return;
       }
       setNotice(data.message || "Đổi mật khẩu thành công!");
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch {
@@ -69,6 +83,21 @@ export default function AdminChangePasswordPage() {
         )}
 
         <div className="space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-[#606060] mb-2">
+              Mật khẩu hiện tại <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Nhập mật khẩu hiện tại"
+              className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-[#606060] mb-2">
               Mật khẩu mới <span className="text-red-500">*</span>

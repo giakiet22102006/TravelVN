@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrencyVND, formatDateTimeVN } from "@/lib/format";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface TrashTourRow {
   id: string;
@@ -40,6 +41,11 @@ export default function AdminToursTrashPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<
+    { kind: "one"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -86,6 +92,7 @@ export default function AdminToursTrashPage() {
   }
 
   async function handleRestore(id: string, name: string) {
+    setError("");
     const res = await fetch(`/api/admin/tours/${id}/restore`, {
       method: "POST",
     });
@@ -94,49 +101,68 @@ export default function AdminToursTrashPage() {
       setNotice(`Đã khôi phục "${name}"`);
       fetchTrash();
     } else {
-      setNotice(data.message || "Lỗi khôi phục");
+      setError(data.message || "Lỗi khôi phục");
     }
   }
 
-  async function handlePermanentDelete(id: string, name: string) {
-    if (
-      !confirm(
-        `CẢNH BÁO: Xóa vĩnh viễn "${name}" khỏi database? Hành động này không thể hoàn tác!`
-      )
-    ) {
-      return;
-    }
-    const res = await fetch(`/api/admin/tours/${id}/permanent`, {
-      method: "DELETE",
+  function handlePermanentDelete(id: string, name: string) {
+    setConfirmState({ kind: "one", id, name });
+  }
+
+  async function executeBulk(action: string) {
+    setError("");
+    const res = await fetch("/api/admin/tours/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ids: selectedIds }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      fetchTrash();
+    if (!res.ok) {
+      setError(data.message || "Không thể thực hiện thao tác hàng loạt");
+      return;
     }
+    setNotice(data.message);
+    setBulkAction("");
+    fetchTrash();
   }
 
   async function handleBulkApply() {
     if (!bulkAction || selectedIds.length === 0) return;
-    if (
-      bulkAction === "PERMANENT_DELETE" &&
-      !confirm(
-        `CẢNH BÁO: Xóa vĩnh viễn ${selectedIds.length} tour đã chọn? Hành động này không thể hoàn tác!`
-      )
-    ) {
+    if (bulkAction === "PERMANENT_DELETE") {
+      setConfirmState({ kind: "bulk", count: selectedIds.length });
       return;
     }
+    try {
+      await executeBulk(bulkAction);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    }
+  }
 
-    const res = await fetch("/api/admin/tours/bulk", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: bulkAction, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      setBulkAction("");
-      fetchTrash();
+  async function executeConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "one") {
+        const res = await fetch(`/api/admin/tours/${confirmState.id}/permanent`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa vĩnh viễn tour");
+          return;
+        }
+        setNotice(data.message);
+        fetchTrash();
+      } else {
+        await executeBulk("PERMANENT_DELETE");
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -165,6 +191,19 @@ export default function AdminToursTrashPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs underline"
           >
             Đóng
@@ -359,6 +398,22 @@ export default function AdminToursTrashPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa vĩnh viễn"
+        description={
+          confirmState?.kind === "one"
+            ? `CẢNH BÁO: Xóa vĩnh viễn "${confirmState.name}" khỏi database? Hành động này không thể hoàn tác.`
+            : confirmState?.kind === "bulk"
+              ? `CẢNH BÁO: Xóa vĩnh viễn ${confirmState.count} tour đã chọn? Hành động này không thể hoàn tác.`
+              : ""
+        }
+        confirmLabel="Xóa vĩnh viễn"
+        loading={confirmLoading}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

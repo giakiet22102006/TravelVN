@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 
 const VALID_PERMISSIONS = new Set(ALL_PERMISSION_KEYS);
@@ -20,13 +20,13 @@ function sanitizePermissions(input: unknown): string[] {
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const all = req.nextUrl.searchParams.get("all") === "true";
+    const auth = await requireAdmin(
+      all ? ["role_view", "admin_create", "admin_edit"] : "role_view"
+    );
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
-    const all = searchParams.get("all") === "true";
 
     if (all) {
       const items = await prisma.role.findMany({
@@ -79,10 +79,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("role_create");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const body = await req.json();
     const name = String(body.name || "").trim();
@@ -118,10 +117,9 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("role_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const body = await req.json();
     const action = String(body.action || "");
@@ -135,6 +133,23 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "DELETE") {
+      if (ids.includes("role-admin") || (admin.roleId && ids.includes(admin.roleId))) {
+        return NextResponse.json(
+          { message: "Không thể xóa nhóm quyền Quản trị viên hệ thống hoặc nhóm quyền bạn đang sử dụng" },
+          { status: 400 }
+        );
+      }
+
+      const assignedCount = await prisma.adminAccount.count({
+        where: { roleId: { in: ids }, deleted: false },
+      });
+      if (assignedCount > 0) {
+        return NextResponse.json(
+          { message: `Không thể xóa vì đang có ${assignedCount} tài khoản quản trị sử dụng nhóm quyền này` },
+          { status: 400 }
+        );
+      }
+
       await prisma.role.updateMany({
         where: { id: { in: ids } },
         data: { deleted: true, updatedById: admin.id },

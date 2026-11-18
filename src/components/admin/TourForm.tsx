@@ -216,6 +216,23 @@ export function TourForm({ mode, initialData }: TourFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    const pricePairs = [
+      { label: "Người lớn", oldVal: priceAdult, newVal: priceNewAdult },
+      { label: "Trẻ em", oldVal: priceChild, newVal: priceNewChild },
+      { label: "Em bé", oldVal: priceBaby, newVal: priceNewBaby },
+    ];
+    for (const { label, oldVal, newVal } of pricePairs) {
+      if (oldVal < 0 || newVal < 0) {
+        setError(`Giá ${label.toLowerCase()} không được là số âm.`);
+        return;
+      }
+      if (oldVal > 0 && newVal > oldVal) {
+        setError(`Giá mới (${label}) không được lớn hơn giá cũ.`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const endpoint =

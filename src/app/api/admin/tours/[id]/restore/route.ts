@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 export async function POST(
@@ -8,10 +8,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("tour_trash");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     await prisma.tour.update({

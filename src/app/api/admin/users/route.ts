@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { buildDateRangeFilter } from "@/lib/admin-api";
 import { USER_PUBLIC_SELECT } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("user_view");
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
     const status = searchParams.get("status") || "";
@@ -66,10 +64,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("user_edit");
+    if (auth.error) return auth.error;
 
     const body = await req.json();
     const fullName = String(body.fullName || "").trim();
@@ -129,10 +125,8 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("user_edit");
+    if (auth.error) return auth.error;
 
     const body = await req.json();
     const action = String(body.action || "");

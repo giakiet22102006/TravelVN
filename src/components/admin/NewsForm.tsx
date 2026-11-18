@@ -196,7 +196,7 @@ export function NewsForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-[#606060] mb-1.5">
                 Vị trí hiển thị
@@ -221,7 +221,7 @@ export function NewsForm({
                 onChange={(e) =>
                   setStatus(e.target.value === "INACTIVE" ? "INACTIVE" : "ACTIVE")
                 }
-                className="w-full h-[44px] px-3.5 rounded-[10px] border border-[#D5D5D5] text-sm bg-white focus:outline-none focus:border-[#4880FF]"
+                className="w-full h-[44px] px-3.5 rounded-[10px] border border-[#D5D5D5] text-sm bg-white focus:outline-none focus:border-[#4880FF] whitespace-nowrap"
               >
                 <option value="ACTIVE">Hiển thị (ACTIVE)</option>
                 <option value="INACTIVE">Tạm ẩn (INACTIVE)</option>

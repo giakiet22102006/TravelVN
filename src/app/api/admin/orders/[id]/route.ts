@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
+import { restoreOrderInventory } from "@/lib/admin-api";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 class OrderUpdateError extends Error {
@@ -17,10 +18,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("order_view");
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.order.findFirst({
@@ -53,10 +52,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("order_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const body = await req.json();
@@ -103,17 +101,7 @@ export async function PUT(
 
       // Restore tour inventory atomically when cancelling a non-cancelled order
       if (existing.status !== "CANCELLED" && nextStatus === "CANCELLED") {
-        for (const item of existing.items) {
-          if (!item.tourId) continue;
-          await tx.tour.update({
-            where: { id: item.tourId },
-            data: {
-              stockAdult: { increment: item.quantityAdult },
-              stockChild: { increment: item.quantityChild },
-              stockBaby: { increment: item.quantityBaby },
-            },
-          });
-        }
+        await restoreOrderInventory(tx, existing.items);
       }
 
       // Re-reserve inventory if restoring a cancelled order back to active processing
@@ -184,34 +172,45 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("order_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
-    const existing = await prisma.order.findFirst({
-      where: { id, deleted: false },
-      select: { id: true },
+
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.order.findFirst({
+        where: { id, deleted: false },
+        include: { items: true },
+      });
+
+      if (!existing) {
+        throw new OrderUpdateError("Không tìm thấy đơn hàng", 404);
+      }
+
+      if (existing.status !== "CANCELLED") {
+        await restoreOrderInventory(tx, existing.items);
+      }
+
+      await tx.order.update({
+        where: { id },
+        data: {
+          deleted: true,
+          updatedById: admin.id,
+        },
+      });
     });
 
-    if (!existing) {
-      return NextResponse.json(
-        { message: "Không tìm thấy đơn hàng" },
-        { status: 404 }
-      );
-    }
-
-    await prisma.order.update({
-      where: { id },
-      data: {
-        deleted: true,
-        updatedById: admin.id,
-      },
-    });
+    revalidateClientToursCache();
 
     return NextResponse.json({ message: "Xóa đơn hàng thành công!" });
   } catch (error) {
+    if (error instanceof OrderUpdateError) {
+      return NextResponse.json(
+        { message: error.message },
+        { status: error.status }
+      );
+    }
     console.error("DELETE /api/admin/orders/[id] error:", error);
     return NextResponse.json(
       { message: "Lỗi xóa đơn hàng" },

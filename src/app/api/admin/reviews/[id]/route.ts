@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { syncTourReviewStatsAndSummary } from "@/lib/review-service";
 
 export async function PATCH(
@@ -9,10 +9,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("review_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const existing = await prisma.review.findFirst({
@@ -76,10 +75,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("review_delete");
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const existing = await prisma.review.findFirst({

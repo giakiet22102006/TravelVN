@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatDateVN } from "@/lib/format";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface AdminNewsRow {
   id: string;
@@ -51,6 +52,9 @@ export default function AdminNewsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmItem, setConfirmItem] = useState<AdminNewsRow | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -91,25 +95,45 @@ export default function AdminNewsPage() {
     payload: { status?: "ACTIVE" | "INACTIVE"; featured?: boolean },
     msg: string
   ) {
+    setError("");
     const res = await fetch(`/api/admin/news/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      setNotice(msg);
-      fetchNews();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.message || "Không thể cập nhật bài viết");
+      return;
     }
+    setNotice(msg);
+    fetchNews();
   }
 
-  async function handleDelete(item: AdminNewsRow) {
-    if (!window.confirm(`Xóa bài viết "${item.title}"?`)) return;
-    const res = await fetch(`/api/admin/news/${item.id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setNotice(`Đã xóa bài viết "${item.title}"`);
+  function handleDelete(item: AdminNewsRow) {
+    setConfirmItem(item);
+  }
+
+  async function executeDelete() {
+    if (!confirmItem) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/news/${confirmItem.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Không thể xóa bài viết");
+        return;
+      }
+      setNotice(`Đã xóa bài viết "${confirmItem.title}"`);
       fetchNews();
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmItem(null);
     }
   }
 
@@ -142,6 +166,19 @@ export default function AdminNewsPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs font-bold underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-[10px] bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700 font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs font-bold underline"
           >
             Đóng
@@ -391,6 +428,18 @@ export default function AdminNewsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmItem)}
+        title="Xác nhận xóa bài viết"
+        description={
+          confirmItem ? `Bạn có chắc muốn xóa bài viết "${confirmItem.title}"?` : ""
+        }
+        confirmLabel="Xóa bài viết"
+        loading={confirmLoading}
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmItem(null)}
+      />
     </div>
   );
 }

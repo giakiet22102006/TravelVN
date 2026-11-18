@@ -6,15 +6,13 @@ import {
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { buildDateRangeFilter } from "@/lib/admin-api";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("order_view");
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
     const status = searchParams.get("status") || "";

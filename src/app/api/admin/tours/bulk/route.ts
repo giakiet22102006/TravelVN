@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
-
     const body = await req.json();
     const action = String(body.action || "");
     const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+
+    const requiredPerm =
+      action === "DELETE"
+        ? "tour_delete"
+        : action === "RESTORE" || action === "PERMANENT_DELETE"
+          ? "tour_trash"
+          : "tour_edit";
+    const auth = await requireAdmin(requiredPerm);
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     if (ids.length === 0) {
       return NextResponse.json(

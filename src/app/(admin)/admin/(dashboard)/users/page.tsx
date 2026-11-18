@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { ImageUploadBox } from "@/components/admin/ImageUploadBox";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface UserRow {
   id: string;
@@ -42,6 +43,11 @@ export default function AdminUsersPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<
+    { kind: "one"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Modal Create / Edit state
   const [modalOpen, setModalOpen] = useState(false);
@@ -161,35 +167,64 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Bạn có chắc muốn xóa người dùng "${name}"?`)) return;
-    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+  function handleDelete(id: string, name: string) {
+    setConfirmState({ kind: "one", id, name });
+  }
+
+  async function executeBulk(action: string) {
+    setError("");
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ids: selectedIds }),
+    });
     const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      fetchUsers();
+    if (!res.ok) {
+      setError(data.message || "Không thể thực hiện thao tác hàng loạt");
+      return;
     }
+    setNotice(data.message);
+    setBulkAction("");
+    fetchUsers();
   }
 
   async function handleBulkApply() {
     if (!bulkAction || selectedIds.length === 0) return;
-    if (
-      bulkAction === "DELETE" &&
-      !confirm(`Xóa ${selectedIds.length} người dùng đã chọn?`)
-    ) {
+    if (bulkAction === "DELETE") {
+      setConfirmState({ kind: "bulk", count: selectedIds.length });
       return;
     }
+    try {
+      await executeBulk(bulkAction);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    }
+  }
 
-    const res = await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: bulkAction, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      setBulkAction("");
-      fetchUsers();
+  async function executeConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "one") {
+        const res = await fetch(`/api/admin/users/${confirmState.id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa người dùng");
+          return;
+        }
+        setNotice(data.message);
+        fetchUsers();
+      } else {
+        await executeBulk("DELETE");
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -209,6 +244,19 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs underline"
           >
             Đóng
@@ -584,6 +632,22 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa người dùng"
+        description={
+          confirmState?.kind === "one"
+            ? `Bạn có chắc muốn xóa người dùng "${confirmState.name}"?`
+            : confirmState?.kind === "bulk"
+              ? `Bạn có chắc muốn xóa ${confirmState.count} người dùng đã chọn?`
+              : ""
+        }
+        confirmLabel="Xóa người dùng"
+        loading={confirmLoading}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

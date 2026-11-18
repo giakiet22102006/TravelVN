@@ -10,6 +10,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface RoleRow {
   id: string;
@@ -31,6 +32,11 @@ export default function AdminRolesPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<
+    { kind: "one"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -65,32 +71,52 @@ export default function AdminRolesPage() {
     fetchRoles();
   }, [fetchRoles]);
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Bạn có chắc muốn xóa nhóm quyền "${name}"?`)) return;
-    const res = await fetch(`/api/admin/settings/roles/${id}`, {
-      method: "DELETE",
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      fetchRoles();
-    }
+  function handleDelete(id: string, name: string) {
+    setConfirmState({ kind: "one", id, name });
   }
 
-  async function handleBulkApply() {
+  function handleBulkApply() {
     if (bulkAction !== "DELETE" || selectedIds.length === 0) return;
-    if (!confirm(`Xóa ${selectedIds.length} nhóm quyền đã chọn?`)) return;
+    setConfirmState({ kind: "bulk", count: selectedIds.length });
+  }
 
-    const res = await fetch("/api/admin/settings/roles", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "DELETE", ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      setBulkAction("");
-      fetchRoles();
+  async function executeConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "one") {
+        const res = await fetch(
+          `/api/admin/settings/roles/${confirmState.id}`,
+          { method: "DELETE" }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa nhóm quyền");
+          return;
+        }
+        setNotice(data.message);
+        fetchRoles();
+      } else {
+        const res = await fetch("/api/admin/settings/roles", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "DELETE", ids: selectedIds }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa các nhóm quyền đã chọn");
+          return;
+        }
+        setNotice(data.message);
+        setBulkAction("");
+        fetchRoles();
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -118,6 +144,19 @@ export default function AdminRolesPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs underline"
           >
             Đóng
@@ -294,6 +333,22 @@ export default function AdminRolesPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa nhóm quyền"
+        description={
+          confirmState?.kind === "one"
+            ? `Bạn có chắc muốn xóa nhóm quyền "${confirmState.name}"?`
+            : confirmState?.kind === "bulk"
+              ? `Bạn có chắc muốn xóa ${confirmState.count} nhóm quyền đã chọn?`
+              : ""
+        }
+        confirmLabel="Xóa nhóm quyền"
+        loading={confirmLoading}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

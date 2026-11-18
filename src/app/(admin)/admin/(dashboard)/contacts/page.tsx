@@ -1,21 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ContactStatus } from "@prisma/client";
 import {
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Filter,
   RotateCcw,
   Search,
   Trash2,
 } from "lucide-react";
 import { formatDateTimeVN } from "@/lib/format";
+import {
+  CONTACT_STATUS_BADGE_CLASSES,
+  CONTACT_STATUS_LABELS,
+} from "@/lib/permissions";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface ContactRow {
   id: string;
   email: string;
+  status: ContactStatus;
   createdAt: string;
 }
+
+type ConfirmAction =
+  | { kind: "delete-one"; id: string; email: string }
+  | { kind: "bulk-delete"; count: number }
+  | null;
 
 export default function AdminContactsPage() {
   const [items, setItems] = useState<ContactRow[]>([]);
@@ -23,6 +37,7 @@ export default function AdminContactsPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  const [statusFilter, setStatusFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
@@ -32,6 +47,9 @@ export default function AdminContactsPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<ConfirmAction>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -48,6 +66,7 @@ export default function AdminContactsPage() {
         page: String(page),
         limit: String(limit),
       });
+      if (statusFilter) params.set("status", statusFilter);
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       if (debouncedSearch) params.set("search", debouncedSearch);
@@ -58,17 +77,22 @@ export default function AdminContactsPage() {
         setItems(data.items || []);
         setTotal(data.total || 0);
         setSelectedIds([]);
+      } else {
+        setError(data.message || "Không thể tải danh sách liên hệ");
       }
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
-  }, [page, startDate, endDate, debouncedSearch]);
+  }, [page, statusFilter, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
   function resetFilters() {
+    setStatusFilter("");
     setStartDate("");
     setEndDate("");
     setSearch("");
@@ -76,30 +100,84 @@ export default function AdminContactsPage() {
     setPage(1);
   }
 
-  async function handleDelete(id: string, email: string) {
-    if (!confirm(`Xóa email liên hệ "${email}"?`)) return;
-    const res = await fetch(`/api/admin/contacts/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (res.ok) {
+  async function toggleStatus(c: ContactRow) {
+    setError("");
+    const nextStatus =
+      c.status === ContactStatus.PROCESSED
+        ? ContactStatus.NEW
+        : ContactStatus.PROCESSED;
+    try {
+      const res = await fetch(`/api/admin/contacts/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Không thể cập nhật trạng thái liên hệ");
+        return;
+      }
       setNotice(data.message);
       fetchContacts();
+    } catch {
+      setError("Không thể kết nối máy chủ");
     }
   }
 
-  async function handleBulkApply() {
-    if (bulkAction !== "DELETE" || selectedIds.length === 0) return;
-    if (!confirm(`Xóa ${selectedIds.length} liên hệ đã chọn?`)) return;
-
+  async function executeBulk(action: string) {
+    setError("");
     const res = await fetch("/api/admin/contacts", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "DELETE", ids: selectedIds }),
+      body: JSON.stringify({ action, ids: selectedIds }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setNotice(data.message);
-      setBulkAction("");
-      fetchContacts();
+    if (!res.ok) {
+      setError(data.message || "Thao tác hàng loạt thất bại");
+      return;
+    }
+    setNotice(data.message);
+    setBulkAction("");
+    fetchContacts();
+  }
+
+  async function handleBulkApply() {
+    if (!bulkAction || selectedIds.length === 0) return;
+    if (bulkAction === "DELETE") {
+      setConfirmState({ kind: "bulk-delete", count: selectedIds.length });
+      return;
+    }
+    try {
+      await executeBulk(bulkAction);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    }
+  }
+
+  async function handleConfirm() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      if (confirmState.kind === "delete-one") {
+        const res = await fetch(`/api/admin/contacts/${confirmState.id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Không thể xóa liên hệ");
+          return;
+        }
+        setNotice(data.message);
+        fetchContacts();
+      } else {
+        await executeBulk("DELETE");
+      }
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -126,12 +204,38 @@ export default function AdminContactsPage() {
         </div>
       )}
 
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-bold text-[#202224] pr-2">
           <Filter className="w-4 h-4" />
           <span>Bộ lọc</span>
         </div>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-10 px-3 rounded-lg border border-[#D5D5D5] bg-white text-sm font-semibold"
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="NEW">Chưa xử lý</option>
+          <option value="PROCESSED">Đã liên hệ</option>
+        </select>
 
         <div className="flex items-center gap-2">
           <input
@@ -174,13 +278,15 @@ export default function AdminContactsPage() {
             className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
           >
             <option value="">-- Hành động --</option>
+            <option value="MARK_PROCESSED">Đánh dấu đã liên hệ</option>
+            <option value="MARK_NEW">Chuyển chưa xử lý</option>
             <option value="DELETE">Xóa</option>
           </select>
           <button
             type="button"
             onClick={handleBulkApply}
             disabled={!bulkAction || selectedIds.length === 0}
-            className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#EA0234] hover:bg-red-50 disabled:opacity-40"
+            className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#4880FF] hover:bg-[#4880FF]/10 disabled:opacity-40"
           >
             Áp dụng
           </button>
@@ -200,7 +306,7 @@ export default function AdminContactsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] overflow-x-auto">
-        <table className="w-full min-w-[600px] text-left border-collapse">
+        <table className="w-full min-w-[680px] text-left border-collapse">
           <thead>
             <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-extrabold uppercase text-[#202224]">
               <th className="py-4 px-4 w-12">
@@ -218,6 +324,7 @@ export default function AdminContactsPage() {
                 />
               </th>
               <th className="py-4 px-4">Email</th>
+              <th className="py-4 px-4 text-center">Trạng thái</th>
               <th className="py-4 px-4">Ngày tạo</th>
               <th className="py-4 px-4 text-center">Hành động</th>
             </tr>
@@ -225,13 +332,13 @@ export default function AdminContactsPage() {
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
             {loading ? (
               <tr>
-                <td colSpan={4} className="py-10 text-center text-[#667479]">
+                <td colSpan={5} className="py-10 text-center text-[#667479]">
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-10 text-center text-[#667479]">
+                <td colSpan={5} className="py-10 text-center text-[#667479]">
                   Không có email liên hệ nào.
                 </td>
               </tr>
@@ -255,18 +362,62 @@ export default function AdminContactsPage() {
                   <td className="py-3.5 px-4 font-bold text-[#202224]">
                     {c.email}
                   </td>
-                  <td className="py-3.5 px-4 text-xs font-semibold text-[#606060]">
+                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                    <span
+                      className={`inline-block whitespace-nowrap px-3 py-1 rounded-md text-xs font-bold ${
+                        CONTACT_STATUS_BADGE_CLASSES[c.status]
+                      }`}
+                    >
+                      {CONTACT_STATUS_LABELS[c.status]}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 text-xs font-semibold text-[#606060] whitespace-nowrap">
                     {formatDateTimeVN(c.createdAt)}
                   </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(c.id, c.email)}
-                      className="p-2 rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] hover:bg-red-50 text-[#EF3826]"
-                      title="Xóa"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(c)}
+                        className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                          c.status === ContactStatus.PROCESSED
+                            ? "border-[#D5D5D5] bg-[#FAFBFD] text-[#606060] hover:bg-amber-50 hover:text-amber-700"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        }`}
+                        title={
+                          c.status === ContactStatus.PROCESSED
+                            ? "Chuyển lại chưa xử lý"
+                            : "Đánh dấu đã liên hệ"
+                        }
+                      >
+                        {c.status === ContactStatus.PROCESSED ? (
+                          <>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Chưa xử lý</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Đã liên hệ</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmState({
+                            kind: "delete-one",
+                            id: c.id,
+                            email: c.email,
+                          })
+                        }
+                        className="p-2 rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] hover:bg-red-50 text-[#EF3826]"
+                        title="Xóa"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -304,6 +455,22 @@ export default function AdminContactsPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa liên hệ"
+        description={
+          confirmState?.kind === "delete-one"
+            ? `Bạn có chắc muốn xóa email liên hệ "${confirmState.email}"?`
+            : confirmState?.kind === "bulk-delete"
+              ? `Bạn có chắc muốn xóa ${confirmState.count} email liên hệ đã chọn?`
+              : ""
+        }
+        confirmLabel="Xóa liên hệ"
+        loading={confirmLoading}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   PAYMENT_STATUS_TEXT_CLASSES,
 } from "@/lib/permissions";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import { ConfirmModal } from "@/components/admin/ConfirmModal";
 
 interface OrderItemRow {
   id: string;
@@ -66,6 +67,12 @@ export default function AdminOrdersPage() {
 
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [confirmState, setConfirmState] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -123,13 +130,30 @@ export default function AdminOrdersPage() {
     setPage(1);
   }
 
-  async function handleDelete(id: string, code: string) {
-    if (!confirm(`Bạn có chắc muốn xóa đơn hàng "${code}"?`)) return;
-    const res = await fetch(`/api/admin/orders/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (res.ok) {
+  function requestDelete(id: string, code: string) {
+    setConfirmState({ id, code });
+  }
+
+  async function confirmDelete() {
+    if (!confirmState) return;
+    setConfirmLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/orders/${confirmState.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Không thể xóa đơn hàng");
+        return;
+      }
       setNotice(data.message || "Xóa đơn hàng thành công!");
       fetchOrders();
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState(null);
     }
   }
 
@@ -149,6 +173,19 @@ export default function AdminOrdersPage() {
           <button
             type="button"
             onClick={() => setNotice("")}
+            className="text-xs underline"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
             className="text-xs underline"
           >
             Đóng
@@ -252,16 +289,16 @@ export default function AdminOrdersPage() {
 
       {/* Table */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-left border-collapse">
+        <table className="w-full min-w-[900px] text-left border-collapse">
           <thead>
             <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-extrabold uppercase text-[#202224]">
-              <th className="py-4 px-4">Mã</th>
-              <th className="py-4 px-4">Thông tin khách</th>
-              <th className="py-4 px-4">Danh sách tour</th>
-              <th className="py-4 px-4">Thanh toán</th>
-              <th className="py-4 px-4 text-center">Trạng thái</th>
-              <th className="py-4 px-4">Ngày đặt</th>
-              <th className="py-4 px-4 text-center">Hành động</th>
+              <th className="py-4 px-3">Mã</th>
+              <th className="py-4 px-3">Thông tin khách</th>
+              <th className="py-4 px-3">Danh sách tour</th>
+              <th className="py-4 px-3">Thanh toán</th>
+              <th className="py-4 px-3 text-center whitespace-nowrap">Trạng thái</th>
+              <th className="py-4 px-3 whitespace-nowrap">Ngày đặt</th>
+              <th className="py-4 px-3 text-center whitespace-nowrap">Hành động</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
@@ -280,10 +317,10 @@ export default function AdminOrdersPage() {
             ) : (
               items.map((ord) => (
                 <tr key={ord.id} className="hover:bg-[#F5F6FA]/60 align-top">
-                  <td className="py-4 px-4 font-bold text-[#4880FF]">
+                  <td className="py-4 px-3 font-bold text-[#4880FF] whitespace-nowrap">
                     {ord.code}
                   </td>
-                  <td className="py-4 px-4 text-xs space-y-1 text-[#202224]">
+                  <td className="py-4 px-3 text-xs space-y-1 text-[#202224]">
                     <div>
                       <span className="text-[#667479]">Họ tên: </span>
                       <span className="font-bold">{ord.fullName}</span>
@@ -299,7 +336,7 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
                   </td>
-                  <td className="py-4 px-4 space-y-2.5">
+                  <td className="py-4 px-3 space-y-2.5">
                     {ord.items.map((it) => (
                       <div key={it.id} className="flex items-start gap-2.5">
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#F5F6FA] border border-[#E0E0E0] shrink-0">
@@ -313,7 +350,7 @@ export default function AdminOrdersPage() {
                           ) : null}
                         </div>
                         <div className="text-xs space-y-0.5">
-                          <div className="font-bold text-[#202224] line-clamp-1 max-w-[230px]">
+                          <div className="font-bold text-[#202224] line-clamp-1 max-w-[190px]">
                             {it.name}
                           </div>
                           {it.quantityAdult > 0 && (
@@ -338,7 +375,7 @@ export default function AdminOrdersPage() {
                       </div>
                     ))}
                   </td>
-                  <td className="py-4 px-4 text-xs space-y-1">
+                  <td className="py-4 px-3 text-xs space-y-1">
                     <div>Tổng tiền: {formatCurrencyVND(ord.subTotal)}</div>
                     <div>Giảm: {formatCurrencyVND(ord.discount)}</div>
                     {ord.couponCode && (
@@ -365,19 +402,19 @@ export default function AdminOrdersPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-4 px-3 text-center whitespace-nowrap">
                     <span
-                      className={`inline-block px-3 py-1 rounded-md text-xs font-bold ${
+                      className={`inline-block whitespace-nowrap px-3 py-1 rounded-md text-xs font-bold ${
                         ORDER_STATUS_BADGE_CLASSES[ord.status]
                       }`}
                     >
                       {ORDER_STATUS_LABELS[ord.status]}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-xs font-semibold text-[#606060] whitespace-nowrap">
+                  <td className="py-4 px-3 text-xs font-semibold text-[#606060] whitespace-nowrap">
                     {formatDateTimeVN(ord.createdAt)}
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-4 px-3 text-center whitespace-nowrap">
                     <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
                       <Link
                         href={`/admin/orders/edit/${ord.id}`}
@@ -388,7 +425,7 @@ export default function AdminOrdersPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => handleDelete(ord.id, ord.code)}
+                        onClick={() => requestDelete(ord.id, ord.code)}
                         className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#EF3826]"
                         title="Xóa"
                       >
@@ -432,6 +469,20 @@ export default function AdminOrdersPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(confirmState)}
+        title="Xác nhận xóa đơn hàng"
+        description={
+          confirmState
+            ? `Bạn có chắc muốn xóa đơn hàng "${confirmState.code}"? Nếu đơn chưa hủy, số chỗ còn lại của tour sẽ được hoàn lại tự động.`
+            : ""
+        }
+        confirmLabel="Xóa đơn hàng"
+        loading={confirmLoading}
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }

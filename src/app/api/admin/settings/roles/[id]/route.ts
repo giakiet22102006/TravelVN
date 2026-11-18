@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 
 const VALID_PERMISSIONS = new Set(ALL_PERMISSION_KEYS);
@@ -22,10 +22,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["role_view", "role_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.role.findFirst({
@@ -54,10 +52,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("role_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const existing = await prisma.role.findFirst({
@@ -107,12 +104,27 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("role_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
+    if (id === "role-admin" || id === admin.roleId) {
+      return NextResponse.json(
+        { message: "Không thể xóa nhóm quyền Quản trị viên hệ thống hoặc nhóm quyền bạn đang sử dụng" },
+        { status: 400 }
+      );
+    }
+
+    const assignedCount = await prisma.adminAccount.count({
+      where: { roleId: id, deleted: false },
+    });
+    if (assignedCount > 0) {
+      return NextResponse.json(
+        { message: `Không thể xóa vì đang có ${assignedCount} tài khoản quản trị sử dụng nhóm quyền này` },
+        { status: 400 }
+      );
+    }
     const existing = await prisma.role.findFirst({
       where: { id, deleted: false },
       select: { id: true },

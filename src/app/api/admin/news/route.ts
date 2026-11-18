@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { generateUniqueNewsSlug } from "@/lib/admin-api";
 import { revalidateClientNewsCache } from "@/lib/cache-tags";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("news_view");
+    if (auth.error) return auth.error;
 
     const { searchParams } = req.nextUrl;
     const status = searchParams.get("status");
@@ -72,10 +70,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("news_create");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const body = await req.json();
     const title = String(body.title || "").trim();

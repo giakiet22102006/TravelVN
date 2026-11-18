@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin, hashPassword } from "@/lib/auth";
+import { getCurrentAdmin, hashPassword, verifyPassword } from "@/lib/auth";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -10,12 +10,38 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
+    const currentPassword = String(body.currentPassword || "");
     const newPassword = String(body.newPassword || "");
     const confirmPassword = String(body.confirmPassword || "");
+
+    if (!currentPassword) {
+      return NextResponse.json(
+        { message: "Vui lòng nhập mật khẩu hiện tại" },
+        { status: 400 }
+      );
+    }
+
+    const account = await prisma.adminAccount.findFirst({
+      where: { id: admin.id, deleted: false },
+      select: { password: true },
+    });
+
+    if (!account || !(await verifyPassword(currentPassword, account.password))) {
+      return NextResponse.json(
+        { message: "Mật khẩu hiện tại không chính xác" },
+        { status: 400 }
+      );
+    }
 
     if (newPassword.length < 6) {
       return NextResponse.json(
         { message: "Mật khẩu mới phải có ít nhất 6 ký tự" },
+        { status: 400 }
+      );
+    }
+    if (newPassword === currentPassword) {
+      return NextResponse.json(
+        { message: "Mật khẩu mới phải khác mật khẩu hiện tại" },
         { status: 400 }
       );
     }

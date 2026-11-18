@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
         setError(data.message || "Đăng nhập thất bại");
         return;
       }
-      router.push("/admin/tours");
+      router.push("/admin/dashboard");
       router.refresh();
     } catch {
       setError("Không thể kết nối máy chủ");
@@ -119,14 +119,8 @@ export default function AdminLoginPage() {
           </div>
         )}
 
-        <p className="text-center text-sm font-semibold text-[#202224]/70 pt-1">
-          Bạn chưa có tài khoản?{" "}
-          <Link
-            href="/admin/account/register"
-            className="text-[#4880FF] hover:underline font-bold"
-          >
-            Tạo tài khoản
-          </Link>
+        <p className="text-center text-xs font-medium text-[#202224]/60 pt-1">
+          Chưa có tài khoản nhân viên? Liên hệ Quản trị viên hệ thống để được cấp quyền.
         </p>
       </form>
     </AdminAuthCard>

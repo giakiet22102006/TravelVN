@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
             id: tourId,
             deleted: false,
             status: RecordStatus.ACTIVE,
+            category: { deleted: false, status: RecordStatus.ACTIVE },
           },
         });
 

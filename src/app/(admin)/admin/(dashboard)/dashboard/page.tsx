@@ -22,7 +22,6 @@ interface ChartPoint {
   day: number;
   label: string;
   revenue: number;
-  actualRevenue: number;
   orderCount: number;
 }
 
@@ -223,7 +222,7 @@ export default function AdminDashboardPage() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="h-10 px-3.5 rounded-lg border border-[#D5D5D5] bg-[#FCFDFD] text-sm font-semibold text-[#202224] focus:outline-none focus:border-[#4880FF]"
           >
-            {(data?.monthOptions || ["2026-11", "2024-11"]).map((m) => (
+            {(data?.monthOptions || (selectedMonth ? [selectedMonth] : [])).map((m) => (
               <option key={m} value={m}>
                 {formatMonthDisplay(m)}
               </option>
@@ -241,10 +240,8 @@ export default function AdminDashboardPage() {
               <div className="mb-2 inline-flex flex-wrap items-center gap-3 px-3.5 py-1.5 rounded-lg bg-[#4880FF] text-white text-xs font-bold shadow-sm">
                 <span>Ngày {hovered.pt.label}</span>
                 <span>•</span>
-                <span>Xu hướng: {formatCurrencyVND(hovered.pt.revenue)}</span>
-                <span>•</span>
                 <span>
-                  Thực tế DB: {formatCurrencyVND(hovered.pt.actualRevenue)} (
+                  Doanh thu: {formatCurrencyVND(hovered.pt.revenue)} (
                   {hovered.pt.orderCount} đơn)
                 </span>
               </div>

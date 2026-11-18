@@ -10,7 +10,6 @@ function OtpPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialEmail = searchParams.get("email") || "";
-  const demoOtp = searchParams.get("demoOtp") || "";
 
   const [email, setEmail] = useState(initialEmail);
   const [otp, setOtp] = useState("");
@@ -42,13 +41,6 @@ function OtpPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {demoOtp && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 font-medium">
-          Dev Mode OTP (không cần SMTP):{" "}
-          <span className="font-extrabold tracking-widest">{demoOtp}</span>
-        </div>
-      )}
-
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 font-medium">
           {error}

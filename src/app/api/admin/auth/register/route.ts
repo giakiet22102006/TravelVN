@@ -4,6 +4,22 @@ import { hashPassword } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
+    const adminCount = await prisma.adminAccount.count({
+      where: { deleted: false },
+    });
+    const allowPublicRegister =
+      process.env.ALLOW_ADMIN_REGISTER === "true" || adminCount === 0;
+
+    if (!allowPublicRegister) {
+      return NextResponse.json(
+        {
+          message:
+            "Chức năng đăng ký quản trị viên công khai đã bị tắt. Vui lòng liên hệ Quản trị viên để được cấp tài khoản.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const fullName = String(body.fullName || "").trim();
     const email = String(body.email || "").trim().toLowerCase();

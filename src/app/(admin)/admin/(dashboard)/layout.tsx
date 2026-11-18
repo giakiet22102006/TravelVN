@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
-import { getCurrentAdmin } from "@/lib/auth";
+import {
+  extractPermissionStrings,
+  getCurrentAdmin,
+  isSuperAdmin,
+} from "@/lib/auth";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 
 export default async function AdminDashboardLayout({
   children,
@@ -13,6 +18,10 @@ export default async function AdminDashboardLayout({
     redirect("/admin/account/login");
   }
 
+  const effectivePermissions = isSuperAdmin(admin)
+    ? ALL_PERMISSION_KEYS
+    : extractPermissionStrings(admin.role?.permissions);
+
   return (
     <AdminShell
       admin={{
@@ -21,6 +30,7 @@ export default async function AdminDashboardLayout({
         email: admin.email,
         avatar: admin.avatar,
         roleName: admin.role?.name || "Quản trị viên",
+        permissions: effectivePermissions,
       }}
     >
       {children}

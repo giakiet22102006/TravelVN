@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
-import { generateUniqueCategorySlug } from "@/lib/admin-api";
+import { requireAdmin } from "@/lib/auth";
+import {
+  generateUniqueCategorySlug,
+  validateCategoriesDeletable,
+} from "@/lib/admin-api";
 import { revalidateAllClientCatalogCache } from "@/lib/cache-tags";
 
 export async function GET(
@@ -10,10 +13,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["category_view", "category_edit"]);
+    if (auth.error) return auth.error;
 
     const { id } = await params;
     const item = await prisma.category.findFirst({
@@ -42,10 +43,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("category_edit");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
     const existing = await prisma.category.findFirst({
@@ -119,12 +119,27 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("category_delete");
+    if (auth.error) return auth.error;
+    const { admin } = auth;
 
     const { id } = await params;
+    const existing = await prisma.category.findFirst({
+      where: { id, deleted: false },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Không tìm thấy danh mục" },
+        { status: 404 }
+      );
+    }
+
+    const blockedMessage = await validateCategoriesDeletable([id]);
+    if (blockedMessage) {
+      return NextResponse.json({ message: blockedMessage }, { status: 400 });
+    }
+
     await prisma.category.update({
       where: { id },
       data: {

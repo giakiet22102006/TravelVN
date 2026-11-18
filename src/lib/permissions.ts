@@ -1,4 +1,5 @@
 import {
+  ContactStatus,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -73,8 +74,19 @@ export const PERMISSION_ITEMS: PermissionItem[] = [
     label: "Xem thông tin liên hệ",
     group: "Người dùng & Liên hệ",
   },
+  {
+    key: "contact_edit",
+    label: "Xử lý thông tin liên hệ",
+    group: "Người dùng & Liên hệ",
+  },
+  {
+    key: "contact_delete",
+    label: "Xóa thông tin liên hệ",
+    group: "Người dùng & Liên hệ",
+  },
 
   { key: "setting_view", label: "Xem cài đặt chung", group: "Cài đặt" },
+  { key: "setting_edit", label: "Cập nhật thông tin website", group: "Cài đặt" },
 
   { key: "role_view", label: "Xem nhóm quyền", group: "Nhóm quyền" },
   { key: "role_create", label: "Tạo nhóm quyền", group: "Nhóm quyền" },
@@ -131,4 +143,14 @@ export const ORDER_STATUS_BADGE_CLASSES: Record<OrderStatus, string> = {
 export const PAYMENT_STATUS_TEXT_CLASSES: Record<PaymentStatus, string> = {
   PAID: "text-[#00B69B] font-bold",
   UNPAID: "text-[#EF3826] font-bold",
+};
+
+export const CONTACT_STATUS_LABELS: Record<ContactStatus, string> = {
+  NEW: "Chưa xử lý",
+  PROCESSED: "Đã liên hệ",
+};
+
+export const CONTACT_STATUS_BADGE_CLASSES: Record<ContactStatus, string> = {
+  NEW: "bg-[#FFEBDA] text-[#FF8900]",
+  PROCESSED: "bg-[#CCF0EB] text-[#00B69B]",
 };

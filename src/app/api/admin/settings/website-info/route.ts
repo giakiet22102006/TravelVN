@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { revalidateClientShellCache } from "@/lib/cache-tags";
 
 export async function GET() {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin("setting_view");
+    if (auth.error) return auth.error;
 
     let item = await prisma.websiteInfo.findUnique({
       where: { id: "default" },
@@ -32,10 +30,8 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
-    }
+    const auth = await requireAdmin(["setting_edit", "setting_view"]);
+    if (auth.error) return auth.error;
 
     const body = await req.json();
     const websiteName = String(body.websiteName || "").trim();

@@ -1,39 +1,11 @@
 import { PrismaClient, Prisma, RecordStatus, OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { buildTourReviewSummary } from "../src/lib/ai";
+import { ALL_PERMISSION_KEYS } from "../src/lib/permissions";
 
 const prisma = new PrismaClient();
 
-const ALL_PERMISSIONS = [
-  "dashboard_view",
-  "category_view",
-  "category_create",
-  "category_edit",
-  "category_delete",
-  "tour_view",
-  "tour_create",
-  "tour_edit",
-  "tour_delete",
-  "tour_trash",
-  "order_view",
-  "order_edit",
-  "order_delete",
-  "review_view",
-  "review_edit",
-  "review_delete",
-  "user_view",
-  "user_edit",
-  "contact_view",
-  "setting_view",
-  "role_view",
-  "role_create",
-  "role_edit",
-  "role_delete",
-  "admin_view",
-  "admin_create",
-  "admin_edit",
-  "admin_delete",
-];
+const ALL_PERMISSIONS = ALL_PERMISSION_KEYS;
 
 async function main() {
   console.log("Seeding TravelVN database...");
