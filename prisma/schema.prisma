@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RecordStatus {
+  INITIAL
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderStatus {
+  INITIAL
+  APPROVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  MOMO
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  parentId    String?
+  parent      Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]   @relation("CategoryTree")
+  avatar      String?
+  position    Int          @default(1)
+  status      RecordStatus @default(ACTIVE)
+  description String?      @db.Text
+  deleted     Boolean      @default(false)
+
+  createdById String?
+  createdBy   AdminAccount? @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   AdminAccount? @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  deletedById String?
+  deletedBy   AdminAccount? @relation("CategoryDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedAt   DateTime?
+
+  tours     Tour[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deleted, status, position])
+  @@index([parentId])
+}
+
+model Tour {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  name          String
+  slug          String       @unique
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id])
+  position      Int          @default(1)
+  status        RecordStatus @default(ACTIVE)
+  avatar        String?
+  images        Json         @default("[]")
+  priceAdult    Int          @default(0)
+  priceChild    Int          @default(0)
+  priceBaby     Int          @default(0)
+  priceNewAdult Int          @default(0)
+  priceNewChild Int          @default(0)
+  priceNewBaby  Int          @default(0)
+  stockAdult    Int          @default(0)
+  stockChild    Int          @default(0)
+  stockBaby     Int          @default(0)
+  locations     Json         @default("[]")
+  time          String       @default("")
+  vehicle       String       @default("")
+  departureDate DateTime?
+  information   String?      @db.Text
+  schedules     Json         @default("[]")
+  deleted       Boolean      @default(false)
+  ratingAvg     Float        @default(5.0)
+  reviewCount   Int          @default(0)
+  aiReviewSummary Json?
+
+  createdById String?
+  createdBy   AdminAccount? @relation("TourCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   AdminAccount? @relation("TourUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  deletedById String?
+  deletedBy   AdminAccount? @relation("TourDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedAt   DateTime?
+
+  orderItems OrderItem[]
+  reviews    Review[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([deleted, status, position])
+  @@index([categoryId])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  code          String        @unique
+  userId        String?
+  user          User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
+  fullName      String
+  phone         String
+  note          String?       @db.Text
+  subTotal      Int
+  discount      Int           @default(0)
+  couponCode    String?
+  total         Int
+  paymentMethod PaymentMethod @default(CASH)
+  paymentStatus PaymentStatus @default(UNPAID)
+  status        OrderStatus   @default(INITIAL)
+  deleted       Boolean       @default(false)
+  updatedById   String?
+  updatedBy     AdminAccount? @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  items     OrderItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([deleted, status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model OrderItem {
+  id                String    @id @default(cuid())
+  orderId           String
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tourId            String?
+  tour              Tour?     @relation(fields: [tourId], references: [id], onDelete: SetNull)
+  name              String
+  avatar            String?
+  departureDate     DateTime?
+  departureLocation String    @default("Hà Nội")
+  quantityAdult     Int       @default(0)
+  priceNewAdult     Int       @default(0)
+  quantityChild     Int       @default(0)
+  priceNewChild     Int       @default(0)
+  quantityBaby      Int       @default(0)
+  priceNewBaby      Int       @default(0)
+
+  @@index([orderId])
+}
+
+model Role {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  permissions Json           @default("[]")
+  deleted     Boolean        @default(false)
+  createdById String?
+  updatedById String?
+  accounts    AdminAccount[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model AdminAccount {
+  id              String       @id @default(cuid())
+  fullName        String
+  email           String       @unique
+  phone           String?
+  positionCompany String?
+  roleId          String?
+  role            Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  password        String
+  avatar          String?
+  status          RecordStatus @default(ACTIVE)
+  deleted         Boolean      @default(false)
+  createdById     String?
+  updatedById     String?
+
+  categoriesCreated Category[] @relation("CategoryCreatedBy")
+  categoriesUpdated Category[] @relation("CategoryUpdatedBy")
+  categoriesDeleted Category[] @relation("CategoryDeletedBy")
+  toursCreated      Tour[]     @relation("TourCreatedBy")
+  toursUpdated      Tour[]     @relation("TourUpdatedBy")
+  toursDeleted      Tour[]     @relation("TourDeletedBy")
+  ordersUpdated     Order[]    @relation("OrderUpdatedBy")
+  reviewsReplied    Review[]   @relation("ReviewRepliedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ForgotPassword {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, otp])
+}
+
+model User {
+  id         String       @id @default(cuid())
+  fullName   String
+  email      String       @unique
+  phone      String?
+  address    String?
+  avatar     String?
+  password   String?
+  provider   String       @default("CREDENTIALS")
+  providerId String?
+  status     RecordStatus @default(ACTIVE)
+  deleted    Boolean      @default(false)
+  orders     Order[]      @relation("UserOrders")
+  reviews    Review[]     @relation("UserReviews")
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model Review {
+  id                String        @id @default(cuid())
+  tourId            String
+  tour              Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User          @relation("UserReviews", fields: [userId], references: [id], onDelete: Cascade)
+  rating            Int           @default(5)
+  comment           String        @db.Text
+  isVerifiedBooking Boolean       @default(false)
+  aiSentiment       String        @default("POSITIVE")
+  adminReply        String?       @db.Text
+  repliedAt         DateTime?
+  repliedById       String?
+  repliedBy         AdminAccount? @relation("ReviewRepliedBy", fields: [repliedById], references: [id], onDelete: SetNull)
+  status            RecordStatus  @default(ACTIVE)
+  deleted           Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([tourId, deleted, status, createdAt])
+  @@index([userId, tourId])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  email     String
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model WebsiteInfo {
+  id          String   @id @default("default")
+  websiteName String   @default("28.TRAVEL")
+  phone       String   @default("0123456789")
+  email       String   @default("contact@28.travel.com")
+  address     String   @default("Số 123, đường ABC")
+  logo        String?
+  favicon     String?
+  updatedAt   DateTime @updatedAt
+}

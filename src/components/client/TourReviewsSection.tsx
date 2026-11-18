@@ -1,0 +1,659 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  MessageSquare,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
+import { useClientMeta } from "@/components/client/ClientLayoutShell";
+import { formatDateVN } from "@/lib/format";
+import type { TourAiReviewSummary } from "@/lib/ai";
+import type { RatingBreakdownMap, TourReviewItem } from "@/lib/client-data";
+
+export interface TourReviewsStats {
+  ratingAvg: number;
+  reviewCount: number;
+  ratingBreakdown: RatingBreakdownMap;
+  aiReviewSummary: TourAiReviewSummary | null;
+}
+
+interface TourReviewsSectionProps {
+  tourId: string;
+  tourSlug: string;
+  tourName: string;
+  initialStats: TourReviewsStats;
+  initialReviews: TourReviewItem[];
+  onStatsChange?: (next: { ratingAvg: number; reviewCount: number }) => void;
+}
+
+const RATING_LABELS: Record<number, string> = {
+  1: "Rất tệ",
+  2: "Chưa hài lòng",
+  3: "Bình thường",
+  4: "Hài lòng",
+  5: "Tuyệt vời",
+};
+
+const SENTIMENT_BADGE: Record<
+  string,
+  { label: string; className: string }
+> = {
+  POSITIVE: {
+    label: "Tích cực",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  NEUTRAL: {
+    label: "Trung lập",
+    className: "bg-slate-100 text-slate-700 border-slate-200",
+  },
+  NEGATIVE: {
+    label: "Cần cải thiện",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+};
+
+export function TourReviewsSection({
+  tourSlug,
+  tourName,
+  initialStats,
+  initialReviews,
+  onStatsChange,
+}: TourReviewsSectionProps) {
+  const { currentUser } = useClientMeta();
+
+  const [reviews, setReviews] = useState<TourReviewItem[]>(initialReviews);
+  const [stats, setStats] = useState<TourReviewsStats>(initialStats);
+  const [ratingFilter, setRatingFilter] = useState<number>(0);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
+
+  const [isVerifiedBooking, setIsVerifiedBooking] = useState(false);
+  const [ratingInput, setRatingInput] = useState<number>(5);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [commentInput, setCommentInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setReviews(initialReviews);
+    setStats(initialStats);
+  }, [tourSlug, initialReviews, initialStats]);
+
+  // Fetch viewer booking badge state when user is logged in
+  useEffect(() => {
+    if (!currentUser) {
+      setIsVerifiedBooking(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function checkViewerBooking() {
+      try {
+        const res = await fetch(
+          `/api/client/tours/${encodeURIComponent(tourSlug)}/reviews?limit=1`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.viewerState) {
+          setIsVerifiedBooking(Boolean(data.viewerState.isVerifiedBooking));
+        }
+      } catch {
+        // Ignore transient network errors
+      }
+    }
+
+    checkViewerBooking();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, tourSlug]);
+
+  async function applyFilter(nextRating: number, nextVerified: boolean) {
+    setRatingFilter(nextRating);
+    setVerifiedOnly(nextVerified);
+    setLoadingList(true);
+    try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (nextRating >= 1 && nextRating <= 5) {
+        params.set("rating", String(nextRating));
+      }
+      if (nextVerified) {
+        params.set("verified", "true");
+      }
+
+      const res = await fetch(
+        `/api/client/tours/${encodeURIComponent(tourSlug)}/reviews?${params.toString()}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.reviews)) {
+        setReviews(data.reviews);
+      }
+      if (data.stats) {
+        setStats(data.stats);
+      }
+    } finally {
+      setLoadingList(false);
+    }
+  }
+
+  async function handleSubmitReview(e: React.FormEvent) {
+    e.preventDefault();
+    setFeedback(null);
+
+    const trimmed = commentInput.trim();
+    if (trimmed.length < 10) {
+      setFeedback({
+        type: "error",
+        text: "Vui lòng viết tối thiểu 10 ký tự để chia sẻ trải nghiệm thực tế của bạn.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/client/tours/${encodeURIComponent(tourSlug)}/reviews`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rating: ratingInput,
+            comment: trimmed,
+          }),
+        }
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFeedback({
+          type: "error",
+          text:
+            data.message || "Không thể đăng đánh giá lúc này. Vui lòng thử lại.",
+        });
+        return;
+      }
+
+      setCommentInput("");
+      setRatingInput(5);
+      setFeedback({
+        type: "success",
+        text: data.message || "Cảm ơn bạn! Đánh giá đã được hiển thị ngay.",
+      });
+
+      if (data.stats) {
+        setStats(data.stats);
+        onStatsChange?.({
+          ratingAvg: data.stats.ratingAvg,
+          reviewCount: data.stats.reviewCount,
+        });
+      }
+
+      // Reset filter to all so user sees their newly published review immediately
+      if (ratingFilter !== 0 || verifiedOnly) {
+        await applyFilter(0, false);
+      } else if (data.review) {
+        setReviews((prev) => [data.review, ...prev]);
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        text: "Lỗi kết nối máy chủ. Vui lòng thử lại.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const aiSummary = stats.aiReviewSummary;
+  const activeStars = hoverRating || ratingInput;
+
+  const breakdownRows = useMemo(() => {
+    const total = Math.max(1, stats.reviewCount);
+    return ([5, 4, 3, 2, 1] as const).map((star) => {
+      const count = stats.ratingBreakdown?.[star] ?? 0;
+      const pct = stats.reviewCount > 0 ? Math.round((count / total) * 100) : 0;
+      return { star, count, pct };
+    });
+  }, [stats]);
+
+  return (
+    <section
+      id="tour-reviews"
+      className="mt-10 bg-white rounded-[14px] p-5 sm:p-7 border border-[#ECECEC] shadow-sm font-lexend-deca"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-[22px] sm:text-[24px] font-bold text-[#4502C7] flex items-center gap-2">
+            <MessageSquare className="w-6 h-6" />
+            <span>Đánh Giá &amp; Bình Luận Khách Hàng</span>
+          </h2>
+          <p className="text-[13px] text-[#667479] mt-1">
+            Phản hồi thực tế về hành trình {tourName}
+          </p>
+        </div>
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4502C7]/10 text-[#4502C7] text-[12px] font-semibold">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Tích hợp AI Tóm tắt &amp; Kiểm duyệt</span>
+        </div>
+      </div>
+
+      {/* Top Grid: Overall Score + AI Review Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7">
+        {/* Rating Overview */}
+        <div className="lg:col-span-5 rounded-[12px] bg-[#F8F7FC] border border-[#E7E0F8] p-5">
+          <div className="flex items-center gap-4 pb-4 border-b border-[#E7E0F8]">
+            <div className="text-center min-w-[92px]">
+              <div className="text-[36px] font-extrabold text-[#4502C7] leading-none">
+                {stats.reviewCount > 0 ? stats.ratingAvg.toFixed(1) : "5.0"}
+              </div>
+              <div className="text-[12px] text-[#667479] mt-1">trên 5 sao</div>
+            </div>
+
+            <div className="flex-1">
+              <div className="flex items-center gap-1 text-[#FFB800]">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`w-4 h-4 ${
+                      i < Math.round(stats.reviewCount > 0 ? stats.ratingAvg : 5)
+                        ? "fill-[#FFB800]"
+                        : "text-[#D4D8DD]"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-[13px] font-semibold text-[#25282B] mt-1">
+                {stats.reviewCount > 0
+                  ? `${stats.reviewCount} đánh giá thực tế`
+                  : "Chưa có đánh giá nào"}
+              </p>
+              <p className="text-[12px] text-[#667479]">
+                Khách đã đặt tour được gắn huy hiệu xác thực
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4 space-y-2">
+            {breakdownRows.map((row) => (
+              <button
+                key={row.star}
+                type="button"
+                onClick={() =>
+                  applyFilter(ratingFilter === row.star ? 0 : row.star, verifiedOnly)
+                }
+                className={`w-full flex items-center gap-2.5 text-[12px] py-0.5 rounded hover:bg-white/70 transition-colors ${
+                  ratingFilter === row.star ? "font-bold text-[#4502C7]" : "text-[#4F4F4F]"
+                }`}
+              >
+                <span className="w-11 text-left inline-flex items-center gap-1">
+                  {row.star}
+                  <Star className="w-3 h-3 fill-[#FFB800] text-[#FFB800]" />
+                </span>
+                <div className="flex-1 h-2 bg-[#E6E8EC] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#FFB800] rounded-full transition-all duration-300"
+                    style={{ width: `${row.pct}%` }}
+                  />
+                </div>
+                <span className="w-8 text-right font-semibold">{row.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Review Summary Card */}
+        <div className="lg:col-span-7 rounded-[12px] bg-gradient-to-br from-[#F4EEFF] via-white to-[#F2F7FF] border border-[#DED2FA] p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="inline-flex items-center gap-2 text-[#4502C7] font-bold text-[15px]">
+                <span className="w-7 h-7 rounded-lg bg-[#4502C7] text-white inline-flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <span>AI Tóm Tắt Đánh Giá Khách Hàng</span>
+              </div>
+              {aiSummary && (
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white border border-[#DED2FA] text-[#5D5FEF]">
+                  {aiSummary.source === "gemini"
+                    ? "Gemini AI"
+                    : "Smart NLP Summary"}
+                </span>
+              )}
+            </div>
+
+            {aiSummary ? (
+              <div className="space-y-3">
+                <p className="text-[13px] sm:text-[14px] text-[#25282B] leading-relaxed font-medium">
+                  {aiSummary.overview}
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {aiSummary.pros.length > 0 && (
+                    <div className="rounded-[10px] bg-emerald-50/75 border border-emerald-200 p-3">
+                      <p className="text-[12px] font-bold text-emerald-800 inline-flex items-center gap-1.5 mb-1.5">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>Ưu điểm nổi bật</span>
+                      </p>
+                      <ul className="space-y-1 text-[12px] text-emerald-900 list-disc pl-4">
+                        {aiSummary.pros.map((pro, idx) => (
+                          <li key={idx}>{pro}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {aiSummary.cons.length > 0 && (
+                    <div className="rounded-[10px] bg-amber-50/80 border border-amber-200 p-3">
+                      <p className="text-[12px] font-bold text-amber-800 inline-flex items-center gap-1.5 mb-1.5">
+                        <ThumbsDown className="w-3.5 h-3.5" />
+                        <span>Điểm cần lưu ý</span>
+                      </p>
+                      <ul className="space-y-1 text-[12px] text-amber-900 list-disc pl-4">
+                        {aiSummary.cons.map((con, idx) => (
+                          <li key={idx}>{con}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {aiSummary.tips && (
+                  <div className="rounded-[8px] bg-white/90 border border-[#E5E0F6] px-3 py-2 text-[12px] text-[#4F4F4F]">
+                    <span className="font-bold text-[#4502C7]">💡 Mẹo từ AI: </span>
+                    {aiSummary.tips}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] text-[#667479] leading-relaxed">
+                Tour này chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ trải
+                nghiệm để hệ thống AI tổng hợp góc nhìn khách quan cho những du
+                khách tiếp theo!
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Write a Review Form */}
+      <div className="rounded-[12px] border border-[#E5E7EB] bg-[#FAFAFC] p-4 sm:p-5 mb-7">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h3 className="text-[16px] font-bold text-[#25282B]">
+            Viết đánh giá &amp; bình luận của bạn
+          </h3>
+          <span className="text-[12px] text-[#5D5FEF] inline-flex items-center gap-1 font-medium">
+            <ShieldCheck className="w-4 h-4" />
+            <span>AI kiểm duyệt văn minh • Hiển thị ngay</span>
+          </span>
+        </div>
+
+        {!currentUser ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] bg-white border border-[#E5E7EB] p-4">
+            <div>
+              <p className="text-[14px] font-semibold text-[#25282B]">
+                Đăng nhập để chia sẻ cảm nhận về tour
+              </p>
+              <p className="text-[12px] text-[#667479] mt-0.5">
+                Hỗ trợ đăng nhập nhanh 1 chạm bằng Google hoặc tài khoản khách
+                hàng 28.TRAVEL.
+              </p>
+            </div>
+            <Link
+              href={`/login?next=${encodeURIComponent(`/tours/${tourSlug}#tour-reviews`)}`}
+              className="shrink-0 h-[40px] px-5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[13px] font-semibold inline-flex items-center justify-center transition-colors"
+            >
+              Đăng nhập ngay
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmitReview} className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-semibold text-[#4F4F4F]">
+                  Chọn mức hài lòng:
+                </span>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      aria-label={`Chấm ${star} sao`}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRatingInput(star)}
+                      className="p-0.5 transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-6 h-6 ${
+                          star <= activeStars
+                            ? "fill-[#FFB800] text-[#FFB800]"
+                            : "text-[#D4D8DD]"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[13px] font-bold text-[#4502C7]">
+                  {RATING_LABELS[activeStars]}
+                </span>
+              </div>
+
+              {isVerifiedBooking && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Bạn đã đặt tour này (Huy hiệu xác thực)</span>
+                </span>
+              )}
+            </div>
+
+            <textarea
+              rows={3}
+              value={commentInput}
+              onChange={(e) => setCommentInput(e.target.value)}
+              placeholder="Chia sẻ trải nghiệm về lịch trình, hướng dẫn viên, khách sạn, bữa ăn... (tối thiểu 10 ký tự)"
+              maxLength={1500}
+              className="w-full rounded-[10px] border border-[#CCD1D2] bg-white px-3.5 py-2.5 text-[14px] text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+            />
+
+            {feedback && (
+              <div
+                className={`rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium flex items-start gap-2 ${
+                  feedback.type === "success"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-red-50 text-red-700 border border-red-200"
+                }`}
+              >
+                {feedback.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                )}
+                <span>{feedback.text}</span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[12px] text-[#667479]">
+                Đang bình luận với tên:{" "}
+                <strong className="text-[#25282B]">
+                  {currentUser.fullName}
+                </strong>
+              </span>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="h-[40px] px-5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] disabled:opacity-60 text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang kiểm duyệt &amp; đăng...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Gửi Đánh Giá Ngay</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {[
+          { label: "Tất cả", rating: 0 },
+          { label: "5 Sao", rating: 5 },
+          { label: "4 Sao", rating: 4 },
+          { label: "3 Sao", rating: 3 },
+          { label: "1–2 Sao", rating: 2 },
+        ].map((pill) => {
+          const active = ratingFilter === pill.rating && !verifiedOnly;
+          return (
+            <button
+              key={pill.label}
+              type="button"
+              onClick={() => applyFilter(pill.rating, false)}
+              className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border transition-colors ${
+                active
+                  ? "bg-[#4502C7] text-white border-[#4502C7]"
+                  : "bg-white text-[#4F4F4F] border-[#DDE1E6] hover:border-[#4502C7]"
+              }`}
+            >
+              {pill.label}
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => applyFilter(0, !verifiedOnly)}
+          className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border inline-flex items-center gap-1.5 transition-colors ${
+            verifiedOnly
+              ? "bg-emerald-600 text-white border-emerald-600"
+              : "bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+          }`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span>Đã trải nghiệm tour</span>
+        </button>
+      </div>
+
+      {/* Reviews Feed */}
+      {loadingList ? (
+        <div className="py-10 text-center text-[13px] text-[#667479] inline-flex items-center justify-center gap-2 w-full">
+          <Loader2 className="w-4 h-4 animate-spin text-[#4502C7]" />
+          <span>Đang tải danh sách đánh giá...</span>
+        </div>
+      ) : reviews.length === 0 ? (
+        <div className="py-10 text-center rounded-[10px] border border-dashed border-[#DDE1E6] text-[13px] text-[#667479]">
+          Không có đánh giá nào khớp bộ lọc hiện tại.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((rev) => {
+            const sentimentInfo =
+              SENTIMENT_BADGE[rev.aiSentiment] ?? SENTIMENT_BADGE.POSITIVE;
+
+            return (
+              <article
+                key={rev.id}
+                className="rounded-[12px] border border-[#ECECEC] bg-white p-4 sm:p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-[#4502C7]/12 text-[#4502C7] font-bold flex items-center justify-center shrink-0">
+                      {rev.user.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={rev.user.avatar}
+                          alt={rev.user.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        rev.user.fullName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[14px] font-bold text-[#25282B]">
+                          {rev.user.fullName}
+                        </span>
+                        {rev.isVerifiedBooking && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Đã trải nghiệm tour</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center text-[#FFB800]">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3.5 h-3.5 ${
+                                i < rev.rating
+                                  ? "fill-[#FFB800]"
+                                  : "text-[#D4D8DD]"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[11px] text-[#667479]">
+                          {formatDateVN(rev.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${sentimentInfo.className}`}
+                  >
+                    {sentimentInfo.label}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-[14px] text-[#33363A] leading-relaxed whitespace-pre-line">
+                  {rev.comment}
+                </p>
+
+                {rev.adminReply && (
+                  <div className="mt-3 ml-2 sm:ml-6 rounded-[10px] bg-[#F5F2FF] border border-[#E2D8FA] p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[12px] font-bold text-[#4502C7]">
+                        Phản hồi từ 28.TRAVEL
+                      </span>
+                      {rev.repliedAt && (
+                        <span className="text-[11px] text-[#667479]">
+                          {formatDateVN(rev.repliedAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[13px] text-[#33363A] leading-relaxed whitespace-pre-line">
+                      {rev.adminReply}
+                    </p>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
