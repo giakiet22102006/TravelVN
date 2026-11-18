@@ -15,11 +15,11 @@ export async function generateMetadata({
   const data = await getClientTourBySlug(slug);
   if (!data) {
     return {
-      title: "Không tìm thấy Tour | 28.TRAVEL",
+      title: "Không tìm thấy Tour | VN.TRAVEL",
     };
   }
   return {
-    title: `${data.tour.name} | 28.TRAVEL`,
+    title: `${data.tour.name} | VN.TRAVEL`,
     description: data.tour.information || data.tour.name,
   };
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 
 export const metadata = {
-  title: "Điều khoản dịch vụ | 28.TRAVEL",
+  title: "Điều khoản dịch vụ | VN.TRAVEL",
 };
 
 export default function TermsPage() {
@@ -33,7 +33,7 @@ export default function TermsPage() {
               1. Quy định đặt tour và giữ chỗ
             </h2>
             <p>
-              Khách hàng khi đặt tour trực tuyến tại 28.TRAVEL vui lòng cung cấp
+              Khách hàng khi đặt tour trực tuyến tại VN.TRAVEL vui lòng cung cấp
               đầy đủ họ tên, số điện thoại liên hệ và số lượng hành khách theo độ
               tuổi (Người lớn, Trẻ em, Em bé) để bộ phận điều hành giữ chỗ chính xác.
             </p>

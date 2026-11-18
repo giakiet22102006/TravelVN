@@ -21,7 +21,7 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "28.TRAVEL | TravelVN",
+  title: "VN.TRAVEL | TravelVN",
   description: "Hệ thống quản lý và đặt tour du lịch TravelVN",
 };
 

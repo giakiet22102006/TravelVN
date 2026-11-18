@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "Chính sách bảo mật | 28.TRAVEL",
+  title: "Chính sách bảo mật | VN.TRAVEL",
 };
 
 export default function PrivacyPage() {
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
               1. Mục đích thu thập thông tin
             </h2>
             <p>
-              28.TRAVEL chỉ thu thập thông tin cá nhân cần thiết (họ tên, số điện
+              VN.TRAVEL chỉ thu thập thông tin cá nhân cần thiết (họ tên, số điện
               thoại, email nhận bản tin, ghi chú yêu cầu riêng) nhằm phục vụ việc
               xác nhận đặt tour, xuất vé dịch vụ và hỗ trợ khách hàng trong suốt
               chuyến đi.
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             </h2>
             <p>
               Quý khách có thể liên hệ trực tiếp qua hotline hoặc email hỗ trợ
-              của 28.TRAVEL để cập nhật hoặc yêu cầu xóa thông tin liên hệ bất
+              của VN.TRAVEL để cập nhật hoặc yêu cầu xóa thông tin liên hệ bất
               kỳ lúc nào.
             </p>
           </section>

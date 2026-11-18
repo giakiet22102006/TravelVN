@@ -69,7 +69,7 @@ function LoginFormContent() {
           </h1>
           <p className="text-[13px] text-[#667479] mt-1.5">
             Theo dõi lịch trình, quản lý đơn đặt tour và nhận ưu đãi thành viên
-            28.TRAVEL.
+            VN.TRAVEL.
           </p>
         </div>
 

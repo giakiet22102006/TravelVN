@@ -317,7 +317,7 @@ export function TourDetailClient({
               }`}
             >
               {tour.information ||
-                "Hành trình du lịch trọn gói tiêu chuẩn 5 sao cùng đội ngũ hướng dẫn viên chuyên nghiệp từ 28.TRAVEL."}
+                "Hành trình du lịch trọn gói tiêu chuẩn 5 sao cùng đội ngũ hướng dẫn viên chuyên nghiệp từ VN.TRAVEL."}
             </div>
 
             {(tour.information?.length || 0) > 220 && (

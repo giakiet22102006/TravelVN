@@ -143,14 +143,14 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               href="https://www.facebook.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Facebook 28.TRAVEL"
+              aria-label="Facebook VN.TRAVEL"
               className="hover:text-[#4502C7] transition-colors"
             >
               <Facebook className="w-5 h-5" />
             </a>
             <Link
               href="/"
-              aria-label="Trang chủ 28.TRAVEL"
+              aria-label="Trang chủ VN.TRAVEL"
               className="hover:text-[#4502C7] transition-colors"
             >
               <Globe className="w-5 h-5" />
@@ -159,7 +159,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               href="https://www.instagram.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram 28.TRAVEL"
+              aria-label="Instagram VN.TRAVEL"
               className="hover:text-[#4502C7] transition-colors"
             >
               <Instagram className="w-5 h-5" />
@@ -168,7 +168,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               href="https://www.youtube.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="YouTube 28.TRAVEL"
+              aria-label="YouTube VN.TRAVEL"
               className="hover:text-[#4502C7] transition-colors"
             >
               <Youtube className="w-5 h-5" />
@@ -179,14 +179,14 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
         {/* Bottom Copyright Row */}
         <div className="pt-7 flex flex-col md:flex-row items-center justify-between gap-4 text-[13px] text-[#667479]">
           <p className="order-3 md:order-1">
-            © 2024 28Tech. All rights reserved.
+            © 2024 VN.TRAVEL. All rights reserved.
           </p>
 
           <Link
             href="/"
             className="order-1 md:order-2 text-[24px] font-extrabold tracking-tight text-[#4502C7]"
           >
-            {websiteInfo.websiteName || "28.TRAVEL"}
+            {websiteInfo.websiteName || "VN.TRAVEL"}
           </Link>
 
           <div className="order-2 md:order-3 flex items-center gap-6">

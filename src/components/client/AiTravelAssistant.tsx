@@ -34,7 +34,7 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Xin chào! Mình là Trợ lý Du lịch AI của 28.TRAVEL. Bạn đang muốn tìm tour theo ngân sách, điểm đến hay ngày khởi hành nào?",
+    "Xin chào! Mình là Trợ lý Du lịch AI của VN.TRAVEL. Bạn đang muốn tìm tour theo ngân sách, điểm đến hay ngày khởi hành nào?",
 };
 
 export function AiTravelAssistant() {
@@ -119,7 +119,7 @@ export function AiTravelAssistant() {
               </span>
               <div>
                 <p className="text-[14px] font-bold leading-tight">
-                  Trợ lý AI 28.TRAVEL
+                  Trợ lý AI VN.TRAVEL
                 </p>
                 <p className="text-[11px] text-white/80">
                   Tư vấn lịch trình &amp; giá tour trực tiếp từ DB
@@ -267,7 +267,7 @@ export function AiTravelAssistant() {
         className="ml-auto h-[46px] px-4 rounded-full bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[13px] shadow-[0_10px_28px_rgba(69,2,199,0.36)] inline-flex items-center gap-2 transition-transform hover:scale-[1.03]"
       >
         <Sparkles className="w-4 h-4 text-[#FFE066]" />
-        <span>{open ? "Thu gọn Trợ lý AI" : "Trợ lý AI 28.TRAVEL"}</span>
+        <span>{open ? "Thu gọn Trợ lý AI" : "Trợ lý AI VN.TRAVEL"}</span>
       </button>
     </div>
   );

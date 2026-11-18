@@ -199,7 +199,7 @@ export function HomePageClient({
       <section className="relative bg-[#1E103C] text-white overflow-hidden">
         <SmartImage
           src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85"
-          alt="Khám phá du lịch toàn cầu cùng 28.TRAVEL"
+          alt="Khám phá du lịch toàn cầu cùng VN.TRAVEL"
           targetWidth={1600}
           quality={85}
           priority
@@ -218,7 +218,7 @@ export function HomePageClient({
               <span className="text-[#FFD600]">Đi nơi đâu bạn muốn</span>
             </h1>
             <p className="mt-4 text-[14px] sm:text-[16px] text-white/90 max-w-[640px] mx-auto leading-relaxed">
-              Trải nghiệm hành trình trọn gói chuẩn 5 sao cùng 28.TRAVEL — lịch
+              Trải nghiệm hành trình trọn gói chuẩn 5 sao cùng VN.TRAVEL — lịch
               khởi hành linh hoạt mỗi ngày với hàng trăm ưu đãi giờ chót hấp
               dẫn.
             </p>
@@ -594,7 +594,7 @@ export function HomePageClient({
           <div className="absolute inset-0 bg-gradient-to-r from-[#4502C7]/85 via-[#4502C7]/45 to-transparent flex items-center p-6 sm:p-10">
             <div className="max-w-[520px] text-white">
               <p className="text-[12px] uppercase tracking-widest font-bold text-[#FFD600]">
-                28.TRAVEL EXCLUSIVE
+                VN.TRAVEL EXCLUSIVE
               </p>
               <h3 className="text-[22px] sm:text-[28px] font-bold mt-1 leading-snug">
                 Đặt Tour Hôm Nay — Giữ Trọn Ưu Đãi Vé Máy Bay & Resort 5 Sao

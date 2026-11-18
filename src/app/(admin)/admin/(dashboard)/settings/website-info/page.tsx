@@ -106,7 +106,7 @@ export default function AdminWebsiteInfoPage() {
                   required
                   value={websiteName}
                   onChange={(e) => setWebsiteName(e.target.value)}
-                  placeholder="28.TRAVEL"
+                  placeholder="VN.TRAVEL"
                   className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
                 />
               </div>
@@ -132,7 +132,7 @@ export default function AdminWebsiteInfoPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="contact@28.travel.com"
+                  placeholder="contact@vn.travel.com"
                   className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
                 />
               </div>

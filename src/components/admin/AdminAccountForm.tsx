@@ -140,7 +140,7 @@ export function AdminAccountForm({ mode, initialData }: AdminAccountFormProps) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@28travel.com"
+              placeholder="example@vntravel.com"
               className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
             />
           </div>

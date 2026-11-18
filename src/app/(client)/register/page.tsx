@@ -71,7 +71,7 @@ export default function ClientRegisterPage() {
           </h1>
           <p className="text-[13px] text-[#667479] mt-1.5">
             Đặt tour nhanh hơn và lưu toàn bộ lịch sử chuyến đi của bạn tại
-            28.TRAVEL.
+            VN.TRAVEL.
           </p>
         </div>
 

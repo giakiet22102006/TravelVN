@@ -408,7 +408,7 @@ export function TourReviewsSection({
               </p>
               <p className="text-[12px] text-[#667479] mt-0.5">
                 Hỗ trợ đăng nhập nhanh 1 chạm bằng Google hoặc tài khoản khách
-                hàng 28.TRAVEL.
+                hàng VN.TRAVEL.
               </p>
             </div>
             <Link
@@ -636,7 +636,7 @@ export function TourReviewsSection({
                   <div className="mt-3 ml-2 sm:ml-6 rounded-[10px] bg-[#F5F2FF] border border-[#E2D8FA] p-3.5">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-[12px] font-bold text-[#4502C7]">
-                        Phản hồi từ 28.TRAVEL
+                        Phản hồi từ VN.TRAVEL
                       </span>
                       {rev.repliedAt && (
                         <span className="text-[11px] text-[#667479]">

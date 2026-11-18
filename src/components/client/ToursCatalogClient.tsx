@@ -254,7 +254,7 @@ export function ToursCatalogClient({
     (urlDeal ? "Tour Ưu Đãi Giờ Chót" : "Tất Cả Tour Du Lịch");
   const pageDescription =
     categoryInfo?.description ||
-    "Khám phá hàng loạt hành trình đặc sắc trong nước và quốc tế cùng 28.TRAVEL với lịch khởi hành liên tục, dịch vụ trọn gói 5 sao và ưu đãi hấp dẫn.";
+    "Khám phá hàng loạt hành trình đặc sắc trong nước và quốc tế cùng VN.TRAVEL với lịch khởi hành liên tục, dịch vụ trọn gói 5 sao và ưu đãi hấp dẫn.";
   const bannerImage =
     categoryInfo?.avatar ||
     "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1800&q=80";

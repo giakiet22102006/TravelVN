@@ -1,4 +1,4 @@
-# TravelVN (`28.TRAVEL`) - Nền Tảng Đặt Tour Du Lịch & Cổng Quản Trị Toàn Diện
+# TravelVN (`VN.TRAVEL`) - Nền Tảng Đặt Tour Du Lịch & Cổng Quản Trị Toàn Diện
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-black.svg?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](https://react.dev/)
@@ -9,7 +9,7 @@
 [![Gemini AI](https://img.shields.io/badge/AI-Google%20Gemini-8E75B2.svg)](https://ai.google.dev/)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20(sin1)-brightgreen.svg)](https://travel-vn-kappa.vercel.app)
 
-**TravelVN (`28.TRAVEL`)** là nền tảng thương mại điện tử đặt tour du lịch trực tuyến (tour trong nước & quốc tế) kết hợp cổng quản trị RBAC chuyên biệt, được xây dựng full-stack trên **Next.js 15 App Router**, **Prisma ORM**, **PostgreSQL**, **Google OAuth 2.0** và bộ 3 tính năng **Google Gemini AI**.
+**TravelVN (`VN.TRAVEL`)** là nền tảng thương mại điện tử đặt tour du lịch trực tuyến (tour trong nước & quốc tế) kết hợp cổng quản trị RBAC chuyên biệt, được xây dựng full-stack trên **Next.js 15 App Router**, **Prisma ORM**, **PostgreSQL**, **Google OAuth 2.0** và bộ 3 tính năng **Google Gemini AI**.
 
 - **Live Production (Singapore `sin1`):** https://travel-vn-kappa.vercel.app
 - **Source Repository:** https://github.com/giakiet22102006/TravelVN
@@ -58,7 +58,7 @@ Browser (Client / Admin)
 - **Trang chủ & Catalog Tour (`/`, `/tours`):** Lọc đa điều kiện (danh mục trong nước/nước ngoài, mức giá, ngày khởi hành, phương tiện, sắp xếp theo giá/độ phổ biến), hiển thị điểm đánh giá thực tế `ratingAvg (reviewCount)` hoặc badge `Mới`.
 - **Chi tiết Tour & Đánh giá (`/tours/[slug]`):**
   - Lịch trình chi tiết theo ngày, giá theo độ tuổi (Người lớn / Trẻ em / Em bé), chọn điểm khởi hành & số lượng.
-  - **Hệ thống Đánh giá & Bình luận (`TourReviewsSection.tsx`):** Gửi đánh giá 1–5 sao, thanh thống kê phân bố sao (5★ → 1★), lọc theo số sao hoặc chỉ khách đã đi tour, hiển thị huy hiệu xanh **`Đã trải nghiệm tour`** (xác minh tự động từ lịch sử `Order` không bị hủy) và **`Phản hồi từ 28.TRAVEL`**.
+  - **Hệ thống Đánh giá & Bình luận (`TourReviewsSection.tsx`):** Gửi đánh giá 1–5 sao, thanh thống kê phân bố sao (5★ → 1★), lọc theo số sao hoặc chỉ khách đã đi tour, hiển thị huy hiệu xanh **`Đã trải nghiệm tour`** (xác minh tự động từ lịch sử `Order` không bị hủy) và **`Phản hồi từ VN.TRAVEL`**.
 - **Giỏ hàng & Đặt tour (`/cart`, `/account/orders`):** Hỗ trợ thanh toán Tiền mặt / Chuyển khoản ngân hàng (kèm QR/thông tin chuyển khoản) / VNPay, theo dõi trạng thái đơn và hủy đơn trực tuyến.
 
 ### 2.3. Bộ 3 Tính Năng Gemini AI (`src/lib/ai.ts`)
@@ -182,5 +182,5 @@ docker run -p 3000:3000 --env-file .env travelvn
 | `npm run db:seed` | Nạp dữ liệu mẫu (tours, danh mục, RBAC, user & reviews) |
 
 **Tài khoản mẫu từ `prisma/seed.ts`:**
-- **Admin (`/admin/account/login`):** `levana@gmail.com` / `Admin@123` (hoặc `admin@28travel.com` / `Admin@123`)
+- **Admin (`/admin/account/login`):** `levana@gmail.com` / `Admin@123` (hoặc `admin@vntravel.com` / `Admin@123`)
 - **Khách hàng (`/login`):** `levana@gmail.com` / `Admin@123` hoặc đăng nhập nhanh qua Google OAuth / OAuth Sandbox (`minhanh.google@gmail.com`)

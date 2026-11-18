@@ -86,7 +86,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             href="/admin/dashboard"
             className="text-2xl font-extrabold tracking-tight flex items-center"
           >
-            <span className="text-[#4880FF]">28.</span>
+            <span className="text-[#4880FF]">VN.</span>
             <span className="text-[#202224]">TRAVEL</span>
           </Link>
         </div>

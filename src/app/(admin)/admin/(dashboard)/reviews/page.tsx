@@ -415,7 +415,7 @@ export default function AdminReviewsPage() {
                       {item.adminReply && (
                         <div className="mt-2 p-2.5 rounded-lg bg-[#F4F7FF] border border-[#DCE5FF] text-xs text-[#202224]">
                           <strong className="text-[#4880FF]">
-                            Phản hồi 28.TRAVEL:
+                            Phản hồi VN.TRAVEL:
                           </strong>{" "}
                           {item.adminReply}
                         </div>
@@ -538,7 +538,7 @@ export default function AdminReviewsPage() {
               rows={4}
               value={replyDraft}
               onChange={(e) => setReplyDraft(e.target.value)}
-              placeholder="Nhập phản hồi chính thức từ 28.TRAVEL (để trống nếu muốn xóa phản hồi)..."
+              placeholder="Nhập phản hồi chính thức từ VN.TRAVEL (để trống nếu muốn xóa phản hồi)..."
               className="w-full rounded-xl border border-[#D5D5D5] p-3 text-sm focus:outline-none focus:border-[#4880FF]"
             />
             <div className="flex items-center justify-end gap-2">

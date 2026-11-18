@@ -32,9 +32,9 @@ export interface WebsiteInfoData {
 
 export const DEFAULT_WEBSITE_INFO: WebsiteInfoData = {
   id: "default",
-  websiteName: "28.TRAVEL",
+  websiteName: "VN.TRAVEL",
   phone: "0123456789",
-  email: "contact@28.travel.com",
+  email: "contact@vn.travel.com",
   address: "Số 123, đường ABC",
   logo: null,
   favicon: null,

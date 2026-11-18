@@ -255,9 +255,9 @@ model Contact {
 
 model WebsiteInfo {
   id          String   @id @default("default")
-  websiteName String   @default("28.TRAVEL")
+  websiteName String   @default("VN.TRAVEL")
   phone       String   @default("0123456789")
-  email       String   @default("contact@28.travel.com")
+  email       String   @default("contact@vn.travel.com")
   address     String   @default("Số 123, đường ABC")
   logo        String?
   favicon     String?

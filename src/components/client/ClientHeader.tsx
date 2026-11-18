@@ -93,7 +93,7 @@ export function ClientHeader({
             </span>
             <span className="hidden sm:inline-flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 shrink-0" />
-              <span>{websiteInfo.email || "contact@28.travel.com"}</span>
+              <span>{websiteInfo.email || "contact@vn.travel.com"}</span>
             </span>
             <span className="hidden md:inline-flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -202,7 +202,7 @@ export function ClientHeader({
             <Menu className="w-6 h-6" />
           </button>
 
-          {/* Logo 28.TRAVEL */}
+          {/* Logo VN.TRAVEL */}
           <Link
             href="/"
             className="flex items-center gap-2 shrink-0"
@@ -210,7 +210,7 @@ export function ClientHeader({
             {websiteInfo.logo ? (
               <img
                 src={websiteInfo.logo}
-                alt={websiteInfo.websiteName || "28.TRAVEL"}
+                alt={websiteInfo.websiteName || "VN.TRAVEL"}
                 className="h-9 w-auto object-contain"
               />
             ) : (
@@ -219,7 +219,7 @@ export function ClientHeader({
                   28
                 </div>
                 <span className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-[#4502C7]">
-                  {websiteInfo.websiteName || "28.TRAVEL"}
+                  {websiteInfo.websiteName || "VN.TRAVEL"}
                 </span>
               </div>
             )}
@@ -314,7 +314,7 @@ export function ClientHeader({
           <aside className="relative z-10 w-[290px] max-w-[85vw] bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
             <div className="flex items-center justify-between px-4 py-4 border-b border-[#ECECEC]">
               <span className="text-[20px] font-extrabold text-[#4502C7]">
-                {websiteInfo.websiteName || "28.TRAVEL"}
+                {websiteInfo.websiteName || "VN.TRAVEL"}
               </span>
               <button
                 type="button"

@@ -102,11 +102,11 @@ async function main() {
   });
 
   const adminB = await prisma.adminAccount.upsert({
-    where: { email: "admin@28travel.com" },
+    where: { email: "admin@vntravel.com" },
     update: {},
     create: {
       fullName: "Lê Văn B",
-      email: "admin@28travel.com",
+      email: "admin@vntravel.com",
       phone: "0987654321",
       positionCompany: "Trưởng phòng điều hành",
       roleId: roleAdmin.id,
@@ -129,7 +129,7 @@ async function main() {
       slug: "tour-trong-nuoc",
       position: 1,
       status: RecordStatus.ACTIVE,
-      description: "Khám phá vẻ đẹp mọi miền tổ quốc Việt Nam cùng 28.TRAVEL.",
+      description: "Khám phá vẻ đẹp mọi miền tổ quốc Việt Nam cùng VN.TRAVEL.",
       avatar:
         "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1600&q=90",
       createdById: adminA.id,
@@ -1054,9 +1054,9 @@ async function main() {
     update: {},
     create: {
       id: "default",
-      websiteName: "28.TRAVEL",
+      websiteName: "VN.TRAVEL",
       phone: "0123456789",
-      email: "contact@28.travel.com",
+      email: "contact@vn.travel.com",
       address: "Số 123, đường ABC",
     },
   });
@@ -1128,7 +1128,7 @@ async function main() {
       isVerifiedBooking: true,
       aiSentiment: "POSITIVE",
       adminReply:
-        "28.TRAVEL cảm ơn anh Lê Văn A đã tin tưởng đồng hành cùng chuyến hành trình Di sản Miền Bắc! Hẹn gặp lại anh trong các tour tiếp theo.",
+        "VN.TRAVEL cảm ơn anh Lê Văn A đã tin tưởng đồng hành cùng chuyến hành trình Di sản Miền Bắc! Hẹn gặp lại anh trong các tour tiếp theo.",
       repliedById: adminA.id,
     },
     {
@@ -1161,7 +1161,7 @@ async function main() {
       isVerifiedBooking: true,
       aiSentiment: "POSITIVE",
       adminReply:
-        "Cảm ơn Minh Anh đã chia sẻ trải nghiệm tuyệt vời tại Đà Nẵng – Hội An! Chúc bạn luôn có những kỳ nghỉ đáng nhớ cùng 28.TRAVEL.",
+        "Cảm ơn Minh Anh đã chia sẻ trải nghiệm tuyệt vời tại Đà Nẵng – Hội An! Chúc bạn luôn có những kỳ nghỉ đáng nhớ cùng VN.TRAVEL.",
       repliedById: adminA.id,
     },
     {

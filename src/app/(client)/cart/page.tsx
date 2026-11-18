@@ -242,7 +242,7 @@ export default function CartPage() {
               Đặt Tour Thành Công!
             </h1>
             <p className="text-[14px] text-[#667479] mt-1.5">
-              Cảm ơn bạn đã tin tưởng 28.TRAVEL. Nhân viên tư vấn sẽ liên hệ xác
+              Cảm ơn bạn đã tin tưởng VN.TRAVEL. Nhân viên tư vấn sẽ liên hệ xác
               nhận trong ít phút.
             </p>
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4502C7]/10 text-[#4502C7] text-[15px] font-bold">

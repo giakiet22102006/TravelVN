@@ -278,7 +278,7 @@ export async function moderateReviewContent(
     sentiment?: string;
   }>(
     JSON.stringify({ rating, comment }),
-    `Bạn là hệ thống AI kiểm duyệt đánh giá tour du lịch cho TravelVN (28.TRAVEL).
+    `Bạn là hệ thống AI kiểm duyệt đánh giá tour du lịch cho TravelVN (VN.TRAVEL).
 Kiểm tra bình luận khách hàng:
 - Chặn (allowed: false) nếu chứa ngôn từ thô tục, chửi bới, công kích cá nhân, kỳ thị, quảng cáo cờ bạc/tín dụng đen/spam link, hoặc chữ vô nghĩa.
 - Cho phép (allowed: true) các lời góp ý/phê bình lịch sự dù chấm ít sao (ví dụ: chê xe cũ, lịch trình hơi gấp).
@@ -301,7 +301,7 @@ Trả về JSON: { "allowed": boolean, "reason": "lý do tiếng Việt ngắn g
     reason: aiResponse.allowed
       ? undefined
       : aiResponse.reason ||
-        "Nội dung chưa phù hợp tiêu chuẩn cộng đồng của 28.TRAVEL. Vui lòng chỉnh sửa lại.",
+        "Nội dung chưa phù hợp tiêu chuẩn cộng đồng của VN.TRAVEL. Vui lòng chỉnh sửa lại.",
     sentiment,
     source: "gemini",
   };
@@ -457,7 +457,7 @@ export async function buildTourReviewSummary(
     tips?: string;
   }>(
     JSON.stringify({ tourName, reviews: compactReviews }),
-    `Bạn là AI phân tích phản hồi khách hàng cho nền tảng du lịch 28.TRAVEL.
+    `Bạn là AI phân tích phản hồi khách hàng cho nền tảng du lịch VN.TRAVEL.
 Hãy tổng hợp danh sách đánh giá thật dưới đây bằng tiếng Việt tự nhiên, khách quan, ngắn gọn:
 - overview: 1–2 câu khái quát mức độ hài lòng chung dựa trên số sao và nội dung nhận xét.
 - pros: mảng 2–3 điểm cộng cụ thể được khách khen nhiều nhất.
@@ -613,7 +613,7 @@ export async function askTravelAssistant(
   if (tours.length === 0) {
     return {
       reply:
-        "Hiện tại hệ thống chưa có tour đang mở bán. Bạn vui lòng quay lại sau hoặc liên hệ hotline 28.TRAVEL để được tư vấn trực tiếp nhé!",
+        "Hiện tại hệ thống chưa có tour đang mở bán. Bạn vui lòng quay lại sau hoặc liên hệ hotline VN.TRAVEL để được tư vấn trực tiếp nhé!",
       recommendedTours: [],
       source: "heuristic",
     };
@@ -671,7 +671,7 @@ export async function askTravelAssistant(
         recentHistory,
         availableTours: catalogSnippet,
       }),
-      `Bạn là Trợ lý Du lịch AI thân thiện của 28.TRAVEL.
+      `Bạn là Trợ lý Du lịch AI thân thiện của VN.TRAVEL.
 Chỉ tư vấn dựa trên danh sách tour thật trong "availableTours", tuyệt đối không bịa tour hay giá không có trong danh sách.
 Nếu không có tour khớp hoàn toàn ngân sách/điểm đến, hãy giải thích khéo và gợi ý phương án gần nhất.
 Trả về JSON: { "reply": "câu trả lời tiếng Việt tự nhiên, súc tích 2-4 câu", "recommendedSlugs": ["slug-1", "slug-2"] (tối đa 3 slug hợp lệ) }.`,

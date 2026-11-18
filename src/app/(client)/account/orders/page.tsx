@@ -246,7 +246,7 @@ export default function CustomerOrdersPage() {
                 Chưa có đơn hàng nào
               </p>
               <p className="text-[13px] text-[#667479] mt-1">
-                Hãy khám phá các hành trình hấp dẫn của 28.TRAVEL để đặt chuyến
+                Hãy khám phá các hành trình hấp dẫn của VN.TRAVEL để đặt chuyến
                 đi đầu tiên nhé!
               </p>
               <Link
