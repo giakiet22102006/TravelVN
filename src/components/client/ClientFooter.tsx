@@ -58,7 +58,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
   return (
     <footer
       id="footer-newsletter"
-      className="bg-[#ECECEC] rounded-t-[32px] sm:rounded-t-[40px] pt-10 sm:pt-14 pb-24 mt-14 font-lexend-deca"
+      className="bg-[#ECECEC] rounded-t-[32px] sm:rounded-t-[40px] pt-10 sm:pt-14 pb-16 lg:pb-10 mt-14 font-lexend-deca"
     >
       <div className="max-w-[1184px] mx-auto px-4">
         {/* Newsletter Banner Box (#4502C7) */}
