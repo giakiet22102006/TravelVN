@@ -196,17 +196,19 @@ export function HomePageClient({
   return (
     <>
       {/* SECTION 1: Hero Banner & Smart Search */}
-      <section className="relative bg-[#1E103C] text-white overflow-hidden">
-        <SmartImage
-          src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85"
-          alt="Khám phá du lịch toàn cầu cùng VN.TRAVEL"
-          targetWidth={1600}
-          quality={85}
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#1E103C]/85" />
+      <section className="relative z-20 bg-[#1E103C] text-white">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <SmartImage
+            src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85"
+            alt="Khám phá du lịch toàn cầu cùng VN.TRAVEL"
+            targetWidth={1600}
+            quality={85}
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#1E103C]/85" />
+        </div>
 
         <div className="relative max-w-[1184px] mx-auto px-4 py-14 sm:py-20 lg:py-24">
           <div className="max-w-[920px] mx-auto text-center">
