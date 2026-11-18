@@ -58,7 +58,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
   return (
     <footer
       id="footer-newsletter"
-      className="bg-[#ECECEC] rounded-t-[32px] sm:rounded-t-[40px] pt-10 sm:pt-14 pb-16 lg:pb-10 mt-14 font-lexend-deca"
+      className="bg-[#ECECEC] rounded-t-[32px] sm:rounded-t-[40px] pt-10 sm:pt-14 pb-24 sm:pb-20 lg:pb-12 mt-14 font-lexend-deca"
     >
       <div className="max-w-[1184px] mx-auto px-4">
         {/* Newsletter Banner Box (#4502C7) */}
@@ -80,7 +80,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Nhập email của bạn..."
                 aria-label="Nhập email của bạn"
-                className="flex-1 h-[44px] px-4 rounded-[8px] border border-[#CCD1D2] text-[14px] text-[#25282B] placeholder:text-[#99A2A5] focus:outline-none focus:border-[#4502C7]"
+                className="w-full sm:flex-1 h-[44px] min-h-[44px] shrink-0 px-4 rounded-[8px] border border-[#CCD1D2] text-[14px] text-[#25282B] placeholder:text-[#99A2A5] focus:outline-none focus:border-[#4502C7]"
               />
               <button
                 type="submit"
@@ -138,20 +138,20 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
             </Link>
           </nav>
 
-          <div className="flex items-center gap-5 text-[#25282B]">
+          <div className="flex items-center gap-1.5 text-[#25282B]">
             <a
               href="https://www.facebook.com"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook VN.TRAVEL"
-              className="hover:text-[#4502C7] transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-lg hover:bg-[#4502C7]/10 hover:text-[#4502C7] transition-colors"
             >
               <Facebook className="w-5 h-5" />
             </a>
             <Link
               href="/"
               aria-label="Trang chủ VN.TRAVEL"
-              className="hover:text-[#4502C7] transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-lg hover:bg-[#4502C7]/10 hover:text-[#4502C7] transition-colors"
             >
               <Globe className="w-5 h-5" />
             </Link>
@@ -160,7 +160,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram VN.TRAVEL"
-              className="hover:text-[#4502C7] transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-lg hover:bg-[#4502C7]/10 hover:text-[#4502C7] transition-colors"
             >
               <Instagram className="w-5 h-5" />
             </a>
@@ -169,7 +169,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               target="_blank"
               rel="noopener noreferrer"
               aria-label="YouTube VN.TRAVEL"
-              className="hover:text-[#4502C7] transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-lg hover:bg-[#4502C7]/10 hover:text-[#4502C7] transition-colors"
             >
               <Youtube className="w-5 h-5" />
             </a>
@@ -179,7 +179,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
         {/* Bottom Copyright Row */}
         <div className="pt-7 flex flex-col md:flex-row items-center justify-between gap-4 text-[13px] text-[#667479]">
           <p className="order-3 md:order-1">
-            © 2024 VN.TRAVEL. All rights reserved.
+            © 2026 VN.TRAVEL. All rights reserved.
           </p>
 
           <Link

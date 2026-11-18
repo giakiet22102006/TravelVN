@@ -107,7 +107,7 @@ export function AiTravelAssistant() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 font-lexend-deca">
+    <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-40 font-lexend-deca">
       {open && (
         <div className="mb-3 w-[calc(100vw-2rem)] sm:w-[390px] h-[520px] max-h-[75vh] bg-white rounded-[16px] shadow-[0_18px_48px_rgba(32,12,84,0.22)] border border-[#E2D9F9] flex flex-col overflow-hidden">
           {/* Header */}
@@ -265,7 +265,7 @@ export function AiTravelAssistant() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Thu gọn Trợ lý AI" : "Mở Trợ lý AI VN.TRAVEL"}
         title={open ? "Thu gọn Trợ lý AI" : "Trợ lý AI VN.TRAVEL"}
-        className="ml-auto relative w-14 h-14 rounded-full bg-gradient-to-br from-[#4502C7] to-[#6B28EB] hover:from-[#36019e] hover:to-[#591fd0] text-white shadow-[0_12px_30px_rgba(69,2,199,0.42)] ring-2 ring-white/30 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+        className="ml-auto relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#4502C7] to-[#6B28EB] hover:from-[#36019e] hover:to-[#591fd0] text-white shadow-[0_12px_30px_rgba(69,2,199,0.42)] ring-2 ring-white/30 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
       >
         {open ? (
           <X className="w-6 h-6" />

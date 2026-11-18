@@ -44,7 +44,7 @@ function computeCouponDiscount(couponRaw: string, subTotal: number): {
   if (!code) {
     return { discount: 0, normalizedCode: null };
   }
-  if (code === "TOURMUAHE2024") {
+  if (code === "TOUR2026" || code === "TOURMUAHE2024") {
     return {
       discount: Math.min(400000, subTotal),
       normalizedCode: code,
@@ -75,6 +75,13 @@ export async function POST(req: NextRequest) {
     if (!fullName) {
       return NextResponse.json(
         { message: "Vui lòng nhập họ và tên khách hàng" },
+        { status: 400 }
+      );
+    }
+
+    if (fullName.length < 2 || fullName.length > 100) {
+      return NextResponse.json(
+        { message: "Họ và tên phải từ 2 đến 100 ký tự" },
         { status: 400 }
       );
     }

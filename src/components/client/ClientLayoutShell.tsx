@@ -36,9 +36,9 @@ export interface ClientUserProfile {
 const DEFAULT_WEBSITE_INFO: WebsiteInfoData = {
   id: "default",
   websiteName: "VN.TRAVEL",
-  phone: "0123456789",
+  phone: "1900 6868",
   email: "contact@vn.travel.com",
-  address: "Số 123, đường ABC",
+  address: "285 Cách Mạng Tháng Tám, Quận 10, TP.HCM",
   logo: null,
   favicon: null,
 };

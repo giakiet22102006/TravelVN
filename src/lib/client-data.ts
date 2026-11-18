@@ -33,9 +33,9 @@ export interface WebsiteInfoData {
 export const DEFAULT_WEBSITE_INFO: WebsiteInfoData = {
   id: "default",
   websiteName: "VN.TRAVEL",
-  phone: "0123456789",
+  phone: "1900 6868",
   email: "contact@vn.travel.com",
-  address: "Số 123, đường ABC",
+  address: "285 Cách Mạng Tháng Tám, Quận 10, TP.HCM",
   logo: null,
   favicon: null,
 };
@@ -258,6 +258,76 @@ interface NormalizedToursQuery {
   limit: number;
 }
 
+function normalizeVietnameseText(input: string): string {
+  return input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function editDistanceAtMostOne(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  if (a.length < 4 || b.length < 4) return false;
+
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+    if (a.length > b.length) {
+      i++;
+    } else if (b.length > a.length) {
+      j++;
+    } else {
+      i++;
+      j++;
+    }
+  }
+  if (i < a.length || j < b.length) edits++;
+  return edits <= 1;
+}
+
+function matchesSearchTerm(
+  tour: { name: string; code: string; slug: string; information?: string | null },
+  rawTerm: string
+): boolean {
+  const normTerm = normalizeVietnameseText(rawTerm);
+  if (!normTerm) return true;
+
+  const haystack = normalizeVietnameseText(
+    `${tour.name} ${tour.code} ${tour.slug.replace(/-/g, " ")} ${tour.information || ""}`
+  );
+  const compactHaystack = haystack.replace(/\s+/g, "");
+  const compactTerm = normTerm.replace(/\s+/g, "");
+
+  if (haystack.includes(normTerm) || compactHaystack.includes(compactTerm)) {
+    return true;
+  }
+
+  const queryTokens = normTerm.split(" ").filter(Boolean);
+  const candidateTokens = haystack.split(" ").filter(Boolean);
+
+  return queryTokens.every((qt) =>
+    candidateTokens.some(
+      (ct) =>
+        ct === qt ||
+        (qt.length >= 4 && ct.includes(qt)) ||
+        editDistanceAtMostOne(qt, ct)
+    )
+  );
+}
+
 const executeToursQueryCached = unstable_cache(
   async (serializedParams: string) => {
     const q = JSON.parse(serializedParams) as NormalizedToursQuery;
@@ -268,18 +338,6 @@ const executeToursQueryCached = unstable_cache(
 
     if (q.categoryIds && q.categoryIds.length > 0) {
       andConditions.push({ categoryId: { in: q.categoryIds } });
-    }
-
-    for (const term of [q.keyword, q.destination]) {
-      if (!term) continue;
-      andConditions.push({
-        OR: [
-          { name: { contains: term, mode: "insensitive" } },
-          { code: { contains: term, mode: "insensitive" } },
-          { slug: { contains: term, mode: "insensitive" } },
-          { information: { contains: term, mode: "insensitive" } },
-        ],
-      });
     }
 
     if (q.departureLocation) {
@@ -312,63 +370,89 @@ const executeToursQueryCached = unstable_cache(
       "price-desc": [{ priceNewAdult: "desc" }, { position: "asc" }],
     };
 
-    if (q.dealOnly || q.sort === "deal") {
+    const hasTextFilter = Boolean(q.keyword || q.destination);
+
+    if (q.dealOnly || q.sort === "deal" || hasTextFilter) {
       const allMatching = await prisma.tour.findMany({
         where,
-        select: CLIENT_TOUR_SELECT,
-        orderBy: [{ position: "asc" }, { createdAt: "desc" }],
+        select: {
+          ...CLIENT_TOUR_SELECT,
+          information: hasTextFilter,
+        },
+        orderBy:
+          orderByMap[q.sort] ?? [{ position: "asc" }, { createdAt: "desc" }],
       });
 
-      const filtered = q.dealOnly
-        ? allMatching.filter(
-            (t) => calcDiscountPercent(t.priceAdult, t.priceNewAdult) > 0
-          )
-        : allMatching;
+      let filtered = allMatching;
+
+      if (q.keyword) {
+        filtered = filtered.filter((t) => matchesSearchTerm(t, q.keyword));
+      }
+      if (q.destination) {
+        filtered = filtered.filter((t) => matchesSearchTerm(t, q.destination));
+      }
+      if (q.dealOnly) {
+        filtered = filtered.filter(
+          (t) => calcDiscountPercent(t.priceAdult, t.priceNewAdult) > 0
+        );
+      }
 
       if (q.sort === "deal") {
-        filtered.sort(
+        filtered = [...filtered].sort(
           (a, b) =>
             calcDiscountPercent(b.priceAdult, b.priceNewAdult) -
             calcDiscountPercent(a.priceAdult, a.priceNewAdult)
+        );
+      } else if (q.sort === "price-asc") {
+        filtered = [...filtered].sort(
+          (a, b) =>
+            (a.priceNewAdult - b.priceNewAdult) ||
+            (a.position - b.position)
+        );
+      } else if (q.sort === "price-desc") {
+        filtered = [...filtered].sort(
+          (a, b) =>
+            (b.priceNewAdult - a.priceNewAdult) ||
+            (a.position - b.position)
         );
       }
 
       const total = filtered.length;
       const totalPages = Math.max(1, Math.ceil(total / q.limit));
+      const effectivePage = Math.min(q.page, totalPages);
       const paged = filtered
-        .slice((q.page - 1) * q.limit, q.page * q.limit)
+        .slice((effectivePage - 1) * q.limit, effectivePage * q.limit)
         .map(serializeTourDates);
 
       return {
         tours: paged,
         total,
-        page: q.page,
+        page: effectivePage,
         totalPages,
       };
     }
 
-    const [tours, total] = await Promise.all([
-      prisma.tour.findMany({
-        where,
-        select: CLIENT_TOUR_SELECT,
-        orderBy:
-          orderByMap[q.sort] ?? [{ position: "asc" }, { createdAt: "desc" }],
-        skip: (q.page - 1) * q.limit,
-        take: q.limit,
-      }),
-      prisma.tour.count({ where }),
-    ]);
-
+    const total = await prisma.tour.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / q.limit));
+    const effectivePage = Math.min(q.page, totalPages);
+
+    const tours = await prisma.tour.findMany({
+      where,
+      select: CLIENT_TOUR_SELECT,
+      orderBy:
+        orderByMap[q.sort] ?? [{ position: "asc" }, { createdAt: "desc" }],
+      skip: (effectivePage - 1) * q.limit,
+      take: q.limit,
+    });
 
     return {
       tours: tours.map(serializeTourDates),
       total,
-      page: q.page,
+      page: effectivePage,
       totalPages,
     };
   },
-  ["client-tours-query-v2"],
+  ["client-tours-query-v3"],
   {
     revalidate: 120,
     tags: [CACHE_TAGS.clientTours],

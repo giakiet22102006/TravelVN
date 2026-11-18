@@ -304,7 +304,7 @@ async function main() {
       schedules: tour1Schedules,
     },
     create: {
-      code: "123456789",
+      code: "TOUR00001",
       name: "Tour Hà Nội - Ninh Bình - Hạ Long - Yên Tử - Sapa | 6N5D",
       slug: "tour-ha-noi-ninh-binh-ha-long-yen-tu-sapa-6n5d",
       categoryId: catNorth.id,
@@ -367,7 +367,7 @@ async function main() {
     },
     create: {
       code: "TOUR00002",
-      name: "Tour 2024 Phú Quốc – Thiên Đường Đảo Ngọc (3N2D)",
+      name: "Tour Phú Quốc – Thiên Đường Đảo Ngọc (3N2Đ)",
       slug: "tour-phu-quoc-thien-duong-dao-ngoc-3n2d",
       categoryId: catSouth.id,
       position: 2,
@@ -432,7 +432,7 @@ async function main() {
     },
     create: {
       code: "TOUR00003",
-      name: "Combo Đà Nẵng 2024: ĐÀ NẴNG – HỘI AN – BÀ NÀ HILL",
+      name: "Combo Đà Nẵng: ĐÀ NẴNG – HỘI AN – BÀ NÀ HILLS (4N3Đ)",
       slug: "combo-da-nang-hoi-an-ba-na-hill",
       categoryId: catCentral.id,
       position: 3,
@@ -515,7 +515,7 @@ async function main() {
       time: "4 Ngày 3 Đêm",
       vehicle: "Ô tô giường nằm cao cấp",
       departureDate: new Date("2026-12-22T06:30:00.000Z"),
-      information: "Ưu đãi giờ chót săn mây Tà Xùa - Sapa - Bản Cát Cát - Đỉnh Fansipan.",
+      information: "Ưu đãi giờ chót khám phá Sapa - Bản Cát Cát - Thung lũng Mường Hoa - Đỉnh Fansipan.",
       schedules: tour4Schedules,
       createdById: adminA.id,
       updatedById: adminA.id,
@@ -1055,9 +1055,9 @@ async function main() {
     create: {
       id: "default",
       websiteName: "VN.TRAVEL",
-      phone: "0123456789",
+      phone: "1900 6868",
       email: "contact@vn.travel.com",
-      address: "Số 123, đường ABC",
+      address: "285 Cách Mạng Tháng Tám, Quận 10, TP.HCM",
     },
   });
 

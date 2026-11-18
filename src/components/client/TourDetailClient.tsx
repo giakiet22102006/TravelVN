@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Bus,
   Calendar,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -13,9 +14,11 @@ import {
   MapPin,
   Minus,
   Plus,
+  ShieldCheck,
   ShoppingCart,
   Star,
   Ticket,
+  XCircle,
 } from "lucide-react";
 import { useCart } from "@/components/client/CartContext";
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
@@ -128,10 +131,20 @@ export function TourDetailClient({
   const [qtyAdult, setQtyAdult] = useState(tour.stockAdult > 0 ? 1 : 0);
   const [qtyChild, setQtyChild] = useState(0);
   const [qtyBaby, setQtyBaby] = useState(0);
+  const [qtyHint, setQtyHint] = useState<string | null>(null);
   const [bookingFeedback, setBookingFeedback] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const minAdult = tour.stockAdult > 0 ? 1 : 0;
+
+  function scrollToBookingBox() {
+    const el = document.getElementById("booking-box");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   const unitAdult =
     tour.priceNewAdult > 0 ? tour.priceNewAdult : tour.priceAdult;
@@ -258,7 +271,7 @@ export function TourDetailClient({
                         prev === 0 ? galleryImages.length - 1 : prev - 1
                       )
                     }
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center transition-colors"
+                    className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center transition-colors shadow"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -270,7 +283,7 @@ export function TourDetailClient({
                         prev === galleryImages.length - 1 ? 0 : prev + 1
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center transition-colors"
+                    className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center transition-colors shadow"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -304,6 +317,39 @@ export function TourDetailClient({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Mobile/Tablet Quick Price & Booking Jump Card (m4) */}
+          <div className="lg:hidden bg-white rounded-[14px] p-4 border border-[#E7E0F8] shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-baseline gap-2">
+                {discount > 0 && (
+                  <span className="text-[13px] text-[#667479] line-through">
+                    {formatCurrencyVND(tour.priceAdult)}
+                  </span>
+                )}
+                <span className="text-[20px] font-extrabold text-[#DA0808]">
+                  {formatCurrencyVND(unitAdult)}
+                </span>
+                <span className="text-[12px] text-[#667479]">/ khách</span>
+              </div>
+              <p className="text-[12px] text-[#667479] mt-0.5">
+                Khởi hành:{" "}
+                <strong className="text-[#25282B]">
+                  {formatDateVN(tour.departureDate)}
+                </strong>{" "}
+                · Còn{" "}
+                <strong className="text-[#DA0808]">{tour.stockAdult}</strong>{" "}
+                chỗ người lớn
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={scrollToBookingBox}
+              className="px-4 min-h-[44px] rounded-[10px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[13px] font-bold shadow-sm transition-colors whitespace-nowrap"
+            >
+              Chọn Vé &amp; Đặt Ngay
+            </button>
           </div>
 
           {/* Thông Tin Tour */}
@@ -359,10 +405,68 @@ export function TourDetailClient({
               </div>
             )}
           </div>
+
+          {/* Dịch vụ Bao gồm & Không bao gồm (M4) */}
+          <div className="bg-white rounded-[14px] p-5 sm:p-6 border border-[#ECECEC] shadow-sm">
+            <h2 className="text-[20px] font-bold text-[#4502C7] mb-4">
+              Dịch Vụ Bao Gồm &amp; Lưu Ý
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[13.5px]">
+              <div className="rounded-[12px] bg-emerald-50/60 border border-emerald-200 p-4 space-y-2">
+                <p className="font-bold text-emerald-800 inline-flex items-center gap-1.5">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>Giá tour bao gồm</span>
+                </p>
+                <ul className="space-y-1.5 text-[#25282B] list-disc pl-5 leading-relaxed">
+                  <li>
+                    Phương tiện di chuyển theo chương trình ({tour.vehicle || "Xe du lịch đời mới"}).
+                  </li>
+                  <li>Lưu trú khách sạn tiêu chuẩn 3–5 sao (2 khách/phòng).</li>
+                  <li>Các bữa ăn chính và ăn sáng buffet theo lịch trình.</li>
+                  <li>Vé vào cổng các điểm tham quan chính &amp; hướng dẫn viên suốt tuyến.</li>
+                  <li>Bảo hiểm du lịch trọn gói &amp; nước suối phục vụ hàng ngày.</li>
+                </ul>
+              </div>
+
+              <div className="rounded-[12px] bg-amber-50/60 border border-amber-200 p-4 space-y-2">
+                <p className="font-bold text-amber-800 inline-flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4 shrink-0" />
+                  <span>Giá tour không bao gồm</span>
+                </p>
+                <ul className="space-y-1.5 text-[#25282B] list-disc pl-5 leading-relaxed">
+                  <li>Chi phí cá nhân: giặt ủi, đồ uống ngoài thực đơn, mua sắm.</li>
+                  <li>Phụ thu phòng đơn (nếu đi 1 mình hoặc yêu cầu ở riêng).</li>
+                  <li>Vé cáp treo / trò chơi tự túc ngoài mục bao gồm của từng ngày.</li>
+                  <li>Tiền bồi dưỡng (tip) cho tài xế và hướng dẫn viên (không bắt buộc).</li>
+                  <li>Thuế VAT 8–10% khi xuất hóa đơn GTGT doanh nghiệp (nếu có yêu cầu).</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[12px] bg-[#F8F7FC] border border-[#E7E0F8] p-4 text-[13px] text-[#4F4F4F] space-y-2">
+              <p className="font-bold text-[#4502C7] inline-flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Chính Sách Hoàn / Hủy &amp; Đổi Lịch Khởi Hành</span>
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 list-disc pl-5">
+                <li>Hủy trước ngày khởi hành từ <strong>15 ngày</strong> trở lên: Hoàn 100% tiền cọc (hoặc đổi ngày miễn phí).</li>
+                <li>Hủy trước từ <strong>7 đến 14 ngày</strong>: Phí hủy 30% tổng giá trị tour.</li>
+                <li>Hủy trước từ <strong>3 đến 6 ngày</strong>: Phí hủy 50% tổng giá trị tour.</li>
+                <li>Hủy trong vòng <strong>48 giờ</strong> trước khởi hành: Không hoàn phí cọc (trừ trường hợp bất khả kháng).</li>
+              </ul>
+              <p className="pt-1 text-[12px] text-[#667479]">
+                Xem đầy đủ tại{" "}
+                <Link href="/terms" className="text-[#4502C7] font-semibold hover:underline">
+                  Điều khoản dịch vụ &amp; Chính sách đặt tour
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Sticky Booking Box "Chuyến Đi Của Bạn" */}
-        <div className="lg:col-span-5 lg:sticky lg:top-[112px]">
+        <div id="booking-box" className="lg:col-span-5 lg:sticky lg:top-[112px] scroll-mt-28">
           <div className="bg-white rounded-[14px] p-4 sm:p-5 border border-[#ECECEC] shadow-md">
             <h2 className="text-[19px] font-bold text-[#4502C7] mb-3">
               Chuyến Đi Của Bạn
@@ -388,18 +492,14 @@ export function TourDetailClient({
                   href="#tour-reviews"
                   className="mt-1 flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                 >
-                  <div className="flex items-center text-[#FFB800]">
+                  <div className="flex items-center">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
                         className={`w-3.5 h-3.5 ${
-                          i <
-                          Math.round(
-                            liveRatingStats.reviewCount > 0
-                              ? liveRatingStats.ratingAvg
-                              : 5
-                          )
-                            ? "fill-[#FFB800]"
+                          liveRatingStats.reviewCount > 0 &&
+                          i < Math.round(liveRatingStats.ratingAvg)
+                            ? "fill-[#FFB800] text-[#FFB800]"
                             : "text-[#D4D8DD]"
                         }`}
                       />
@@ -481,37 +581,64 @@ export function TourDetailClient({
             </div>
 
             {/* Passenger Quantities */}
-            <div className="py-3 border-b border-[#ECECEC] space-y-2">
-              <p className="text-[13px] font-semibold text-[#25282B]">
-                Số Lượng Hành Khách
+            <div className="py-3 border-b border-[#ECECEC] space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px] font-semibold text-[#25282B]">
+                  Số Lượng Hành Khách
+                </p>
+                {discount > 0 && (
+                  <div className="text-[12px] flex items-center gap-1.5">
+                    <span className="text-[#667479]">Giá gốc:</span>
+                    <span className="text-[#667479] line-through">
+                      {formatCurrencyVND(tour.priceAdult)}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-[#DA0808]/10 text-[#DA0808] font-bold text-[11px]">
+                      -{discount}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-[#667479]">
+                Chỗ còn theo hạng vé: {tour.stockAdult} Người lớn ·{" "}
+                {tour.stockChild} Trẻ em · {tour.stockBaby} Em bé
               </p>
 
               {[
                 {
                   name: "Người lớn",
                   label: "Người lớn:",
+                  oldPrice: tour.priceAdult,
                   unitPrice: unitAdult,
                   qty: qtyAdult,
+                  minQty: minAdult,
                   stock: tour.stockAdult,
                   setQty: setQtyAdult,
                 },
                 {
                   name: "Trẻ em",
                   label: "Trẻ em:",
+                  oldPrice: tour.priceChild,
                   unitPrice: unitChild,
                   qty: qtyChild,
+                  minQty: 0,
                   stock: tour.stockChild,
                   setQty: setQtyChild,
                 },
                 {
                   name: "Em bé",
                   label: "Em bé:",
+                  oldPrice: tour.priceBaby,
                   unitPrice: unitBaby,
                   qty: qtyBaby,
+                  minQty: 0,
                   stock: tour.stockBaby,
                   setQty: setQtyBaby,
                 },
-              ].map((tier) => (
+              ].map((tier) => {
+                const atMin = tier.qty <= tier.minQty;
+                const atMax = tier.qty >= tier.stock;
+                return (
                 <div
                   key={tier.label}
                   className="flex items-center justify-between gap-2 text-[13px]"
@@ -525,53 +652,113 @@ export function TourDetailClient({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center border border-[#CCD1D2] rounded-[6px] overflow-hidden">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <div className="flex items-center border border-[#CCD1D2] rounded-[8px] overflow-hidden">
                       <button
                         type="button"
                         aria-label={`Giảm số lượng ${tier.name}`}
-                        onClick={() => tier.setQty(Math.max(0, tier.qty - 1))}
-                        className="w-7 h-7 flex items-center justify-center hover:bg-[#F6F6F6] text-[#25282B]"
+                        aria-disabled={atMin}
+                        onClick={() => {
+                          if (atMin) {
+                            setQtyHint(
+                              tier.minQty > 0
+                                ? `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
+                                : null
+                            );
+                            return;
+                          }
+                          setQtyHint(null);
+                          tier.setQty(Math.max(tier.minQty, tier.qty - 1));
+                        }}
+                        className={`w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                          atMin
+                            ? "text-[#99A2A5] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
+                            : "hover:bg-[#F6F6F6] text-[#25282B]"
+                        }`}
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
                       <input
                         type="number"
-                        min={0}
+                        min={tier.minQty}
                         max={tier.stock}
                         aria-label={`Số lượng ${tier.name}`}
                         value={tier.qty}
                         onChange={(e) => {
-                          const v = Math.max(
-                            0,
-                            Math.min(tier.stock, Number(e.target.value) || 0)
-                          );
-                          tier.setQty(v);
+                          const raw = Number(e.target.value);
+                          if (!Number.isFinite(raw)) {
+                            tier.setQty(tier.minQty);
+                            return;
+                          }
+                          if (raw > tier.stock) {
+                            setQtyHint(
+                              `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
+                            );
+                            tier.setQty(tier.stock);
+                            return;
+                          }
+                          if (raw < tier.minQty) {
+                            setQtyHint(
+                              `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
+                            );
+                            tier.setQty(tier.minQty);
+                            return;
+                          }
+                          setQtyHint(null);
+                          tier.setQty(Math.floor(raw));
                         }}
-                        className="w-10 h-7 text-center text-[13px] font-bold border-x border-[#CCD1D2] focus:outline-none"
+                        className="w-10 h-10 sm:h-9 text-center text-[13px] font-bold border-x border-[#CCD1D2] focus:outline-none"
                       />
                       <button
                         type="button"
                         aria-label={`Tăng số lượng ${tier.name}`}
-                        disabled={tier.qty >= tier.stock}
-                        onClick={() =>
-                          tier.setQty(Math.min(tier.stock, tier.qty + 1))
-                        }
-                        className="w-7 h-7 flex items-center justify-center hover:bg-[#F6F6F6] text-[#25282B] disabled:opacity-40"
+                        aria-disabled={atMax}
+                        onClick={() => {
+                          if (atMax) {
+                            setQtyHint(
+                              `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
+                            );
+                            return;
+                          }
+                          setQtyHint(null);
+                          tier.setQty(Math.min(tier.stock, tier.qty + 1));
+                        }}
+                        className={`w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                          atMax
+                            ? "text-[#99A2A5] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
+                            : "hover:bg-[#F6F6F6] text-[#25282B]"
+                        }`}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <div className="min-w-[105px] text-right font-semibold text-[#4502C7]">
-                      {tier.qty} x{" "}
-                      <span className="text-[#DA0808]">
-                        {tier.unitPrice.toLocaleString("vi-VN")}
-                      </span>
+                    <div className="min-w-[98px] text-right font-semibold text-[#4502C7]">
+                      {tier.oldPrice > tier.unitPrice && (
+                        <div className="text-[11px] font-normal text-[#99A2A5] line-through leading-none mb-0.5">
+                          {tier.oldPrice.toLocaleString("vi-VN")}đ
+                        </div>
+                      )}
+                      <div>
+                        {tier.qty} x{" "}
+                        <span className="text-[#DA0808]">
+                          {tier.unitPrice.toLocaleString("vi-VN")}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+
+              {qtyHint && (
+                <p
+                  role="status"
+                  className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-1.5 font-medium"
+                >
+                  {qtyHint}
+                </p>
+              )}
             </div>
 
             {/* Total Row */}

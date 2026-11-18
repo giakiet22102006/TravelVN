@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,9 +15,14 @@ import {
 } from "lucide-react";
 import { useCart } from "@/components/client/CartContext";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
-import { BankTransferInfoBox } from "@/components/client/BankTransferInfoBox";
+import {
+  BankTransferInfoBox,
+  MomoInfoBox,
+} from "@/components/client/BankTransferInfoBox";
 import { SmartImage } from "@/components/client/SmartImage";
 import { formatCurrencyVND, formatDateVN } from "@/lib/format";
+
+const CART_COUPON_STORAGE_KEY = "travelvn_cart_coupon_v1";
 
 type PaymentMethodType = "CASH" | "MOMO" | "BANK_TRANSFER";
 
@@ -51,11 +56,20 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 function computePreviewDiscount(code: string, subTotal: number): number {
   const normalized = code.trim().toUpperCase();
   if (!normalized || subTotal <= 0) return 0;
-  if (normalized === "TOURMUAHE2024") return Math.min(400000, subTotal);
+  if (normalized === "TOUR2026" || normalized === "TOURMUAHE2024") {
+    return Math.min(400000, subTotal);
+  }
   if (normalized === "GIAM10") {
     return Math.min(Math.round(subTotal * 0.1), 1000000, subTotal);
   }
   return 0;
+}
+
+function getCouponSuccessText(code: string): string {
+  if (code === "TOUR2026" || code === "TOURMUAHE2024") {
+    return `Áp dụng mã ${code} thành công: Giảm 400.000đ!`;
+  }
+  return "Áp dụng mã GIAM10 thành công: Giảm 10% (tối đa 1.000.000đ)!";
 }
 
 export default function CartPage() {
@@ -71,19 +85,46 @@ export default function CartPage() {
   } = useCart();
   const { currentUser } = useClientMeta();
 
-  // Coupon state
+  // Coupon state (persisted across reloads)
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState("");
   const [couponFeedback, setCouponFeedback] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [itemQtyHints, setItemQtyHints] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const saved = (
+        window.localStorage.getItem(CART_COUPON_STORAGE_KEY) || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (
+        saved === "TOUR2026" ||
+        saved === "TOURMUAHE2024" ||
+        saved === "GIAM10"
+      ) {
+        setAppliedCoupon(saved);
+        setCouponInput(saved);
+        setCouponFeedback({
+          type: "success",
+          text: getCouponSuccessText(saved),
+        });
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
 
   // Customer Info & Payment state
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>("CASH");
+  const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -118,28 +159,38 @@ export default function CartPage() {
     e.preventDefault();
     const code = couponInput.trim().toUpperCase();
     if (!code) {
-      setAppliedCoupon("");
-      setCouponFeedback(null);
+      clearCoupon();
       return;
     }
 
-    if (code !== "TOURMUAHE2024" && code !== "GIAM10") {
+    if (
+      code !== "TOUR2026" &&
+      code !== "TOURMUAHE2024" &&
+      code !== "GIAM10"
+    ) {
       setAppliedCoupon("");
+      try {
+        window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
       setCouponFeedback({
         type: "error",
-        text: `Mã "${code}" không hợp lệ. Thử dùng TOURMUAHE2024 hoặc GIAM10.`,
+        text: `Mã "${code}" không hợp lệ. Thử dùng TOUR2026 hoặc GIAM10.`,
       });
       return;
     }
 
     setAppliedCoupon(code);
     setCouponInput(code);
+    try {
+      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, code);
+    } catch {
+      // Ignore
+    }
     setCouponFeedback({
       type: "success",
-      text:
-        code === "TOURMUAHE2024"
-          ? "Áp dụng mã TOURMUAHE2024 thành công: Giảm 400.000đ!"
-          : "Áp dụng mã GIAM10 thành công: Giảm 10% (tối đa 1.000.000đ)!",
+      text: getCouponSuccessText(code),
     });
   }
 
@@ -147,6 +198,11 @@ export default function CartPage() {
     setAppliedCoupon("");
     setCouponInput("");
     setCouponFeedback(null);
+    try {
+      window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
   }
 
   async function handleCheckoutSubmit(e: React.FormEvent) {
@@ -160,6 +216,8 @@ export default function CartPage() {
 
     if (!trimmedName) {
       nextErrors.fullName = "Vui lòng nhập họ và tên khách hàng.";
+    } else if (trimmedName.length < 2 || trimmedName.length > 100) {
+      nextErrors.fullName = "Họ và tên phải từ 2 đến 100 ký tự.";
     }
 
     if (!trimmedPhone) {
@@ -172,6 +230,13 @@ export default function CartPage() {
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
       setSubmitError("Vui lòng kiểm tra lại thông tin liên hệ bên trên.");
+      const targetEl = nextErrors.fullName
+        ? fullNameInputRef.current
+        : phoneInputRef.current;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetEl.focus({ preventScroll: true });
+      }
       return;
     }
 
@@ -282,6 +347,9 @@ export default function CartPage() {
 
           {createdOrder.paymentMethod === "BANK_TRANSFER" && (
             <BankTransferInfoBox orderCode={createdOrder.code} />
+          )}
+          {createdOrder.paymentMethod === "MOMO" && (
+            <MomoInfoBox orderCode={createdOrder.code} />
           )}
 
           <div className="mt-6 space-y-2.5">
@@ -417,24 +485,26 @@ export default function CartPage() {
                 return (
                 <div
                   key={item.cartKey}
-                  className="py-5 flex flex-col md:flex-row gap-4 md:items-center justify-between"
+                  className="py-5 flex flex-col lg:flex-row gap-4 lg:items-center justify-between"
                 >
                   {/* Left: Checkbox + Remove + Thumbnail + Info */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="flex flex-col items-center gap-3 pt-1">
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => toggleCheck(item.cartKey)}
-                        aria-label={`Chọn tour ${item.name}`}
-                        className="w-4 h-4 accent-[#4502C7] rounded cursor-pointer"
-                      />
+                  <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                    <div className="flex flex-col items-center gap-1.5 shrink-0 -ml-2">
+                      <label className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-[#F6F6F6] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => toggleCheck(item.cartKey)}
+                          aria-label={`Chọn tour ${item.name}`}
+                          className="w-4 h-4 accent-[#4502C7] rounded cursor-pointer"
+                        />
+                      </label>
                       <button
                         type="button"
                         onClick={() => removeItem(item.cartKey)}
                         title="Xóa khỏi giỏ"
                         aria-label={`Xóa ${item.name}`}
-                        className="text-[#99A2A5] hover:text-[#DA0808] transition-colors"
+                        className="w-11 h-11 flex items-center justify-center rounded-lg text-[#99A2A5] hover:text-[#DA0808] hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -442,13 +512,14 @@ export default function CartPage() {
 
                     <Link
                       href={`/tours/${item.slug}`}
-                      className="relative w-[105px] sm:w-[135px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-[#F6F6F6]"
+                      className="relative w-[108px] sm:w-[136px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-[#ECECEC]"
                     >
                       <SmartImage
                         src={item.avatar}
                         alt={item.name}
                         targetWidth={360}
                         quality={82}
+                        priority
                         sizes="150px"
                         className="object-cover"
                       />
@@ -481,7 +552,7 @@ export default function CartPage() {
                   </div>
 
                   {/* Right: Quantities */}
-                  <div className="md:w-[320px] shrink-0 space-y-2 pl-7 md:pl-0">
+                  <div className="lg:w-[340px] shrink-0 space-y-2.5 pl-0">
                     <p className="text-[12px] font-semibold text-[#667479]">
                       Số Lượng Hành Khách
                     </p>
@@ -492,6 +563,7 @@ export default function CartPage() {
                         label: "Người lớn:",
                         tier: "adult" as const,
                         qty: item.quantityAdult,
+                        minQty: item.stockAdult > 0 ? 1 : 0,
                         totalUsed: usedBySameTour.adult,
                         stock: item.stockAdult,
                         price: item.priceNewAdult,
@@ -501,6 +573,7 @@ export default function CartPage() {
                         label: "Trẻ em:",
                         tier: "child" as const,
                         qty: item.quantityChild,
+                        minQty: 0,
                         totalUsed: usedBySameTour.child,
                         stock: item.stockChild,
                         price: item.priceNewChild,
@@ -510,62 +583,112 @@ export default function CartPage() {
                         label: "Em bé:",
                         tier: "baby" as const,
                         qty: item.quantityBaby,
+                        minQty: 0,
                         totalUsed: usedBySameTour.baby,
                         stock: item.stockBaby,
                         price: item.priceNewBaby,
                       },
-                    ].map((row) => (
+                    ].map((row) => {
+                      const atMin = row.qty <= row.minQty;
+                      const atMax = row.totalUsed >= row.stock;
+                      return (
                       <div
                         key={row.tier}
                         className="flex items-center justify-between gap-2 text-[13px]"
                       >
-                        <span className="text-[#25282B] w-[76px]">
+                        <span className="text-[#25282B] w-[78px] shrink-0">
                           {row.label}
                         </span>
 
-                        <div className="flex items-center border border-[#CCD1D2] rounded-[6px] overflow-hidden">
+                        <div className="flex items-center border border-[#CCD1D2] rounded-[8px] overflow-hidden shrink-0">
                           <button
                             type="button"
                             aria-label={`Giảm số lượng ${row.name}`}
-                            onClick={() =>
+                            aria-disabled={atMin}
+                            onClick={() => {
+                              if (atMin) {
+                                if (row.tier === "adult") {
+                                  setItemQtyHints((prev) => ({
+                                    ...prev,
+                                    [item.cartKey]:
+                                      "Tối thiểu 1 Người lớn — bấm biểu tượng thùng rác nếu muốn xóa tour.",
+                                  }));
+                                }
+                                return;
+                              }
+                              setItemQtyHints((prev) => {
+                                const next = { ...prev };
+                                delete next[item.cartKey];
+                                return next;
+                              });
                               updateQuantity(
                                 item.cartKey,
                                 row.tier,
                                 row.qty - 1
-                              )
-                            }
-                            className="w-6 h-6 flex items-center justify-center hover:bg-[#F6F6F6]"
+                              );
+                            }}
+                            className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                              atMin
+                                ? "text-[#99A2A5] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
+                                : "hover:bg-[#F6F6F6] text-[#25282B]"
+                            }`}
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="w-8 text-center text-[12px] font-bold">
+                          <span className="w-8 text-center text-[13px] font-bold shrink-0">
                             {row.qty}
                           </span>
                           <button
                             type="button"
                             aria-label={`Tăng số lượng ${row.name}`}
-                            disabled={row.totalUsed >= row.stock}
-                            onClick={() =>
+                            aria-disabled={atMax}
+                            onClick={() => {
+                              if (atMax) {
+                                setItemQtyHints((prev) => ({
+                                  ...prev,
+                                  [item.cartKey]: `Chỉ còn tối đa ${row.stock} chỗ cho hạng vé ${row.name}.`,
+                                }));
+                                return;
+                              }
+                              setItemQtyHints((prev) => {
+                                const next = { ...prev };
+                                delete next[item.cartKey];
+                                return next;
+                              });
                               updateQuantity(
                                 item.cartKey,
                                 row.tier,
                                 row.qty + 1
-                              )
-                            }
-                            className="w-6 h-6 flex items-center justify-center hover:bg-[#F6F6F6] disabled:opacity-40"
+                              );
+                            }}
+                            className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                              atMax
+                                ? "text-[#99A2A5] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
+                                : "hover:bg-[#F6F6F6] text-[#25282B]"
+                            }`}
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="min-w-[96px] text-right font-semibold text-[#4502C7] text-[12px]">
+                        <div className="min-w-[92px] text-right font-semibold text-[#4502C7] text-[12px]">
                           {row.qty} x{" "}
                           <span className="text-[#DA0808]">
                             {row.price.toLocaleString("vi-VN")}
                           </span>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
+
+                    {itemQtyHints[item.cartKey] && (
+                      <p
+                        role="status"
+                        className="text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-2.5 py-1.5 font-medium"
+                      >
+                        {itemQtyHints[item.cartKey]}
+                      </p>
+                    )}
                   </div>
                 </div>
                 );
@@ -583,7 +706,7 @@ export default function CartPage() {
                       aria-label="Mã giảm giá"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      placeholder="Nhập mã ưu đãi (vd: GIAM10)"
+                      placeholder="Nhập mã (vd: GIAM10)"
                       className={`w-full h-[42px] pl-9 rounded-[8px] border border-[#CCD1D2] text-[13px] uppercase placeholder:normal-case focus:outline-none focus:border-[#4502C7] ${
                         showClearCouponBtn ? "pr-10" : "pr-3"
                       }`}
@@ -668,9 +791,11 @@ export default function CartPage() {
                   Họ và tên <span className="text-[#DA0808]">*</span>
                 </label>
                 <input
+                  ref={fullNameInputRef}
                   id="checkout-fullName"
                   type="text"
                   required
+                  maxLength={100}
                   value={fullName}
                   onChange={(e) => {
                     setFullName(e.target.value);
@@ -680,7 +805,7 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: Nguyễn Minh An"
                   aria-invalid={Boolean(fieldErrors.fullName)}
-                  className={`w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
                     fieldErrors.fullName
                       ? "border-[#DA0808] bg-red-50/40"
                       : "border-[#CCD1D2]"
@@ -704,9 +829,11 @@ export default function CartPage() {
                   Số điện thoại <span className="text-[#DA0808]">*</span>
                 </label>
                 <input
+                  ref={phoneInputRef}
                   id="checkout-phone"
                   type="tel"
                   required
+                  maxLength={15}
                   value={phone}
                   onChange={(e) => {
                     setPhone(e.target.value);
@@ -716,7 +843,7 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: 0912345678"
                   aria-invalid={Boolean(fieldErrors.phone)}
-                  className={`w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
                     fieldErrors.phone
                       ? "border-[#DA0808] bg-red-50/40"
                       : "border-[#CCD1D2]"
@@ -784,6 +911,7 @@ export default function CartPage() {
             </div>
 
             {paymentMethod === "BANK_TRANSFER" && <BankTransferInfoBox />}
+            {paymentMethod === "MOMO" && <MomoInfoBox />}
           </div>
 
           {submitError && (

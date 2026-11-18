@@ -257,20 +257,22 @@ export function TourReviewsSection({
         <div className="lg:col-span-5 rounded-[12px] bg-[#F8F7FC] border border-[#E7E0F8] p-5">
           <div className="flex items-center gap-4 pb-4 border-b border-[#E7E0F8]">
             <div className="text-center min-w-[92px]">
-              <div className="text-[36px] font-extrabold text-[#4502C7] leading-none">
-                {stats.reviewCount > 0 ? stats.ratingAvg.toFixed(1) : "5.0"}
+              <div className="text-[32px] font-extrabold text-[#4502C7] leading-none">
+                {stats.reviewCount > 0 ? stats.ratingAvg.toFixed(1) : "—"}
               </div>
-              <div className="text-[12px] text-[#667479] mt-1">trên 5 sao</div>
+              <div className="text-[12px] text-[#667479] mt-1">
+                {stats.reviewCount > 0 ? "trên 5 sao" : "Chưa có điểm"}
+              </div>
             </div>
 
             <div className="flex-1">
-              <div className="flex items-center gap-1 text-[#FFB800]">
+              <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
                     className={`w-4 h-4 ${
-                      i < Math.round(stats.reviewCount > 0 ? stats.ratingAvg : 5)
-                        ? "fill-[#FFB800]"
+                      stats.reviewCount > 0 && i < Math.round(stats.ratingAvg)
+                        ? "fill-[#FFB800] text-[#FFB800]"
                         : "text-[#D4D8DD]"
                     }`}
                   />

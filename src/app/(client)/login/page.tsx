@@ -144,11 +144,11 @@ function LoginFormContent() {
           />
         </div>
 
-        <p className="text-center text-[13px] text-[#667479] mt-6">
+        <p className="text-center text-[13px] text-[#667479] mt-4">
           Bạn chưa có tài khoản?{" "}
           <Link
             href="/register"
-            className="text-[#4502C7] font-bold hover:underline"
+            className="text-[#4502C7] font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
           >
             Đăng ký ngay
           </Link>

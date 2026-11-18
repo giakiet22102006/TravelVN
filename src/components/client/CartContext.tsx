@@ -185,14 +185,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           if (item.cartKey !== cartKey) return item;
           if (tier === "adult") {
             const maxAdult = Math.max(0, item.stockAdult - otherUsed);
-            return { ...item, quantityAdult: clamp(quantity, 0, maxAdult) };
+            const minAdult = maxAdult > 0 ? 1 : 0;
+            return { ...item, quantityAdult: clamp(quantity, minAdult, maxAdult) };
           }
           if (tier === "child") {
             const maxChild = Math.max(0, item.stockChild - otherUsed);
-            return { ...item, quantityChild: clamp(quantity, 0, maxChild) };
+            const minChild =
+              item.quantityAdult === 0 && item.quantityBaby === 0 && maxChild > 0
+                ? 1
+                : 0;
+            return { ...item, quantityChild: clamp(quantity, minChild, maxChild) };
           }
           const maxBaby = Math.max(0, item.stockBaby - otherUsed);
-          return { ...item, quantityBaby: clamp(quantity, 0, maxBaby) };
+          const minBaby =
+            item.quantityAdult === 0 && item.quantityChild === 0 && maxBaby > 0
+              ? 1
+              : 0;
+          return { ...item, quantityBaby: clamp(quantity, minBaby, maxBaby) };
         });
       });
     },

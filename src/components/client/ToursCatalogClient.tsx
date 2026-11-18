@@ -17,6 +17,7 @@ import {
   useClientMeta,
 } from "@/components/client/ClientLayoutShell";
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
+import { DatePickerInput } from "@/components/client/DatePickerInput";
 import { SmartImage } from "@/components/client/SmartImage";
 
 export interface InitialToursResult {
@@ -89,6 +90,29 @@ export function ToursCatalogClient({
   const [dealOnly, setDealOnly] = useState(urlDeal);
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileFilterOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileFilterOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileFilterOpen]);
 
   // API state initialized from SSR (prevents "0 Tour" flash & extra initial request)
   const [categoryInfo, setCategoryInfo] = useState<ClientCategoryFlatItem | null>(
@@ -96,6 +120,9 @@ export function ToursCatalogClient({
   );
   const [tours, setTours] = useState<TourCardData[]>(initialResult.tours);
   const [total, setTotal] = useState(initialResult.total);
+  const [effectivePage, setEffectivePage] = useState(
+    Math.max(1, initialResult.page)
+  );
   const [totalPages, setTotalPages] = useState(
     Math.max(1, initialResult.totalPages)
   );
@@ -157,6 +184,7 @@ export function ToursCatalogClient({
         lastFetchedKeyRef.current = nextKey;
         setTours(Array.isArray(data.tours) ? data.tours : []);
         setTotal(Number(data.total || 0));
+        setEffectivePage(Math.max(1, Number(data.page || 1)));
         setTotalPages(Math.max(1, Number(data.totalPages || 1)));
         setCategoryInfo(data.categoryInfo ?? null);
       })
@@ -329,12 +357,11 @@ export function ToursCatalogClient({
         >
           Ngày khởi hành
         </label>
-        <input
-          id={`${idPrefix}-departure-date`}
-          type="date"
+        <DatePickerInput
+          variant="compact"
+          inputId={`${idPrefix}-departure-date`}
           value={departureDate}
-          onChange={(e) => setDepartureDate(e.target.value)}
-          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+          onChange={setDepartureDate}
         />
       </div>
 
@@ -460,30 +487,32 @@ export function ToursCatalogClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Desktop Left Filter Sidebar */}
-          <aside className="hidden lg:block lg:col-span-3 bg-white rounded-[12px] border border-[#ECECEC] p-5 shadow-sm sticky top-[125px]">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#ECECEC]">
-              <h2 className="text-[18px] font-bold text-[#4502C7] inline-flex items-center gap-2">
-                <span>Bộ Lọc</span>
-              </h2>
-              <Filter className="w-4 h-4 text-[#4502C7]" />
-            </div>
-            {renderFilterForm("desktop-filter")}
-          </aside>
+          {isDesktop && (
+            <aside className="hidden lg:block lg:col-span-3 bg-white rounded-[12px] border border-[#ECECEC] p-5 shadow-sm sticky top-[125px]">
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#ECECEC]">
+                <h2 className="text-[18px] font-bold text-[#4502C7] inline-flex items-center gap-2">
+                  <span>Bộ Lọc</span>
+                </h2>
+                <Filter className="w-4 h-4 text-[#4502C7]" />
+              </div>
+              {renderFilterForm("desktop-filter")}
+            </aside>
+          )}
 
           {/* Right Tour List */}
           <div className="lg:col-span-9">
             {/* Sort & Count Bar */}
-            <div className="bg-white rounded-[12px] border border-[#ECECEC] p-4 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="bg-white rounded-[12px] border border-[#ECECEC] p-4 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
               <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                <span className="font-semibold text-[#667479] mr-1">
+                <span className="font-semibold text-[#667479] mr-1 whitespace-nowrap">
                   Sắp xếp :
                 </span>
                 {SORT_TABS.map((tab) => {
                   const active =
                     tab.key === "deal"
-                      ? urlSort === "deal" || urlDeal
+                      ? urlSort === "deal"
                       : tab.key === ""
-                      ? !urlSort && !urlDeal
+                      ? !urlSort
                       : urlSort === tab.key;
                   return (
                     <button
@@ -510,7 +539,7 @@ export function ToursCatalogClient({
                           });
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-[8px] font-medium transition-colors ${
+                      className={`px-3.5 py-2 min-h-[38px] rounded-[8px] font-medium whitespace-nowrap transition-colors ${
                         active
                           ? "bg-[#4502C7] text-white"
                           : "bg-[#F6F6F6] text-[#25282B] hover:bg-[#4502C7]/10 hover:text-[#4502C7]"
@@ -522,24 +551,41 @@ export function ToursCatalogClient({
                 })}
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-3">
+              <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setMobileFilterOpen(true)}
-                  className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#4502C7] text-white text-[13px] font-semibold"
+                  className="lg:hidden inline-flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-[8px] bg-[#4502C7] text-white text-[13px] font-semibold whitespace-nowrap shrink-0"
                 >
-                  <SlidersHorizontal className="w-4 h-4" />
+                  <SlidersHorizontal className="w-4 h-4 shrink-0" />
                   <span>Bộ Lọc</span>
                 </button>
 
-                <span className="text-[14px] text-[#667479]">
+                <span className="text-[14px] text-[#667479] whitespace-nowrap shrink-0">
                   Tất cả:{" "}
                   <strong className="text-[#25282B] font-bold">
-                    {loading ? "Đang tải..." : `${total} Tour`}
+                    {loading ? "..." : `${total} Tour`}
                   </strong>
                 </span>
               </div>
             </div>
+
+            {total > 0 && urlPage > totalPages && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-4 py-2.5 text-[13px] text-amber-900">
+                <span>
+                  Trang <strong>{urlPage}</strong> vượt quá tổng số{" "}
+                  <strong>{totalPages}</strong> trang hiện có — đang hiển thị
+                  trang {effectivePage}.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigateWithParams({ page: 1 })}
+                  className="font-bold text-[#4502C7] hover:underline whitespace-nowrap"
+                >
+                  Về trang 1
+                </button>
+              </div>
+            )}
 
             {urlDeal && (
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-[#4502C7]/5 border border-[#4502C7]/20 px-4 py-2.5 text-[13px]">
@@ -556,7 +602,7 @@ export function ToursCatalogClient({
                       page: 1,
                     })
                   }
-                  className="text-[12px] font-semibold text-[#DA0808] hover:underline inline-flex items-center gap-1"
+                  className="text-[12px] font-semibold text-[#DA0808] hover:underline inline-flex items-center gap-1 min-h-[36px] px-1"
                 >
                   <X className="w-3.5 h-3.5" />
                   Bỏ lọc ưu đãi
@@ -570,8 +616,24 @@ export function ToursCatalogClient({
                 {[1, 2, 3, 4, 5, 6].map((idx) => (
                   <div
                     key={idx}
-                    className="h-[360px] rounded-[12px] bg-white border border-[#ECECEC] animate-pulse"
-                  />
+                    className="rounded-[12px] bg-white border border-[#ECECEC] overflow-hidden animate-pulse flex flex-col"
+                  >
+                    <div className="aspect-[16/10] w-full bg-[#E9ECEF]" />
+                    <div className="p-4 space-y-3 flex-1">
+                      <div className="h-4 bg-[#E9ECEF] rounded w-5/6" />
+                      <div className="h-4 bg-[#E9ECEF] rounded w-2/3" />
+                      <div className="h-5 bg-[#E9ECEF] rounded w-1/2 mt-1" />
+                      <div className="space-y-1.5 pt-1">
+                        <div className="h-3 bg-[#F1F3F5] rounded w-3/4" />
+                        <div className="h-3 bg-[#F1F3F5] rounded w-2/3" />
+                        <div className="h-3 bg-[#F1F3F5] rounded w-1/2" />
+                      </div>
+                      <div className="pt-3 flex items-center justify-between">
+                        <div className="h-3.5 bg-[#E9ECEF] rounded w-24" />
+                        <div className="h-6 bg-[#E9ECEF] rounded w-8" />
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : tours.length === 0 ? (
@@ -646,7 +708,7 @@ export function ToursCatalogClient({
       </section>
 
       {/* Mobile Filter Drawer (375px optimized) */}
-      {mobileFilterOpen && (
+      {!isDesktop && mobileFilterOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
             className="fixed inset-0 bg-black/50"
@@ -659,7 +721,7 @@ export function ToursCatalogClient({
                 type="button"
                 aria-label="Đóng bộ lọc"
                 onClick={() => setMobileFilterOpen(false)}
-                className="p-1 text-[#667479]"
+                className="w-11 h-11 -mr-2 rounded-lg flex items-center justify-center text-[#667479] hover:text-[#25282B] hover:bg-[#F6F6F6] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>

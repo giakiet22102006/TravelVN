@@ -106,17 +106,17 @@ export function TourCard({ tour }: { tour: TourCardData }) {
           <div className="flex items-center gap-1">
             {(() => {
               const count = tour.reviewCount ?? 0;
-              const avg = count > 0 ? (tour.ratingAvg ?? 5) : 5;
-              const filledStars = Math.round(avg);
+              const avg = count > 0 ? (tour.ratingAvg ?? 5) : 0;
+              const filledStars = count > 0 ? Math.round(avg) : 0;
               return (
                 <>
-                  <div className="flex items-center text-[#FFB800]">
+                  <div className="flex items-center">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
                         className={`w-3.5 h-3.5 ${
                           i < filledStars
-                            ? "fill-[#FFB800]"
+                            ? "fill-[#FFB800] text-[#FFB800]"
                             : "text-[#D4D8DD]"
                         }`}
                       />
@@ -125,7 +125,7 @@ export function TourCard({ tour }: { tour: TourCardData }) {
                   <span className="text-[11px] text-[#667479] font-medium">
                     {count > 0
                       ? `${avg.toFixed(1)} (${count})`
-                      : "(Mới)"}
+                      : "Tour mới"}
                   </span>
                 </>
               );

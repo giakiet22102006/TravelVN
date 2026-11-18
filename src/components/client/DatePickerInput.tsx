@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 interface DatePickerInputProps {
   /** ISO date string YYYY-MM-DD or empty string */
   value: string;
   onChange: (isoDate: string) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  variant?: "hero" | "compact";
+  inputId?: string;
 }
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -57,9 +59,41 @@ function formatDateTyping(raw: string): string {
 export function DatePickerInput({
   value,
   onChange,
-  open,
+  open: controlledOpen,
   onOpenChange,
+  variant = "hero",
+  inputId,
 }: DatePickerInputProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (onOpenChange) onOpenChange(next);
+    if (controlledOpen === undefined) setInternalOpen(next);
+  };
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("keydown", handleKey);
+    };
+  });
+
   const today = useMemo(() => {
     const now = new Date();
     return {
@@ -186,27 +220,54 @@ export function DatePickerInput({
     setTextValue(isoToDisplay(iso));
     setViewYear(Number(iso.slice(0, 4)));
     setViewMonth(Number(iso.slice(5, 7)) - 1);
-    onOpenChange(false);
+    setOpen(false);
   }
 
+  const isCompact = variant === "compact";
+
   return (
-    <div className="md:col-span-3 relative">
+    <div
+      ref={containerRef}
+      onBlur={(e) => {
+        const nextFocused = e.relatedTarget as Node | null;
+        if (nextFocused && !containerRef.current?.contains(nextFocused)) {
+          setOpen(false);
+        }
+      }}
+      className={isCompact ? "relative" : "md:col-span-3 relative"}
+    >
       <div
-        onClick={() => onOpenChange(true)}
-        className="bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B] cursor-pointer"
+        onClick={() => setOpen(true)}
+        className={
+          isCompact
+            ? "w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white flex items-center gap-2 text-[#25282B] cursor-pointer focus-within:border-[#4502C7] focus-within:ring-2 focus-within:ring-[#4502C7]/20 transition-shadow"
+            : "bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B] cursor-pointer focus-within:ring-2 focus-within:ring-[#FFD600] transition-shadow"
+        }
       >
-        <Calendar className="w-5 h-5 text-[#4502C7] shrink-0" />
+        <Calendar
+          className={`${
+            isCompact ? "w-4 h-4" : "w-5 h-5"
+          } text-[#4502C7] shrink-0`}
+        />
         <div className="flex-1 min-w-0">
-          <span className="block text-[10px] text-[#667479] leading-none mb-0.5">
-            Lịch khởi hành
-          </span>
+          {!isCompact && (
+            <span className="block text-[10px] text-[#667479] leading-none mb-0.5">
+              Lịch khởi hành
+            </span>
+          )}
           <input
+            id={inputId}
             type="text"
             inputMode="numeric"
             value={textValue}
-            onFocus={() => onOpenChange(true)}
+            onFocus={() => setOpen(true)}
             onChange={handleTextChange}
             onBlur={handleInputBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
             placeholder="dd/mm/yyyy"
             maxLength={10}
             aria-label="Ngày khởi hành"
@@ -216,13 +277,14 @@ export function DatePickerInput({
         {(textValue || value) && (
           <button
             type="button"
+            tabIndex={-1}
             aria-label="Xóa ngày khởi hành"
             onClick={(e) => {
               e.stopPropagation();
               setTextValue("");
               onChange("");
             }}
-            className="w-5 h-5 rounded-full text-[#667479] hover:bg-[#F3EEFF] hover:text-[#4502C7] flex items-center justify-center shrink-0 transition-colors"
+            className="w-6 h-6 rounded-full text-[#667479] hover:bg-[#F3EEFF] hover:text-[#4502C7] flex items-center justify-center shrink-0 transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -230,11 +292,16 @@ export function DatePickerInput({
       </div>
 
       {open && (
-        <div className="absolute left-0 top-[62px] w-full min-w-[296px] sm:w-[310px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-4 z-30 text-[#25282B]">
+        <div
+          className={`absolute top-[calc(100%+8px)] w-full min-w-[290px] sm:w-[310px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-4 z-40 text-[#25282B] ${
+            isCompact ? "left-0" : "left-0"
+          }`}
+        >
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"
+              tabIndex={-1}
               onClick={handlePrevMonth}
               aria-label="Tháng trước"
               className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors"
@@ -248,6 +315,7 @@ export function DatePickerInput({
 
             <button
               type="button"
+              tabIndex={-1}
               onClick={handleNextMonth}
               aria-label="Tháng sau"
               className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors"
@@ -277,6 +345,7 @@ export function DatePickerInput({
                 <button
                   key={cell.iso}
                   type="button"
+                  tabIndex={-1}
                   onClick={() => handleSelectIso(cell.iso)}
                   className={`h-8 rounded-[8px] text-[13px] font-medium transition-colors ${
                     isSelected
@@ -298,10 +367,11 @@ export function DatePickerInput({
           <div className="mt-3 pt-2.5 border-t border-[#ECECEC] flex items-center justify-between text-[12px]">
             <button
               type="button"
+              tabIndex={-1}
               onClick={() => {
                 setTextValue("");
                 onChange("");
-                onOpenChange(false);
+                setOpen(false);
               }}
               className="font-medium text-[#667479] hover:text-[#DA0808] transition-colors"
             >
@@ -309,6 +379,7 @@ export function DatePickerInput({
             </button>
             <button
               type="button"
+              tabIndex={-1}
               onClick={() => handleSelectIso(today.iso)}
               className="font-semibold text-[#4502C7] hover:underline"
             >

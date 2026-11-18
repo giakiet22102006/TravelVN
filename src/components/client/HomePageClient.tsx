@@ -30,7 +30,7 @@ const HOT_DESTINATIONS = [
 const NEWS_ARTICLES = [
   {
     id: "news-main",
-    date: "23/05/2024",
+    date: "15/11/2026",
     title: "Top 5 điểm check in độc đáo tại Singapore",
     excerpt:
       "Nếu bạn nghĩ du lịch Singapore rất nhàm chán vì chỉ mãi quanh quẩn trong những khối bê tông vô cảm thì bạn “chắc chưa?”. Tuy đảo quốc Sư Tử không phải là một quốc gia rộng lớn nhưng các địa điểm du lịch tại Singapore chưa từng đánh mất sức hút đối với cộng đồng xê dịch quốc tế.",
@@ -41,7 +41,7 @@ const NEWS_ARTICLES = [
   },
   {
     id: "news-1",
-    date: "23/05/2024",
+    date: "12/11/2026",
     title: "Homestay “cổ tích” giữa Đà Lạt mộng mơ",
     excerpt: "",
     image:
@@ -51,8 +51,8 @@ const NEWS_ARTICLES = [
   },
   {
     id: "news-2",
-    date: "23/05/2024",
-    title: "Đảo Phú Quý Bình Thuận hot trend năm 2024",
+    date: "08/11/2026",
+    title: "Đảo Phú Quý Bình Thuận hot trend năm 2026",
     excerpt: "",
     image:
       "https://images.unsplash.com/photo-1692892085515-e5771e7f2948?auto=format&fit=crop&w=800&q=80",
@@ -61,7 +61,7 @@ const NEWS_ARTICLES = [
   },
   {
     id: "news-3",
-    date: "23/05/2024",
+    date: "04/11/2026",
     title: "Đặc sản không thể bỏ qua khi đến với Đà Nẵng – Hội An",
     excerpt: "",
     image:
@@ -71,7 +71,7 @@ const NEWS_ARTICLES = [
   },
   {
     id: "news-4",
-    date: "23/05/2024",
+    date: "01/11/2026",
     title:
       "Trekking cắm trại tại Đà Lạt- Cảm nhận Đà Lạt qua từng bước chân",
     excerpt: "",
@@ -210,7 +210,7 @@ export function HomePageClient({
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#1E103C]/85" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-[#1E103C]/90" />
         </div>
 
         <div className="relative max-w-[1184px] mx-auto px-4 py-14 sm:py-20 lg:py-24">
@@ -222,7 +222,7 @@ export function HomePageClient({
               <br />
               <span className="text-[#FFD600]">Đi nơi đâu bạn muốn</span>
             </h1>
-            <p className="mt-4 text-[14px] sm:text-[16px] text-white/90 max-w-[640px] mx-auto leading-relaxed">
+            <p className="mt-4 text-[14px] sm:text-[16px] text-white font-medium drop-shadow-sm max-w-[640px] mx-auto leading-relaxed">
               Trải nghiệm hành trình trọn gói chuẩn 5 sao cùng VN.TRAVEL — lịch
               khởi hành linh hoạt mỗi ngày với hàng trăm ưu đãi giờ chót hấp
               dẫn.
@@ -240,7 +240,7 @@ export function HomePageClient({
             >
               {/* Input 1: Bạn muốn đi đâu? */}
               <div className="md:col-span-4 relative">
-                <div className="bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B]">
+                <div className="bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B] focus-within:ring-2 focus-within:ring-[#FFD600] transition-shadow">
                   <MapPin className="w-5 h-5 text-[#4502C7] shrink-0" />
                   <input
                     type="text"
@@ -253,6 +253,9 @@ export function HomePageClient({
                     onChange={(e) => {
                       setDestination(e.target.value);
                       setShowDestinationPopup(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setShowDestinationPopup(false);
                     }}
                     placeholder="Bạn muốn đi đâu?"
                     aria-label="Bạn muốn đi đâu"
@@ -346,7 +349,10 @@ export function HomePageClient({
                     setShowDestinationPopup(false);
                     setShowDatePopup(false);
                   }}
-                  className="w-full bg-white rounded-[10px] h-[54px] px-3 flex items-center justify-between gap-2 text-[#25282B] text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowQuantityPopup(false);
+                  }}
+                  className="w-full bg-white rounded-[10px] h-[54px] px-3 flex items-center justify-between gap-2 text-[#25282B] text-left focus:outline-none focus:ring-2 focus:ring-[#FFD600] transition-shadow"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Users className="w-5 h-5 text-[#4502C7] shrink-0" />
@@ -449,7 +455,7 @@ export function HomePageClient({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-3 text-white text-center lg:text-left">
               <p className="text-[18px] sm:text-[22px] font-extrabold uppercase tracking-wide text-[#FFD600]">
-                ƯU ĐÃI 2024
+                ƯU ĐÃI 2026
               </p>
               <h2 className="text-[26px] sm:text-[30px] font-extrabold uppercase leading-tight mt-1">
                 TOUR GIỜ CHÓT
@@ -513,7 +519,7 @@ export function HomePageClient({
           {[
             {
               title: "Siêu Sale Mùa Hè",
-              sub: "Giảm tới 400.000đ với mã TOURMUAHE2024",
+              sub: "Giảm tới 400.000đ với mã TOUR2026",
               badge: "HOT DEAL",
               img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=90",
               href: "/tours?deal=true",

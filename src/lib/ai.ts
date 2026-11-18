@@ -414,7 +414,10 @@ function buildHeuristicSummary(
         ? "khá hài lòng"
         : "có ý kiến trái chiều";
 
-  const overview = `Dựa trên ${count} đánh giá thực tế (${verifiedCount} khách đã đặt tour), du khách nhìn chung ${sentimentSummary} với "${tourName}" (điểm trung bình ${avg}/5 sao).`;
+  const verifiedSnippet =
+    verifiedCount > 0 ? ` (${verifiedCount} khách đã xác thực đặt tour)` : "";
+
+  const overview = `Dựa trên ${count} đánh giá từ du khách${verifiedSnippet}, nhìn chung mọi người ${sentimentSummary} với "${tourName}" (điểm trung bình ${avg}/5 sao).`;
 
   const tips =
     cons.length > 0
