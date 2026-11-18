@@ -15,6 +15,8 @@ import {
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
 import { SmartImage } from "@/components/client/SmartImage";
 import { DatePickerInput } from "@/components/client/DatePickerInput";
+import type { ClientNewsItem } from "@/lib/client-data";
+import { formatDateVN } from "@/lib/format";
 
 const HOT_DESTINATIONS = [
   "Nhật Bản",
@@ -27,60 +29,8 @@ const HOT_DESTINATIONS = [
   "Đà Nẵng",
 ];
 
-const NEWS_ARTICLES = [
-  {
-    id: "news-main",
-    date: "15/11/2026",
-    title: "Top 5 điểm check in độc đáo tại Singapore",
-    excerpt:
-      "Nếu bạn nghĩ du lịch Singapore rất nhàm chán vì chỉ mãi quanh quẩn trong những khối bê tông vô cảm thì bạn “chắc chưa?”. Tuy đảo quốc Sư Tử không phải là một quốc gia rộng lớn nhưng các địa điểm du lịch tại Singapore chưa từng đánh mất sức hút đối với cộng đồng xê dịch quốc tế.",
-    image:
-      "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=900&q=80",
-    featured: true,
-    href: "/tours?destination=Singapore",
-  },
-  {
-    id: "news-1",
-    date: "12/11/2026",
-    title: "Homestay “cổ tích” giữa Đà Lạt mộng mơ",
-    excerpt: "",
-    image:
-      "https://images.unsplash.com/photo-1643799297057-374040b7db1b?auto=format&fit=crop&w=800&q=80",
-    featured: false,
-    href: "/tours?destination=%C4%90%C3%A0%20L%E1%BA%A1t",
-  },
-  {
-    id: "news-2",
-    date: "08/11/2026",
-    title: "Đảo Phú Quý Bình Thuận hot trend năm 2026",
-    excerpt: "",
-    image:
-      "https://images.unsplash.com/photo-1692892085515-e5771e7f2948?auto=format&fit=crop&w=800&q=80",
-    featured: false,
-    href: "/tours?category=tour-mien-nam",
-  },
-  {
-    id: "news-3",
-    date: "04/11/2026",
-    title: "Đặc sản không thể bỏ qua khi đến với Đà Nẵng – Hội An",
-    excerpt: "",
-    image:
-      "https://images.unsplash.com/photo-1733041449281-9f5c8cd67780?auto=format&fit=crop&w=800&q=80",
-    featured: false,
-    href: "/tours?category=tour-mien-trung",
-  },
-  {
-    id: "news-4",
-    date: "01/11/2026",
-    title:
-      "Trekking cắm trại tại Đà Lạt- Cảm nhận Đà Lạt qua từng bước chân",
-    excerpt: "",
-    image:
-      "https://images.unsplash.com/photo-1652829792625-055eb9e877a3?auto=format&fit=crop&w=800&q=80",
-    featured: false,
-    href: "/tours?destination=%C4%90%C3%A0%20L%E1%BA%A1t",
-  },
-];
+const NEWS_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=900&q=80";
 
 interface CountdownState {
   days: string;
@@ -93,12 +43,14 @@ interface HomePageClientProps {
   dealTours: TourCardData[];
   domesticTours: TourCardData[];
   internationalTours: TourCardData[];
+  hotNews: ClientNewsItem[];
 }
 
 export function HomePageClient({
   dealTours,
   domesticTours,
   internationalTours,
+  hotNews,
 }: HomePageClientProps) {
   const router = useRouter();
 
@@ -633,72 +585,94 @@ export function HomePageClient({
       </section>
 
       {/* SECTION 6: Tin Tức Mới */}
-      <section id="news-section" className="max-w-[1184px] mx-auto px-4 mt-14">
-        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
-          Tin Tức Mới
-        </h2>
+      {hotNews.length > 0 && (() => {
+        const featuredArticle =
+          hotNews.find((a) => a.featured) || hotNews[0];
+        const sideArticles = hotNews
+          .filter((a) => a.id !== featuredArticle.id)
+          .slice(0, 4);
+        return (
+          <section
+            id="news-section"
+            className="max-w-[1184px] mx-auto px-4 mt-14"
+          >
+            <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
+              Tin Tức Mới
+            </h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Featured Center/Left Large Article */}
-          {NEWS_ARTICLES.filter((a) => a.featured).map((article) => (
-            <Link
-              key={article.id}
-              href={article.href}
-              className="lg:col-span-5 group bg-white rounded-[16px] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#ECECEC] flex flex-col"
-            >
-              <div className="relative aspect-[16/10] w-full overflow-hidden">
-                <SmartImage
-                  src={article.image}
-                  alt={article.title}
-                  targetWidth={900}
-                  quality={82}
-                  sizes="(max-width: 1024px) 100vw, 480px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <span className="text-[12px] text-[#667479] font-medium">
-                  {article.date}
-                </span>
-                <h3 className="mt-1.5 text-[18px] sm:text-[20px] font-bold text-[#4502C7] group-hover:underline leading-snug">
-                  {article.title}
-                </h3>
-                <p className="mt-2.5 text-[13px] text-[#667479] leading-relaxed line-clamp-4">
-                  {article.excerpt}
-                </p>
-              </div>
-            </Link>
-          ))}
-
-          {/* 4 Small Articles Grid */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {NEWS_ARTICLES.filter((a) => !a.featured).map((article) => (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Featured Center/Left Large Article */}
               <Link
-                key={article.id}
-                href={article.href}
-                className="group relative h-[210px] sm:h-[225px] rounded-[16px] overflow-hidden shadow-md block"
+                key={featuredArticle.id}
+                href={`/news/${featuredArticle.slug}`}
+                className="lg:col-span-5 group bg-white rounded-[16px] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#ECECEC] flex flex-col"
               >
-                <SmartImage
-                  src={article.image}
-                  alt={article.title}
-                  targetWidth={760}
-                  quality={82}
-                  sizes="(max-width: 640px) 100vw, 360px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4 text-white">
-                  <span className="text-[11px] text-white/80">
-                    {article.date}
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#F3F4F6]">
+                  <SmartImage
+                    src={featuredArticle.avatar || NEWS_FALLBACK_IMAGE}
+                    alt={featuredArticle.title}
+                    targetWidth={900}
+                    quality={82}
+                    sizes="(max-width: 1024px) 100vw, 480px"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#4502C7] text-white text-[11px] font-bold shadow-sm">
+                    {featuredArticle.category}
                   </span>
-                  <h3 className="mt-1 text-[14px] sm:text-[15px] font-bold leading-snug line-clamp-2 group-hover:text-[#FFD600] transition-colors">
-                    {article.title}
+                </div>
+                <div className="p-5 flex-1 flex flex-col">
+                  <span className="text-[12px] text-[#667479] font-medium">
+                    {formatDateVN(featuredArticle.publishedAt)}
+                  </span>
+                  <h3 className="mt-1.5 text-[18px] sm:text-[20px] font-bold text-[#4502C7] group-hover:underline leading-snug">
+                    {featuredArticle.title}
                   </h3>
+                  <p className="mt-2.5 text-[13px] text-[#667479] leading-relaxed line-clamp-4">
+                    {featuredArticle.excerpt}
+                  </p>
                 </div>
               </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+
+              {/* 4 Small Articles Grid */}
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {sideArticles.map((article) => (
+                  <Link
+                    key={article.id}
+                    href={`/news/${article.slug}`}
+                    className="group relative h-[210px] sm:h-[225px] rounded-[16px] overflow-hidden shadow-md block bg-[#1E103C]"
+                  >
+                    <SmartImage
+                      src={article.avatar || NEWS_FALLBACK_IMAGE}
+                      alt={article.title}
+                      targetWidth={760}
+                      quality={82}
+                      sizes="(max-width: 640px) 100vw, 360px"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4 text-white">
+                      <span className="text-[11px] text-white/80">
+                        {formatDateVN(article.publishedAt)} · {article.category}
+                      </span>
+                      <h3 className="mt-1 text-[14px] sm:text-[15px] font-bold leading-snug line-clamp-2 group-hover:text-[#FFD600] transition-colors">
+                        {article.title}
+                      </h3>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <Link
+                href="/news"
+                className="inline-flex items-center justify-center px-7 py-2.5 min-h-[44px] rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7] hover:text-white font-semibold text-[15px] transition-colors"
+              >
+                Xem tất cả tin tức
+              </Link>
+            </div>
+          </section>
+        );
+      })()}
     </>
   );
 }

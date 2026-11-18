@@ -1288,6 +1288,218 @@ async function main() {
     });
   }
 
+  // 9. Travel News & Guides (NewsArticle)
+  const sampleNews = [
+    {
+      slug: "top-5-diem-check-in-doc-dao-tai-singapore",
+      title: "Top 5 điểm check in độc đáo tại Singapore",
+      category: "Điểm đến hot",
+      excerpt:
+        "Nếu bạn nghĩ du lịch Singapore rất nhàm chán vì chỉ mãi quanh quẩn trong những khối bê tông vô cảm thì bạn “chắc chưa?”. Tuy đảo quốc Sư Tử không phải là một quốc gia rộng lớn nhưng các địa điểm du lịch tại Singapore chưa từng đánh mất sức hút đối với cộng đồng xê dịch quốc tế.",
+      avatar:
+        "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1200&q=85",
+      featured: true,
+      views: 1840,
+      relatedDestination: "Singapore",
+      position: 1,
+      publishedAt: new Date("2026-11-15T08:00:00.000Z"),
+      content: `Singapore luôn nằm trong nhóm điểm đến được săn đón nhiều nhất Đông Nam Á nhờ sự giao thoa ấn tượng giữa kiến trúc tương lai, mảng xanh sinh thái và văn hóa đa sắc tộc. Dưới đây là 5 tọa độ check-in không thể bỏ lỡ khi đặt chân tới Đảo Quốc Sư Tử.
+
+## 1. Jewel Changi Airport & Thác nước Rain Vortex
+Ngay khi vừa hạ cánh tại sân bay Changi, bạn sẽ choáng ngợp trước thác nước trong nhà cao nhất thế giới Rain Vortex (40m) nằm giữa khu rừng nhiệt đới Shiseido Forest Valley.
+- Thời điểm đẹp nhất để chụp ảnh: 19h30 – 21h00 khi diễn ra màn trình diễn ánh sáng và nhạc nước miễn phí.
+- Mẹo nhỏ: Đừng quên ghé tầng trên Canopy Park để săn góc toàn cảnh từ cầu kính.
+
+## 2. Gardens by the Bay & Cloud Forest
+Khu vườn siêu cây Supertree Grove là biểu tượng xanh nổi tiếng bậc nhất của Singapore. Bên trong nhà kính Cloud Forest là thế giới thực vật vùng cao phủ đầy sương mờ mát lạnh quanh năm.
+
+## 3. Khu phố sắc màu Haji Lane & Kampong Glam
+Nằm cách trung tâm Marina Bay chỉ 10 phút đi MRT, Haji Lane gây thương nhớ với những bức tường graffiti rực rỡ, tiệm cà phê thủ công và boutique thời trang độc bản.
+
+## 4. Sentosa & Universal Studios Singapore
+Nếu đi cùng gia đình hoặc nhóm bạn trẻ, hãy dành trọn 1 ngày vui chơi tại công viên giải trí Universal Studios và dạo hoàng hôn bên bãi biển Siloso.
+
+## 5. Marina Bay Sands SkyPark về đêm
+Đứng trên boong quan sát tầng 57 nhìn xuống vịnh Marina rực sáng ánh đèn là cái kết hoàn hảo cho mọi hành trình khám phá Singapore 4N3Đ cùng VN.TRAVEL.`,
+    },
+    {
+      slug: "homestay-co-tich-giua-da-lat-mong-mo",
+      title: "Homestay “cổ tích” giữa Đà Lạt mộng mơ",
+      category: "Cẩm nang du lịch",
+      excerpt:
+        "Tổng hợp những căn homestay gỗ ẩn mình dưới rừng thông Đà Lạt, ban công đón mây sớm và view thung lũng bình yên cho kỳ nghỉ 3N2Đ.",
+      avatar:
+        "https://images.unsplash.com/photo-1643799297057-374040b7db1b?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 1290,
+      relatedDestination: "Đà Lạt",
+      position: 2,
+      publishedAt: new Date("2026-11-12T08:00:00.000Z"),
+      content: `Đà Lạt cuối thu đầu đông mang theo tiết trời se lạnh 15–19°C, sương giăng nhẹ mỗi sáng sớm — thời điểm lý tưởng nhất để chọn một căn homestay gỗ nằm tách khỏi nhịp phố ồn ào.
+
+## Khu vực nào đáng ở nhất khi đi Đà Lạt?
+Tùy phong cách nghỉ dưỡng, bạn có thể cân nhắc 3 khu vực sau:
+- Khu đồi Đa Phú / Trại Mát: Rất tiện săn mây Cầu Đất từ 5h sáng, yên tĩnh tuyệt đối.
+- Khu vực Hồ Tuyền Lâm: Bao quanh bởi rừng thông nguyên sinh, thích hợp chèo SUP và nghỉ dưỡng kết hợp trekking.
+- Khu dốc Nhà Bò / Đống Đa: Gần trung tâm nhưng vẫn giữ được tầm nhìn thung lũng đèn lồng lung linh về đêm.
+
+## Kinh nghiệm đặt phòng & giữ giá tốt mùa cao điểm
+Bạn nên đặt phòng trước ít nhất 2–3 tuần, kiểm tra kỹ hệ thống nước nóng và khoảng cách di chuyển vào trung tâm (tránh các đoạn hẻm quá dốc nếu đi nhóm có trẻ nhỏ hoặc người lớn tuổi).`,
+    },
+    {
+      slug: "dao-phu-quy-binh-thuan-hot-trend-nam-2026",
+      title: "Đảo Phú Quý Bình Thuận hot trend năm 2026",
+      category: "Điểm đến hot",
+      excerpt:
+        "Hòn đảo nhỏ giữa biển Đông với nước biển xanh ngọc bích, Gành Hang hùng vĩ và chi phí khám phá cực kỳ dễ chịu trong năm 2026.",
+      avatar:
+        "https://images.unsplash.com/photo-1692892085515-e5771e7f2948?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 1520,
+      relatedDestination: "Phú Quốc",
+      position: 3,
+      publishedAt: new Date("2026-11-08T08:00:00.000Z"),
+      content: `Du lịch biển đảo 2026 chứng kiến sự bùng nổ của những vùng biển giữ nguyên vẻ đẹp mộc mạc, trong đó Đảo Phú Quý và Đảo Ngọc Phú Quốc là hai cái tên dẫn đầu xu hướng.
+
+## Vì sao biển đảo phía Nam hút khách trở lại?
+- Biển trong vắt tầm nhìn san hô nông từ tháng 3 đến tháng 9, ít mưa bão.
+- Hải sản tươi đánh bắt trong ngày như cua huỳnh đế, cá mú đỏ, mực nháy với mức giá minh bạch.
+- Kết hợp trải nghiệm thể thao biển: chèo kayak, lặn ngắm san hô và đón hoàng hôn tại Sunset Town hoặc Mũi Dinh Thầy.
+
+## Chuẩn bị gì trước khi ra đảo?
+Luôn kiểm tra dự báo sóng biển trước 3 ngày khởi hành, mang theo kem chống nắng rạn san hô (reef-safe) và thuốc say tàu nếu di chuyển bằng tàu cao tốc.`,
+    },
+    {
+      slug: "dac-san-khong-the-bo-qua-khi-den-voi-da-nang-hoi-an",
+      title: "Đặc sản không thể bỏ qua khi đến với Đà Nẵng – Hội An",
+      category: "Ẩm thực",
+      excerpt:
+        "Từ mì Quảng, bánh tráng cuốn thịt heo ở Đà Nẵng đến cao lầu, cơm gà phố Hội — bản đồ ẩm thực chuẩn vị bản địa cho tín đồ xê dịch.",
+      avatar:
+        "https://images.unsplash.com/photo-1733041449281-9f5c8cd67780?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 1180,
+      relatedDestination: "Đà Nẵng",
+      position: 4,
+      publishedAt: new Date("2026-11-04T08:00:00.000Z"),
+      content: `Một chuyến đi Đà Nẵng – Hội An sẽ chỉ trọn vẹn một nửa nếu bạn chưa dành thời gian dạo chợ đêm và thưởng thức tinh hoa ẩm thực miền Trung.
+
+## Danh sách món ngon nhất định phải thử
+- Mì Quảng ếch / tôm thịt: Sợi mì dày dai, nước dùng sâm sấp đậm đà ăn kèm bánh tráng nướng giòn rụm.
+- Bánh tráng cuốn thịt heo hai đầu da: Điểm nhấn nằm ở chén mắm nêm pha thơm tỏi ớt đặc trưng xứ Quảng.
+- Cao lầu Hội An: Sợi mì vàng ươm từ nước tro Cù Lao Chàm kết hợp thịt xá xíu thái mỏng và tóp mỡ giòn tan.
+- Nước Mót thảo mộc & chè bắp Cẩm Nam: Thức uống giải nhiệt hoàn hảo khi dạo phố đèn lồng buổi tối.
+
+## Lịch trình kết hợp tham quan – ăn uống hợp lý
+Buổi sáng lên Bà Nà Hills check-in Cầu Vàng, chiều về biển Mỹ Khê thưởng thức hải sản và tối sang Hội An thả hoa đăng trên sông Hoài.`,
+    },
+    {
+      slug: "trekking-cam-trai-tai-da-lat-cam-nhan-qua-tung-buoc-chan",
+      title: "Trekking cắm trại tại Đà Lạt – Cảm nhận Đà Lạt qua từng bước chân",
+      category: "Cẩm nang du lịch",
+      excerpt:
+        "Trải nghiệm đi bộ xuyên rừng thông nguyên sinh, dựng lều đón bình minh trên đồi cỏ hồng và thưởng thức BBQ giữa sương đêm cao nguyên.",
+      avatar:
+        "https://images.unsplash.com/photo-1652829792625-055eb9e877a3?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 980,
+      relatedDestination: "Đà Lạt",
+      position: 5,
+      publishedAt: new Date("2026-11-01T08:00:00.000Z"),
+      content: `Nếu đã quá quen với chợ đêm hay các quán cà phê đông đúc, trekking cắm trại là cách hoàn toàn khác để lắng nghe nhịp thở bình yên của cao nguyên Lâm Viên.
+
+## 3 cung trekking phù hợp cho người mới bắt đầu
+- Cung Đỉnh Pinhatt – Hồ Tuyền Lâm: Quãng đường 6–8km vừa sức, đỉnh núi nhìn toàn cảnh mặt hồ và dãy Langbiang.
+- Cung Cầu Đất – Đồi chè săn mây: Khởi hành 4h30 sáng, ngắm biển mây cuồn cuộn dưới ánh bình minh.
+- Thác Datanla & suối rừng Tà Nung: Không khí trong lành, nhiều điểm nghỉ chân ngắm suối mát.
+
+## Lưu ý an toàn khi cắm trại qua đêm
+Luôn đi cùng hướng dẫn viên địa phương thông thuộc địa hình, mang áo giữ nhiệt chống gió ẩm (vì nhiệt độ ban đêm có thể xuống 13°C) và thu gom sạch rác trước khi rời bãi trại.`,
+    },
+    {
+      slug: "kinh-nghiem-du-lich-nhat-ban-mua-la-do-va-nui-phu-si",
+      title: "Kinh nghiệm du lịch Nhật Bản mùa lá đỏ & ngắm núi Phú Sĩ",
+      category: "Kinh nghiệm săn tour",
+      excerpt:
+        "Bí quyết chọn thời điểm ngắm lá phong Momiji đẹp nhất, di chuyển tàu siêu tốc Shinkansen và chuẩn bị hành lý thông minh cho tour 6N5Đ.",
+      avatar:
+        "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 2150,
+      relatedDestination: "Nhật Bản",
+      position: 6,
+      publishedAt: new Date("2026-10-28T08:00:00.000Z"),
+      content: `Cung đường vàng Tokyo – Núi Phú Sĩ – Kyoto – Osaka luôn là ước mơ của nhiều du khách Việt, đặc biệt từ cuối tháng 10 đến đầu tháng 12 khi sắc đỏ Momiji phủ kín cố đô.
+
+## Chuẩn bị Visa & thủ tục nhập cảnh
+- Nên nộp hồ sơ visa trước ngày khởi hành ít nhất 3–4 tuần để kịp lịch săn vé máy bay giá tốt.
+- Đặt theo tour trọn gói VN.TRAVEL sẽ được hỗ trợ trọn bộ checklist hồ sơ chứng minh công việc, tài chính nhanh gọn.
+
+## Trải nghiệm không thể bỏ lỡ trên cung đường vàng
+- Ngồi tàu siêu tốc Shinkansen vận tốc 300km/h lướt qua vùng đồng bằng dưới chân núi Phú Sĩ.
+- Thư giãn tắm suối khoáng nóng Onsen truyền thống tại khu vực Hakone / Kawaguchiko.
+- Mặc Kimono dạo bước dưới hàng phong đỏ tại chùa Thanh Thủy (Kiyomizu-dera) ở Kyoto.`,
+    },
+    {
+      slug: "bi-quyet-san-may-fansipan-va-lich-trinh-sapa-4n3d",
+      title: "Bí quyết săn mây Fansipan & Lịch trình Sapa 4N3Đ chuẩn nhất",
+      category: "Cẩm nang du lịch",
+      excerpt:
+        "Hướng dẫn khung giờ đi cáp treo Fansipan ít sương mù, trang phục giữ ấm nhiều lớp và những góc chụp ảnh ruộng bậc thang Mường Hoa đẹp xuất sắc.",
+      avatar:
+        "https://images.unsplash.com/photo-1570366583862-f91883984fde?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 1410,
+      relatedDestination: "SaPa",
+      position: 7,
+      publishedAt: new Date("2026-10-22T08:00:00.000Z"),
+      content: `Sapa luôn có sức quyến rũ kỳ lạ với bản làng sương phủ, ruộng bậc thang tầng tầng lớp lớp và nóc nhà Đông Dương Fansipan ở độ cao 3.143m.
+
+## Khung giờ vàng săn mây trên đỉnh Fansipan
+- Buổi sáng từ 8h30 – 10h30: Lúc nắng bắt đầu lên cao, biển mây thường tụ thành từng tầng bồng bềnh dưới chân cột cờ Tổ quốc.
+- Nên theo dõi thời tiết thị trấn Sapa từ tối hôm trước; nếu hôm trước mưa nhẹ và sáng hôm sau trời hửng nắng, xác suất gặp biển mây lên đến hơn 80%.
+
+## Quy tắc mặc đồ 3 lớp (Layering)
+Nhiệt độ trên đỉnh có thể thấp hơn thị trấn Sapa 6–8°C kèm gió mạnh. Hãy mang áo giữ nhiệt bên trong, áo len/nỉ giữa và áo khoác chống gió nhẹ bên ngoài để linh hoạt cởi ra khi xuống núi đi dạo Bản Cát Cát.`,
+    },
+    {
+      slug: "meo-dat-tour-tiet-kiem-va-chon-phong-cach-du-lich-chau-au",
+      title: "Mẹo đặt tour tiết kiệm & Checklist chuẩn bị hành trình Châu Âu",
+      category: "Kinh nghiệm săn tour",
+      excerpt:
+        "Cách tận dụng ưu đãi giờ chót, mã giảm giá đặt nhóm và kinh nghiệm chuẩn bị hành lý, sim 4G, thẻ thanh toán cho chuyến đi Pháp - Thụy Sĩ - Ý.",
+      avatar:
+        "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=85",
+      featured: false,
+      views: 870,
+      relatedDestination: "Châu Âu",
+      position: 8,
+      publishedAt: new Date("2026-10-15T08:00:00.000Z"),
+      content: `Một chuyến du lịch liên tuyến Châu Âu 6N5Đ hoặc dài ngày đòi hỏi sự chuẩn bị bài bản để vừa tối ưu ngân sách vừa tận hưởng trọn vẹn từng điểm đến.
+
+## 3 bí quyết săn tour giá hời trên VN.TRAVEL
+- Theo dõi mục Tour Giờ Chót trên trang chủ để săn mức giảm lên tới 15–38% cho các suất giữ chỗ cuối cùng.
+- Đặt nhóm gia đình hoặc bạn bè và áp dụng mã ưu đãi trực tiếp tại trang Giỏ Hàng (` + "`GIAM10`" + ` giảm 10% tối đa 1 triệu hoặc ` + "`TOUR2026`" + ` giảm 400.000đ).
+- Đăng ký email nhận bản tin để nhận thông báo sớm các đợt mở bán mùa hoa anh đào, mùa thu và Giáng sinh.
+
+## Checklist trước giờ bay quốc tế
+Kiểm tra hộ chiếu còn hạn tối thiểu 6 tháng tính từ ngày về, chuẩn bị eSIM Châu Âu đa quốc gia, ổ cắm chuyển đổi chuẩn Type C/F và mang thêm một đôi giày thể thao êm chân cho những ngày dạo phố cổ Paris hay Venice.`,
+    },
+  ];
+
+  for (const article of sampleNews) {
+    await prisma.newsArticle.upsert({
+      where: { slug: article.slug },
+      update: {},
+      create: {
+        ...article,
+        status: RecordStatus.ACTIVE,
+        createdById: adminA.id,
+        updatedById: adminA.id,
+      },
+    });
+  }
+
   console.log("Seed completed successfully!");
 }
 

@@ -11,6 +11,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  Newspaper,
   Settings,
   ShoppingBag,
   Star,
@@ -38,6 +39,7 @@ const PRIMARY_NAV = [
   { href: "/admin/tours", label: "Quản lý tour", icon: Compass },
   { href: "/admin/orders", label: "Quản lý đơn hàng", icon: ShoppingBag },
   { href: "/admin/reviews", label: "Quản lý đánh giá", icon: Star },
+  { href: "/admin/news", label: "Quản lý tin tức", icon: Newspaper },
   { href: "/admin/users", label: "Quản lý người dùng", icon: Users },
   { href: "/admin/contacts", label: "Thông tin liên hệ", icon: Mail },
 ];

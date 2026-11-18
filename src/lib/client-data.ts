@@ -649,3 +649,253 @@ const getClientTourBySlugCached = unstable_cache(
 export const getClientTourBySlug = cache(async (slug: string) =>
   getClientTourBySlugCached(slug)
 );
+
+export interface ClientNewsItem {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  excerpt: string;
+  avatar: string | null;
+  featured: boolean;
+  views: number;
+  relatedDestination: string | null;
+  position: number;
+  publishedAt: string;
+}
+
+export interface ClientNewsDetailItem extends ClientNewsItem {
+  content: string;
+  createdBy: { fullName: string } | null;
+}
+
+const CLIENT_NEWS_CARD_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  category: true,
+  excerpt: true,
+  avatar: true,
+  featured: true,
+  views: true,
+  relatedDestination: true,
+  position: true,
+  publishedAt: true,
+} satisfies Prisma.NewsArticleSelect;
+
+function serializeNewsItem<T extends { publishedAt: Date }>(
+  item: T
+): Omit<T, "publishedAt"> & { publishedAt: string } {
+  return {
+    ...item,
+    publishedAt: item.publishedAt.toISOString(),
+  };
+}
+
+export const getHomeHotNews = unstable_cache(
+  async (): Promise<ClientNewsItem[]> => {
+    const rows = await prisma.newsArticle.findMany({
+      where: {
+        deleted: false,
+        status: RecordStatus.ACTIVE,
+      },
+      select: CLIENT_NEWS_CARD_SELECT,
+      orderBy: [
+        { featured: "desc" },
+        { position: "asc" },
+        { publishedAt: "desc" },
+      ],
+      take: 5,
+    });
+    return rows.map(serializeNewsItem);
+  },
+  ["client-home-hot-news-v1"],
+  {
+    revalidate: 120,
+    tags: [CACHE_TAGS.clientNews],
+  }
+);
+
+export interface ClientNewsQueryInput {
+  category?: string;
+  keyword?: string;
+  page?: number;
+  limit?: number;
+}
+
+const executeNewsQueryCached = unstable_cache(
+  async (serializedParams: string) => {
+    const q = JSON.parse(serializedParams) as {
+      category: string;
+      keyword: string;
+      page: number;
+      limit: number;
+    };
+
+    const allActive = await prisma.newsArticle.findMany({
+      where: {
+        deleted: false,
+        status: RecordStatus.ACTIVE,
+      },
+      select: {
+        ...CLIENT_NEWS_CARD_SELECT,
+        content: Boolean(q.keyword),
+      },
+      orderBy: [
+        { featured: "desc" },
+        { position: "asc" },
+        { publishedAt: "desc" },
+      ],
+    });
+
+    const categoriesSet = new Set<string>();
+    for (const item of allActive) {
+      if (item.category) categoriesSet.add(item.category);
+    }
+
+    let filtered = allActive;
+    if (q.category) {
+      const targetCat = normalizeVietnameseText(q.category);
+      filtered = filtered.filter(
+        (item) => normalizeVietnameseText(item.category) === targetCat
+      );
+    }
+    if (q.keyword) {
+      const normKw = normalizeVietnameseText(q.keyword);
+      const tokens = normKw.split(" ").filter(Boolean);
+      filtered = filtered.filter((item) => {
+        const hay = normalizeVietnameseText(
+          `${item.title} ${item.excerpt} ${item.category} ${item.relatedDestination || ""} ${item.content || ""}`
+        );
+        if (hay.includes(normKw)) return true;
+        const hayTokens = hay.split(" ").filter(Boolean);
+        return tokens.every((qt) =>
+          hayTokens.some(
+            (ct) =>
+              ct === qt ||
+              (qt.length >= 4 && ct.includes(qt)) ||
+              editDistanceAtMostOne(qt, ct)
+          )
+        );
+      });
+    }
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / q.limit));
+    const effectivePage = Math.min(q.page, totalPages);
+
+    const paged = filtered
+      .slice((effectivePage - 1) * q.limit, effectivePage * q.limit)
+      .map((item) => {
+        const { content: _discard, ...rest } = item;
+        void _discard;
+        return serializeNewsItem(rest);
+      });
+
+    return {
+      articles: paged,
+      total,
+      page: effectivePage,
+      totalPages,
+      categories: Array.from(categoriesSet),
+    };
+  },
+  ["client-news-query-v1"],
+  {
+    revalidate: 120,
+    tags: [CACHE_TAGS.clientNews],
+  }
+);
+
+export const queryClientNews = cache(async (input: ClientNewsQueryInput = {}) => {
+  const page = Math.max(1, input.page && input.page > 0 ? Math.floor(input.page) : 1);
+  const limit = Math.max(
+    1,
+    Math.min(24, input.limit && input.limit > 0 ? Math.floor(input.limit) : 9)
+  );
+  return executeNewsQueryCached(
+    JSON.stringify({
+      category: input.category?.trim() || "",
+      keyword: input.keyword?.trim() || "",
+      page,
+      limit,
+    })
+  );
+});
+
+const getClientNewsBySlugCached = unstable_cache(
+  async (slug: string) => {
+    const article = await prisma.newsArticle.findFirst({
+      where: {
+        slug,
+        deleted: false,
+        status: RecordStatus.ACTIVE,
+      },
+      select: {
+        ...CLIENT_NEWS_CARD_SELECT,
+        content: true,
+        createdBy: { select: { fullName: true } },
+      },
+    });
+
+    if (!article) return null;
+
+    const [otherArticles, candidateTours] = await Promise.all([
+      prisma.newsArticle.findMany({
+        where: {
+          id: { not: article.id },
+          deleted: false,
+          status: RecordStatus.ACTIVE,
+        },
+        select: CLIENT_NEWS_CARD_SELECT,
+        orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
+        take: 6,
+      }),
+      prisma.tour.findMany({
+        where: {
+          deleted: false,
+          status: RecordStatus.ACTIVE,
+        },
+        select: {
+          ...CLIENT_TOUR_SELECT,
+          information: true,
+        },
+        orderBy: [{ position: "asc" }, { createdAt: "desc" }],
+      }),
+    ]);
+
+    const sameCat = otherArticles.filter((a) => a.category === article.category);
+    const otherCat = otherArticles.filter((a) => a.category !== article.category);
+    const relatedNews = [...sameCat, ...otherCat].slice(0, 3).map(serializeNewsItem);
+
+    let matchedTours = article.relatedDestination
+      ? candidateTours.filter((t) =>
+          matchesSearchTerm(t, article.relatedDestination!)
+        )
+      : [];
+    if (matchedTours.length === 0) {
+      matchedTours = candidateTours.slice(0, 3);
+    }
+
+    const relatedTours = matchedTours.slice(0, 3).map((t) => {
+      const { information: _discard, ...rest } = t;
+      void _discard;
+      return serializeTourDates(rest);
+    });
+
+    return {
+      article: serializeNewsItem(article) as ClientNewsDetailItem,
+      relatedNews,
+      relatedTours,
+    };
+  },
+  ["client-news-detail-v1"],
+  {
+    revalidate: 120,
+    tags: [CACHE_TAGS.clientNews],
+  }
+);
+
+export const getClientNewsBySlug = cache(async (slug: string) =>
+  getClientNewsBySlugCached(slug)
+);

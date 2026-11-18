@@ -61,6 +61,11 @@ export const PERMISSION_ITEMS: PermissionItem[] = [
   { key: "review_edit", label: "Duyệt & Trả lời đánh giá", group: "Đánh giá & Bình luận" },
   { key: "review_delete", label: "Xóa đánh giá", group: "Đánh giá & Bình luận" },
 
+  { key: "news_view", label: "Xem tin tức", group: "Tin tức & Cẩm nang" },
+  { key: "news_create", label: "Tạo bài viết", group: "Tin tức & Cẩm nang" },
+  { key: "news_edit", label: "Sửa bài viết", group: "Tin tức & Cẩm nang" },
+  { key: "news_delete", label: "Xóa bài viết", group: "Tin tức & Cẩm nang" },
+
   { key: "user_view", label: "Xem người dùng", group: "Người dùng & Liên hệ" },
   { key: "user_edit", label: "Sửa người dùng", group: "Người dùng & Liên hệ" },
   {

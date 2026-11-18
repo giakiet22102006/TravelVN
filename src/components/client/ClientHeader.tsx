@@ -290,8 +290,12 @@ export function ClientHeader({
             </Link>
 
             <Link
-              href="/#news-section"
-              className="py-2 text-[#25282B] hover:text-[#4502C7] transition-colors"
+              href="/news"
+              className={`py-2 transition-colors hover:text-[#4502C7] ${
+                pathname === "/news" || pathname.startsWith("/news/")
+                  ? "text-[#4502C7] font-semibold"
+                  : "text-[#25282B]"
+              }`}
             >
               Tin Tức
             </Link>
@@ -414,9 +418,13 @@ export function ClientHeader({
               </Link>
 
               <Link
-                href="/#news-section"
+                href="/news"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                className={`block px-3 py-2.5 rounded-lg hover:bg-[#4502C7]/5 hover:text-[#4502C7] ${
+                  pathname === "/news" || pathname.startsWith("/news/")
+                    ? "text-[#4502C7] font-semibold bg-[#4502C7]/5"
+                    : "text-[#25282B]"
+                }`}
               >
                 Tin Tức
               </Link>

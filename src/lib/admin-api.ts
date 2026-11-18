@@ -71,3 +71,24 @@ export async function generateUniqueTourCode(): Promise<string> {
     seq++;
   }
 }
+
+export async function generateUniqueNewsSlug(
+  title: string,
+  excludeId?: string
+): Promise<string> {
+  const base = slugify(title) || "tin-tuc";
+  let candidate = base;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.newsArticle.findFirst({
+      where: {
+        slug: candidate,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!existing) return candidate;
+    candidate = `${base}-${counter++}`;
+  }
+}

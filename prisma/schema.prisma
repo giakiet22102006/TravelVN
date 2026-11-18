@@ -190,6 +190,8 @@ model AdminAccount {
   toursDeleted      Tour[]     @relation("TourDeletedBy")
   ordersUpdated     Order[]    @relation("OrderUpdatedBy")
   reviewsReplied    Review[]   @relation("ReviewRepliedBy")
+  newsCreated       NewsArticle[] @relation("NewsCreatedBy")
+  newsUpdated       NewsArticle[] @relation("NewsUpdatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -262,4 +264,32 @@ model WebsiteInfo {
   logo        String?
   favicon     String?
   updatedAt   DateTime @updatedAt
+}
+
+model NewsArticle {
+  id                 String        @id @default(cuid())
+  title              String
+  slug               String        @unique
+  category           String        @default("Cẩm nang du lịch")
+  excerpt            String        @db.Text
+  content            String        @db.Text
+  avatar             String?
+  featured           Boolean       @default(false)
+  views              Int           @default(0)
+  relatedDestination String?
+  position           Int           @default(1)
+  status             RecordStatus  @default(ACTIVE)
+  deleted            Boolean       @default(false)
+  publishedAt        DateTime      @default(now())
+
+  createdById String?
+  createdBy   AdminAccount? @relation("NewsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   AdminAccount? @relation("NewsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deleted, status, featured, publishedAt])
+  @@index([category])
 }

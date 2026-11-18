@@ -125,7 +125,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
               Tour Nước Ngoài
             </Link>
             <Link
-              href="/#news-section"
+              href="/news"
               className="hover:text-[#4502C7] transition-colors"
             >
               Tin Tức
