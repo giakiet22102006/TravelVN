@@ -71,7 +71,48 @@ const FOREIGN_KEYWORDS = [
   "paris",
 ];
 
-function buildTourDestinationHaystack(tour: AssistantTourContext): string {
+const NORTH_KEYWORDS = [
+  "mien bac",
+  "tay bac",
+  "dong bac",
+  "ha noi",
+  "sapa",
+  "sa pa",
+  "lao cai",
+  "fansipan",
+  "ha long",
+  "ninh binh",
+  "yen tu",
+  "ha giang",
+  "moc chau",
+  "tam dao",
+  "cat ba",
+];
+
+const CENTRAL_KEYWORDS = [
+  "mien trung",
+  "da nang",
+  "hoi an",
+  "ba na",
+  "hue",
+  "quy nhon",
+  "nha trang",
+  "da lat",
+  "phu yen",
+];
+
+const SOUTH_KEYWORDS = [
+  "mien nam",
+  "phu quoc",
+  "con dao",
+  "vung tau",
+  "can tho",
+  "mien tay",
+  "tp hcm",
+  "sai gon",
+];
+
+export function buildTourDestinationHaystack(tour: AssistantTourContext): string {
   return slugify(
     [
       tour.name,
@@ -114,6 +155,24 @@ export function isForeignTour(tour: AssistantTourContext): boolean {
   return FOREIGN_KEYWORDS.some((kw) => hay.includes(kw));
 }
 
+export function isNorthTour(tour: AssistantTourContext): boolean {
+  if (isForeignTour(tour)) return false;
+  const hay = buildTourDestinationHaystack(tour);
+  return NORTH_KEYWORDS.some((kw) => hay.includes(kw));
+}
+
+export function isCentralTour(tour: AssistantTourContext): boolean {
+  if (isForeignTour(tour)) return false;
+  const hay = buildTourDestinationHaystack(tour);
+  return CENTRAL_KEYWORDS.some((kw) => hay.includes(kw));
+}
+
+export function isSouthTour(tour: AssistantTourContext): boolean {
+  if (isForeignTour(tour)) return false;
+  const hay = buildTourDestinationHaystack(tour);
+  return SOUTH_KEYWORDS.some((kw) => hay.includes(kw));
+}
+
 export function detectGuardrailViolation(
   message: string
 ): { blocked: true; reply: string } | { blocked: false } {
@@ -151,7 +210,15 @@ export function detectGuardrailViolation(
 
 export interface SearchToursArgs {
   keyword?: string;
-  themeTag?: "bien" | "nui" | "nuoc-ngoai" | "trong-nuoc" | "tat-ca";
+  themeTag?:
+    | "bien"
+    | "nui"
+    | "nuoc-ngoai"
+    | "trong-nuoc"
+    | "mien-bac"
+    | "mien-trung"
+    | "mien-nam"
+    | "tat-ca";
   maxPriceVND?: number;
   minPriceVND?: number;
   departureLocation?: string;
@@ -190,6 +257,12 @@ export function executeSearchTours(
     filtered = filtered.filter((t) => isForeignTour(t));
   } else if (args.themeTag === "trong-nuoc") {
     filtered = filtered.filter((t) => !isForeignTour(t));
+  } else if (args.themeTag === "mien-bac") {
+    filtered = filtered.filter((t) => isNorthTour(t));
+  } else if (args.themeTag === "mien-trung") {
+    filtered = filtered.filter((t) => isCentralTour(t));
+  } else if (args.themeTag === "mien-nam") {
+    filtered = filtered.filter((t) => isSouthTour(t));
   }
 
   if (args.maxPriceVND && args.maxPriceVND > 0) {
@@ -228,15 +301,16 @@ export function executeSearchTours(
       .split(/\s+/)
       .filter((w) => w.length >= 2 && !["tour", "du", "lich", "di"].includes(w));
     if (tokens.length > 0) {
+      // Match against destination/title/category ONLY so departure cities don't cause false positives
       const keywordMatched = filtered.filter((t) => {
-        const hay = buildTourHaystack(t);
+        const hay = buildTourDestinationHaystack(t);
         return tokens.every((tok) => hay.includes(tok));
       });
       if (keywordMatched.length > 0) {
         filtered = keywordMatched;
       } else {
         filtered = filtered.filter((t) => {
-          const hay = buildTourHaystack(t);
+          const hay = buildTourDestinationHaystack(t);
           return tokens.some((tok) => hay.includes(tok));
         });
       }
@@ -320,6 +394,8 @@ export async function executeGetTourDetails(args: {
     departureDate: string | null;
     information: string | null;
     schedules: Array<{ day: number; title: string; description: string }>;
+    includedStandard: string[];
+    excludedStandard: string[];
     ratingAvg: number;
     reviewCount: number;
   };
@@ -436,6 +512,19 @@ export async function executeGetTourDetails(args: {
         : null,
       information: record.information,
       schedules,
+      includedStandard: [
+        "Xe du lịch đời mới / vé máy bay theo chương trình",
+        "Khách sạn tiêu chuẩn theo hạng tour",
+        "Các bữa ăn chính và vé tham quan theo lịch trình",
+        "Hướng dẫn viên suốt tuyến & bảo hiểm du lịch",
+      ],
+      excludedStandard: [
+        "Chi phí cá nhân (giặt ủi, đồ uống ngoài thực đơn, mua sắm)",
+        "Phụ thu phòng đơn (nếu ở riêng 1 người)",
+        "Vé cáp treo / trò chơi tự túc ngoài mục bao gồm",
+        "Tiền tip cho tài xế & HDV (không bắt buộc)",
+        "Thuế VAT 8–10% khi xuất hóa đơn GTGT doanh nghiệp",
+      ],
       ratingAvg: record.ratingAvg,
       reviewCount: record.reviewCount,
     },
@@ -536,8 +625,18 @@ export const GEMINI_TOOL_DECLARATIONS = [
         },
         themeTag: {
           type: "STRING",
-          enum: ["bien", "nui", "nuoc-ngoai", "trong-nuoc", "tat-ca"],
-          description: "Phân loại chủ đề/khu vực: 'bien' cho tour biển đảo, 'nui' cho tour núi cao nguyên, 'nuoc-ngoai' cho tour quốc tế, 'trong-nuoc' cho tour nội địa.",
+          enum: [
+            "bien",
+            "nui",
+            "nuoc-ngoai",
+            "trong-nuoc",
+            "mien-bac",
+            "mien-trung",
+            "mien-nam",
+            "tat-ca",
+          ],
+          description:
+            "Phân loại chủ đề/khu vực: 'bien' cho tour biển đảo, 'nui' cho tour núi cao nguyên, 'nuoc-ngoai' cho tour quốc tế, 'trong-nuoc' cho tour nội địa, 'mien-bac'/'mien-trung'/'mien-nam' theo vùng miền.",
         },
         maxPriceVND: {
           type: "NUMBER",

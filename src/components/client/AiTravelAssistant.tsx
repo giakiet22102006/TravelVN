@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatCurrencyVND } from "@/lib/format";
 import { SmartImage } from "@/components/client/SmartImage";
+import { ChatMarkdown } from "@/components/client/ChatMarkdown";
 import type { AssistantTourContext } from "@/lib/ai";
 import type { AssistantPageContext } from "@/lib/ai-tools";
 
@@ -265,13 +266,16 @@ export function AiTravelAssistant() {
                 }`}
               >
                 <div
-                  className={`max-w-[88%] rounded-[12px] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-line ${
+                  className={`max-w-[88%] rounded-[12px] px-3.5 py-2.5 text-[13px] leading-relaxed ${
                     msg.role === "user"
                       ? "bg-[#4502C7] text-white rounded-br-[4px]"
                       : "bg-white text-[#25282B] border border-[#E8E6F2] rounded-bl-[4px] shadow-xs"
                   }`}
                 >
-                  {msg.content}
+                  <ChatMarkdown
+                    content={msg.content}
+                    isUser={msg.role === "user"}
+                  />
                 </div>
 
                 {msg.role === "assistant" &&

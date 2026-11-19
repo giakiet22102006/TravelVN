@@ -541,6 +541,7 @@ export function HomePageClient({
       <section className="max-w-[1184px] mx-auto px-4 mt-14">
         <Link
           href="/tours"
+          prefetch={false}
           className="relative block h-[180px] sm:h-[220px] rounded-[16px] overflow-hidden shadow-md group"
         >
           <SmartImage

@@ -282,6 +282,7 @@ export function ClientHeader({
 
             <Link
               href="/tours"
+              prefetch={false}
               className={`py-2 transition-colors hover:text-[#4502C7] ${
                 pathname === "/tours" ? "text-[#4502C7] font-semibold" : ""
               }`}
@@ -411,6 +412,7 @@ export function ClientHeader({
 
               <Link
                 href="/tours"
+                prefetch={false}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
               >
