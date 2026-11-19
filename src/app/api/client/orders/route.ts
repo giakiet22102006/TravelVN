@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/client-auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
+import { calculateCouponDiscount } from "@/lib/knowledge/coupons";
 
 interface OrderRequestItem {
   tourId: string;
@@ -40,26 +41,14 @@ function computeCouponDiscount(couponRaw: string, subTotal: number): {
   discount: number;
   normalizedCode: string | null;
 } {
-  const code = couponRaw.trim().toUpperCase();
-  if (!code) {
-    return { discount: 0, normalizedCode: null };
+  const res = calculateCouponDiscount(couponRaw, subTotal);
+  if (!res.valid) {
+    throw new OrderValidationError(
+      `Mã giảm giá "${res.normalizedCode}" không hợp lệ hoặc đã hết hạn`,
+      400
+    );
   }
-  if (code === "TOUR2026" || code === "TOURMUAHE2024") {
-    return {
-      discount: Math.min(400000, subTotal),
-      normalizedCode: code,
-    };
-  }
-  if (code === "GIAM10") {
-    return {
-      discount: Math.min(Math.round(subTotal * 0.1), 1000000, subTotal),
-      normalizedCode: code,
-    };
-  }
-  throw new OrderValidationError(
-    `Mã giảm giá "${code}" không hợp lệ hoặc đã hết hạn`,
-    400
-  );
+  return { discount: res.discount, normalizedCode: res.normalizedCode };
 }
 
 export async function POST(req: NextRequest) {

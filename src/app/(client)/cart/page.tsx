@@ -16,6 +16,10 @@ import {
 import { useCart } from "@/components/client/CartContext";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import {
+  calculateCouponDiscount,
+  findCouponDefinition,
+} from "@/lib/knowledge/coupons";
+import {
   BankTransferInfoBox,
   MomoInfoBox,
 } from "@/components/client/BankTransferInfoBox";
@@ -54,22 +58,17 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 };
 
 function computePreviewDiscount(code: string, subTotal: number): number {
-  const normalized = code.trim().toUpperCase();
-  if (!normalized || subTotal <= 0) return 0;
-  if (normalized === "TOUR2026" || normalized === "TOURMUAHE2024") {
-    return Math.min(400000, subTotal);
-  }
-  if (normalized === "GIAM10") {
-    return Math.min(Math.round(subTotal * 0.1), 1000000, subTotal);
-  }
-  return 0;
+  const res = calculateCouponDiscount(code, subTotal);
+  return res.valid ? res.discount : 0;
 }
 
 function getCouponSuccessText(code: string): string {
-  if (code === "TOUR2026" || code === "TOURMUAHE2024") {
-    return `Áp dụng mã ${code} thành công: Giảm 400.000đ!`;
+  const coupon = findCouponDefinition(code);
+  if (!coupon) return `Áp dụng mã ${code} thành công!`;
+  if (coupon.discountType === "fixed") {
+    return `Áp dụng mã ${coupon.code} thành công: Giảm ${coupon.maxDiscountVND.toLocaleString("vi-VN")}đ!`;
   }
-  return "Áp dụng mã GIAM10 thành công: Giảm 10% (tối đa 1.000.000đ)!";
+  return `Áp dụng mã ${coupon.code} thành công: Giảm ${coupon.value}% (tối đa ${coupon.maxDiscountVND.toLocaleString("vi-VN")}đ)!`;
 }
 
 export default function CartPage() {

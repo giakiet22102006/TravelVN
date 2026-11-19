@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Bot,
   Loader2,
   MapPin,
+  RotateCcw,
   Send,
   Star,
   X,
@@ -13,14 +15,18 @@ import {
 import { formatCurrencyVND } from "@/lib/format";
 import { SmartImage } from "@/components/client/SmartImage";
 import type { AssistantTourContext } from "@/lib/ai";
+import type { AssistantPageContext } from "@/lib/ai-tools";
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   tours?: AssistantTourContext[];
-  source?: "gemini" | "heuristic";
+  source?: "gemini" | "heuristic" | "guardrail";
 }
+
+const STORAGE_MESSAGES_KEY = "vntravel_ai_chat_messages_v1";
+const STORAGE_OPEN_KEY = "vntravel_ai_chat_open_v1";
 
 const QUICK_PROMPTS = [
   "Tour biển dưới 5 triệu",
@@ -37,17 +43,114 @@ const INITIAL_MESSAGE: ChatMessage = {
 };
 
 export function AiTravelAssistant() {
+  const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
+  const [hydrated, setHydrated] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const activeTourSlug = useMemo(() => {
+    const match = pathname.match(/^\/tours\/([^/?#]+)$/);
+    return match ? decodeURIComponent(match[1]) : undefined;
+  }, [pathname]);
+
+  // Restore persisted chat history & open state across route transitions
+  useEffect(() => {
+    try {
+      const savedMessages = window.sessionStorage.getItem(STORAGE_MESSAGES_KEY);
+      if (savedMessages) {
+        const parsed = JSON.parse(savedMessages);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed.slice(-20));
+        }
+      }
+      const savedOpen = window.sessionStorage.getItem(STORAGE_OPEN_KEY);
+      if (savedOpen === "1") {
+        setOpen(true);
+      }
+    } catch {
+      // Ignore sessionStorage errors
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.sessionStorage.setItem(
+        STORAGE_MESSAGES_KEY,
+        JSON.stringify(messages.slice(-20))
+      );
+    } catch {
+      // Ignore quota errors
+    }
+  }, [messages, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.sessionStorage.setItem(STORAGE_OPEN_KEY, open ? "1" : "0");
+    } catch {
+      // Ignore storage errors
+    }
+  }, [open, hydrated]);
 
   useEffect(() => {
     if (open && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, open, loading]);
+
+  function buildPageContext(): AssistantPageContext {
+    if (activeTourSlug) {
+      return {
+        pageType: "tour-detail",
+        pathname,
+        tourSlug: activeTourSlug,
+      };
+    }
+    if (pathname === "/tours") {
+      const sp =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : null;
+      return {
+        pageType: "tours-catalog",
+        pathname,
+        filters: sp
+          ? {
+              category: sp.get("category") || undefined,
+              destination:
+                sp.get("destination") || sp.get("keyword") || undefined,
+              priceRange: sp.get("priceRange") || undefined,
+              dealOnly:
+                sp.get("deal") === "true" || sp.get("deal") === "1"
+                  ? true
+                  : undefined,
+            }
+          : undefined,
+      };
+    }
+    if (pathname === "/") {
+      return { pageType: "home", pathname };
+    }
+    if (pathname === "/cart") {
+      return { pageType: "cart", pathname };
+    }
+    return { pageType: "other", pathname };
+  }
+
+  function resetConversation() {
+    setMessages([INITIAL_MESSAGE]);
+    try {
+      window.sessionStorage.removeItem(STORAGE_MESSAGES_KEY);
+    } catch {
+      // Ignore
+    }
+  }
 
   async function sendQuestion(questionText: string) {
     const trimmed = questionText.trim();
@@ -67,7 +170,7 @@ export function AiTravelAssistant() {
     try {
       const historyPayload = nextMessages
         .filter((m) => m.id !== "welcome")
-        .slice(-6)
+        .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
       const res = await fetch("/api/client/ai/chat", {
@@ -76,6 +179,7 @@ export function AiTravelAssistant() {
         body: JSON.stringify({
           message: trimmed,
           history: historyPayload,
+          pageContext: buildPageContext(),
         }),
       });
 
@@ -121,18 +225,31 @@ export function AiTravelAssistant() {
                   Trợ lý AI VN.TRAVEL
                 </p>
                 <p className="text-[11px] text-white/80">
-                  Tư vấn lịch trình &amp; giá tour trực tiếp từ DB
+                  {activeTourSlug
+                    ? "Đang đồng bộ ngữ cảnh tour bạn xem"
+                    : "Tư vấn tour, lịch trình & chính sách 24/7"}
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Đóng Trợ lý AI"
-              onClick={() => setOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Làm mới cuộc trò chuyện"
+                title="Làm mới cuộc trò chuyện"
+                onClick={resetConversation}
+                className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Đóng Trợ lý AI"
+                onClick={() => setOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
