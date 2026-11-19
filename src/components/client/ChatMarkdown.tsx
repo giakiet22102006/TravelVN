@@ -71,6 +71,34 @@ export function ChatMarkdown({
       continue;
     }
 
+    // Horizontal rule (--- or ***)
+    if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
+      blocks.push(
+        <hr key={`hr-${blockKey++}`} className="border-[#E8E6F2] my-1.5" />
+      );
+      i++;
+      continue;
+    }
+
+    // Heading (#, ##, ###)
+    const headingMatch = trimmed.match(/^#{1,4}\s+(.*)$/);
+    if (headingMatch) {
+      blocks.push(
+        <p
+          key={`h-${blockKey++}`}
+          className={
+            isUser
+              ? "font-bold text-white text-[13.5px] pt-1"
+              : "font-bold text-[#1E103C] text-[13.5px] pt-1"
+          }
+        >
+          {renderInlineMarkdown(headingMatch[1], isUser)}
+        </p>
+      );
+      i++;
+      continue;
+    }
+
     // Bullet list (- or * or •)
     if (/^[-*•]\s+/.test(trimmed)) {
       const items: string[] = [];
