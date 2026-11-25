@@ -3,24 +3,85 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock, Mail, Phone, User } from "lucide-react";
+import { Loader2, Lock, Mail, Phone, Sparkles, User } from "lucide-react";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import { SocialOAuthButtons } from "@/components/client/SocialOAuthButtons";
+
+const DUMMY_ORIGIN = "http://localhost";
+const SENTINEL_ORIGIN = "http://sentinel.invalid";
+
+function sanitizeNextPath(raw: string | null | undefined): string | null {
+  const rawNext = (raw || "").trim();
+  if (
+    !rawNext.startsWith("/") ||
+    rawNext.startsWith("//") ||
+    rawNext.startsWith("/\\") ||
+    rawNext.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(rawNext)
+  ) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawNext, DUMMY_ORIGIN);
+    if (
+      parsed.origin !== DUMMY_ORIGIN ||
+      parsed.host !== "localhost" ||
+      parsed.username !== "" ||
+      parsed.password !== "" ||
+      !parsed.pathname.startsWith("/") ||
+      parsed.pathname.startsWith("//") ||
+      parsed.pathname.startsWith("/\\") ||
+      /%5c/i.test(parsed.pathname)
+    ) {
+      return null;
+    }
+
+    const candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (
+      !candidate.startsWith("/") ||
+      candidate.startsWith("//") ||
+      candidate.startsWith("/\\") ||
+      candidate.includes("\\") ||
+      /[\u0000-\u001f\u007f]/.test(candidate) ||
+      /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i.test(candidate)
+    ) {
+      return null;
+    }
+
+    const reparsed = new URL(candidate, SENTINEL_ORIGIN);
+    if (
+      reparsed.origin !== SENTINEL_ORIGIN ||
+      reparsed.host !== "sentinel.invalid" ||
+      reparsed.username !== "" ||
+      reparsed.password !== "" ||
+      !reparsed.pathname.startsWith("/") ||
+      reparsed.pathname.startsWith("//") ||
+      reparsed.pathname.startsWith("/\\")
+    ) {
+      return null;
+    }
+
+    return candidate;
+  } catch {
+    return null;
+  }
+}
 
 function RegisterFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setCurrentUser } = useClientMeta();
 
-  const nextParam = searchParams.get("next");
-  const safeNext =
-    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
-      : null;
+  const safeNext = sanitizeNextPath(searchParams.get("next"));
   const redirectTo = safeNext || "/account/orders";
-  const loginHref = safeNext
-    ? `/login?next=${encodeURIComponent(safeNext)}`
-    : "/login";
+  const claimToken = searchParams.get("claimToken")?.trim() || null;
+
+  const loginParams = new URLSearchParams();
+  if (safeNext) loginParams.set("next", safeNext);
+  if (claimToken) loginParams.set("claimToken", claimToken);
+  const loginQuery = loginParams.toString();
+  const loginHref = loginQuery ? `/login?${loginQuery}` : "/login";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -56,6 +117,7 @@ function RegisterFormContent() {
           email: email.trim(),
           phone: phone.trim(),
           password,
+          ...(claimToken ? { claimToken } : {}),
         }),
       });
       const data = await res.json();
@@ -85,6 +147,24 @@ function RegisterFormContent() {
             VN.TRAVEL.
           </p>
         </div>
+
+        {claimToken && (
+          <div
+            role="status"
+            className="mb-5 rounded-[12px] bg-client-soft border border-client-border px-4 py-3 flex items-start gap-2.5 text-[13px] text-ink"
+          >
+            <Sparkles className="w-4 h-4 text-client-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-client-primary">
+                Lưu đơn đặt tour &amp; nhận +100 điểm thưởng
+              </p>
+              <p className="text-ink-muted text-[12.5px] mt-0.5">
+                Đơn đặt tour vừa tạo sẽ được tự động liên kết vào tài khoản mới
+                cùng quà chào mừng thành viên VN.TRAVEL.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form noValidate onSubmit={handleSubmit} className="space-y-4">
           {error && (

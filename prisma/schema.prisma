@@ -169,6 +169,9 @@ model Order {
   discount      Int           @default(0)
   couponCode    String?
   total         Int
+  pointsRedeemed Int          @default(0)
+  pointsDiscount Int          @default(0)
+  pointsEarned   Int          @default(0)
   paymentMethod PaymentMethod @default(CASH)
   paymentStatus PaymentStatus @default(UNPAID)
   refundStatus  RefundStatus  @default(NONE)
@@ -182,9 +185,10 @@ model Order {
   updatedById   String?
   updatedBy     AdminAccount? @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  items     OrderItem[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  items               OrderItem[]
+  loyaltyTransactions LoyaltyTransaction[] @relation("OrderLoyaltyTransactions")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([deleted, status, createdAt])
   @@index([userId, createdAt])
@@ -284,13 +288,48 @@ model User {
   password   String?
   provider   String       @default("CREDENTIALS")
   providerId String?
-  status     RecordStatus @default(ACTIVE)
-  deleted    Boolean      @default(false)
-  orders     Order[]      @relation("UserOrders")
-  reviews    Review[]     @relation("UserReviews")
-  wishlist   WishlistItem[] @relation("UserWishlist")
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  status              RecordStatus         @default(ACTIVE)
+  deleted             Boolean              @default(false)
+  loyaltyPoints       Int                  @default(0)
+  lifetimePoints      Int                  @default(0)
+  orders              Order[]              @relation("UserOrders")
+  reviews             Review[]             @relation("UserReviews")
+  wishlist            WishlistItem[]       @relation("UserWishlist")
+  savedTravelers      SavedTraveler[]      @relation("UserSavedTravelers")
+  loyaltyTransactions LoyaltyTransaction[] @relation("UserLoyaltyTransactions")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model SavedTraveler {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation("UserSavedTravelers", fields: [userId], references: [id], onDelete: Cascade)
+  fullName       String
+  gender         String
+  birthDate      String
+  defaultTier    String
+  documentNumber String?
+  relationship   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model LoyaltyTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserLoyaltyTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  orderId     String?
+  order       Order?   @relation("OrderLoyaltyTransactions", fields: [orderId], references: [id], onDelete: SetNull)
+  type        String
+  points      Int
+  description String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, orderId, type])
+  @@index([userId, createdAt])
 }
 
 model WishlistItem {

@@ -69,6 +69,19 @@ export async function GET(
     return NextResponse.redirect(new URL("/login?error=oauth_config", origin));
   }
 
+  const oauthError = req.nextUrl.searchParams.get("error");
+  if (oauthError) {
+    const res = NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(oauthError)}`, origin)
+    );
+    res.cookies.set(
+      OAUTH_STATE_COOKIE,
+      "",
+      buildCookieOptions(0, isHttpsRequest(req))
+    );
+    return res;
+  }
+
   const code = req.nextUrl.searchParams.get("code") || "";
   const stateParam = req.nextUrl.searchParams.get("state") || "";
   const rawStateCookie = req.cookies.get(OAUTH_STATE_COOKIE)?.value || "";
@@ -87,14 +100,22 @@ export async function GET(
       parsed.state === stateParam
     ) {
       stateValid = true;
-      nextPath = sanitizeRedirectPath(parsed.next);
+      nextPath = sanitizeRedirectPath(parsed.next, "/account/orders");
     }
   } catch {
     stateValid = false;
   }
 
   if (!code || !stateValid) {
-    return NextResponse.redirect(new URL("/login?error=oauth_state", origin));
+    const res = NextResponse.redirect(
+      new URL("/login?error=oauth_state", origin)
+    );
+    res.cookies.set(
+      OAUTH_STATE_COOKIE,
+      "",
+      buildCookieOptions(0, isHttpsRequest(req))
+    );
+    return res;
   }
 
   try {
@@ -102,9 +123,15 @@ export async function GET(
     const profile = await fetchGoogleProfile(code, redirectUri);
 
     if (profile.email_verified !== true) {
-      return NextResponse.redirect(
+      const res = NextResponse.redirect(
         new URL("/login?error=unverified_email", origin)
       );
+      res.cookies.set(
+        OAUTH_STATE_COOKIE,
+        "",
+        buildCookieOptions(0, isHttpsRequest(req))
+      );
+      return res;
     }
 
     const upserted = await upsertOAuthUser({
@@ -113,6 +140,7 @@ export async function GET(
       avatar: profile.avatar,
       provider: "GOOGLE",
       providerId: profile.providerId,
+      emailVerified: profile.email_verified === true,
     });
 
     if (!upserted.user) {
@@ -120,9 +148,15 @@ export async function GET(
         upserted.errorCode === "account_locked"
           ? "account_locked"
           : encodeURIComponent(upserted.error || "oauth_failed");
-      return NextResponse.redirect(
+      const res = NextResponse.redirect(
         new URL(`/login?error=${errorKey}`, origin)
       );
+      res.cookies.set(
+        OAUTH_STATE_COOKIE,
+        "",
+        buildCookieOptions(0, isHttpsRequest(req))
+      );
+      return res;
     }
 
     const response = NextResponse.redirect(new URL(nextPath, origin));
@@ -139,6 +173,14 @@ export async function GET(
     );
   } catch (error) {
     console.error("Google OAuth callback error:", error);
-    return NextResponse.redirect(new URL("/login?error=oauth_failed", origin));
+    const res = NextResponse.redirect(
+      new URL("/login?error=oauth_failed", origin)
+    );
+    res.cookies.set(
+      OAUTH_STATE_COOKIE,
+      "",
+      buildCookieOptions(0, isHttpsRequest(req))
+    );
+    return res;
   }
 }

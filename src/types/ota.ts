@@ -51,3 +51,56 @@ export interface OrderPassengerInput {
   tier: "ADULT" | "CHILD" | "BABY";
   documentNumber?: string;
 }
+
+export type MemberTier = "BRONZE" | "SILVER" | "GOLD";
+
+export interface MemberTierInfo {
+  tier: MemberTier;
+  label: string;
+  nextTier: MemberTier | null;
+  nextTierMinPoints: number | null;
+  progressPercent: number;
+  pointsToNext: number;
+}
+
+export interface SavedTravelerItem {
+  id: string;
+  fullName: string;
+  gender: "MALE" | "FEMALE" | "OTHER";
+  birthDate: string;
+  defaultTier: "ADULT" | "CHILD" | "BABY";
+  documentNumber: string | null;
+  relationship: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LoyaltyTransactionType =
+  | "WELCOME_BONUS"
+  | "ORDER_EARN"
+  | "ORDER_REDEEM"
+  | "ORDER_REDEEM_REFUND"
+  | "ORDER_REFUND_REVOKE";
+
+export interface LoyaltyTransactionItem {
+  id: string;
+  orderId: string | null;
+  type: LoyaltyTransactionType;
+  points: number;
+  description: string;
+  createdAt: string;
+}
+
+export type ClaimOrderPayload =
+  | {
+      mode: "quick-register";
+      claimToken: string;
+      password: string;
+      fullName?: string;
+    }
+  | {
+      mode: "link";
+      claimToken?: string;
+      orderCode?: string;
+      phone?: string;
+    };

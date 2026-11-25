@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import type { MemberTier } from "@/types/ota";
 import { CartProvider } from "./CartContext";
 import { WishlistProvider } from "./WishlistContext";
 import { CompareProvider } from "./CompareContext";
@@ -34,6 +35,9 @@ export interface ClientUserProfile {
   provider: string;
   status: string;
   hasPassword: boolean;
+  loyaltyPoints?: number;
+  lifetimePoints?: number;
+  memberTier?: MemberTier;
 }
 
 const DEFAULT_WEBSITE_INFO: WebsiteInfoData = {

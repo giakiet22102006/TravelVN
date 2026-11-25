@@ -6,13 +6,18 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Award,
   BedDouble,
+  BookUser,
   Check,
   CheckCircle2,
   Clock,
+  Coins,
   CreditCard,
   FileText,
+  Gift,
   Loader2,
+  Lock,
   Minus,
   Plane,
   Plus,
@@ -30,15 +35,22 @@ import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import {
   ACTIVE_COUPONS,
   calculateCouponDiscount,
+  evaluateCouponEligibility,
   findCouponDefinition,
+  type CouponDefinition,
 } from "@/lib/knowledge/coupons";
+import {
+  calculateMaxRedeemablePoints,
+  POINT_VALUE_VND,
+  WELCOME_BONUS_POINTS,
+} from "@/lib/loyalty";
 import {
   BankTransferInfoBox,
   MomoInfoBox,
 } from "@/components/client/BankTransferInfoBox";
 import { SmartImage } from "@/components/client/SmartImage";
 import { formatCurrencyVND, formatDateVN } from "@/lib/format";
-import type { OrderPassengerInput } from "@/types/ota";
+import type { OrderPassengerInput, SavedTravelerItem } from "@/types/ota";
 
 const CART_COUPON_STORAGE_KEY = "travelvn_cart_coupon_v1";
 
@@ -71,6 +83,9 @@ interface CreatedOrderResponse {
   subTotal: number;
   discount: number;
   couponCode: string | null;
+  pointsRedeemed?: number;
+  pointsDiscount?: number;
+  pointsEarned?: number;
   total: number;
   paymentMethod: PaymentMethodType;
   paymentStatus: "UNPAID" | "PAID";
@@ -141,11 +156,91 @@ export default function CartPage() {
     refreshCartFromServer,
     checkedSubTotal,
   } = useCart();
-  const { currentUser } = useClientMeta();
+  const { currentUser, setCurrentUser, refreshUser } = useClientMeta();
 
   const [step, setStep] = useState<CheckoutStep>(1);
   const [syncNotices, setSyncNotices] = useState<string[]>([]);
   const didSyncRef = useRef(false);
+
+  // Member perks & saved travelers state (gracefully degrades if parallel M2/M3 APIs are unavailable)
+  const [paidOrderCount, setPaidOrderCount] = useState(0);
+  const [loyaltyLoaded, setLoyaltyLoaded] = useState(() => !currentUser?.id);
+  const [savedTravelers, setSavedTravelers] = useState<SavedTravelerItem[]>([]);
+  const [saveTravelers, setSaveTravelers] = useState(false);
+  const [slotQuickFillHints, setSlotQuickFillHints] = useState<
+    Record<string, string>
+  >({});
+
+  // Loyalty points redemption state
+  const [usePoints, setUsePoints] = useState(false);
+  const [redeemPointsInput, setRedeemPointsInput] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setPaidOrderCount(0);
+      setLoyaltyLoaded(true);
+      setSavedTravelers([]);
+      setUsePoints(false);
+      setRedeemPointsInput(0);
+      setSaveTravelers(false);
+      setSlotQuickFillHints({});
+      return;
+    }
+
+    let cancelled = false;
+    setLoyaltyLoaded(false);
+
+    async function loadMemberCheckoutMeta() {
+      const [loyaltyRes, travelersRes] = await Promise.allSettled([
+        fetch("/api/client/account/loyalty", { cache: "no-store" }),
+        fetch("/api/client/account/travelers", { cache: "no-store" }),
+      ]);
+
+      if (cancelled) return;
+
+      if (loyaltyRes.status === "fulfilled" && loyaltyRes.value.ok) {
+        try {
+          const lData = await loyaltyRes.value.json();
+          if (!cancelled) {
+            setPaidOrderCount(
+              typeof lData.paidOrderCount === "number" &&
+                Number.isFinite(lData.paidOrderCount)
+                ? Math.max(0, Math.floor(lData.paidOrderCount))
+                : 0
+            );
+          }
+        } catch {
+          if (!cancelled) setPaidOrderCount(0);
+        }
+      } else {
+        setPaidOrderCount(0);
+      }
+
+      if (travelersRes.status === "fulfilled" && travelersRes.value.ok) {
+        try {
+          const tData = await travelersRes.value.json();
+          if (!cancelled) {
+            setSavedTravelers(
+              Array.isArray(tData.travelers) ? tData.travelers : []
+            );
+          }
+        } catch {
+          if (!cancelled) setSavedTravelers([]);
+        }
+      } else {
+        setSavedTravelers([]);
+      }
+
+      if (!cancelled) {
+        setLoyaltyLoaded(true);
+      }
+    }
+
+    loadMemberCheckoutMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!hydrated || didSyncRef.current) return;
@@ -170,32 +265,58 @@ export default function CartPage() {
     text: string;
   } | null>(null);
   const [itemQtyHints, setItemQtyHints] = useState<Record<string, string>>({});
+  const didRestoreCouponRef = useRef(false);
 
   const activeCouponList = useMemo(
     () => ACTIVE_COUPONS.filter((c) => c.active),
     []
   );
 
+  const couponContext = useMemo(
+    () => ({
+      subTotal: checkedSubTotal,
+      isAuthenticated: Boolean(currentUser),
+      memberTier: currentUser?.memberTier ?? "BRONZE",
+      paidOrderCount,
+    }),
+    [checkedSubTotal, currentUser, paidOrderCount]
+  );
+
+  // Restore cached coupon only after cart hydration and (if logged in) loyalty fetch settle
   useEffect(() => {
+    if (!hydrated || (currentUser && !loyaltyLoaded)) return;
+    if (didRestoreCouponRef.current) return;
+    didRestoreCouponRef.current = true;
+
     try {
       const saved = (
         window.localStorage.getItem(CART_COUPON_STORAGE_KEY) || ""
       )
         .trim()
         .toUpperCase();
+      if (!saved) return;
+
       const couponDef = findCouponDefinition(saved);
-      if (couponDef && couponDef.active) {
+      if (!couponDef || !couponDef.active) {
+        window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+        return;
+      }
+
+      const elig = evaluateCouponEligibility(couponDef, couponContext);
+      if (elig.eligible) {
         setAppliedCoupon(couponDef.code);
         setCouponInput(couponDef.code);
         setCouponFeedback({
           type: "success",
           text: getCouponSuccessText(couponDef.code),
         });
+      } else {
+        window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
       }
     } catch {
       // Ignore storage access errors
     }
-  }, []);
+  }, [hydrated, currentUser, loyaltyLoaded, couponContext]);
 
   // Contact & Payment state
   const [fullName, setFullName] = useState("");
@@ -230,6 +351,16 @@ export default function CartPage() {
   // Confirmation & Live Polling state
   const [createdOrder, setCreatedOrder] =
     useState<CreatedOrderResponse | null>(null);
+  const [claimToken, setClaimToken] = useState<string | null>(null);
+  const [quickRegPassword, setQuickRegPassword] = useState("");
+  const [quickRegLoading, setQuickRegLoading] = useState(false);
+  const [quickRegError, setQuickRegError] = useState<string | null>(null);
+  const [quickRegConflict, setQuickRegConflict] = useState(false);
+  const [claimSuccess, setClaimSuccess] = useState<{
+    totalPointsAdded: number;
+    orderPointsAwarded: number;
+  } | null>(null);
+  const refreshedPaidOrderRef = useRef<string | null>(null);
   const [sandboxEnabled, setSandboxEnabled] = useState(false);
   const [simulatingSandbox, setSimulatingSandbox] = useState(false);
   const [sandboxNotice, setSandboxNotice] = useState<string | null>(null);
@@ -249,12 +380,74 @@ export default function CartPage() {
     selectableItems.length > 0 &&
     checkedItems.length === selectableItems.length;
 
-  const discount = useMemo(
-    () => computePreviewDiscount(appliedCoupon, checkedSubTotal),
-    [appliedCoupon, checkedSubTotal]
+  const appliedCouponDef = useMemo(
+    () => (appliedCoupon ? findCouponDefinition(appliedCoupon) : null),
+    [appliedCoupon]
   );
 
-  const finalTotal = Math.max(0, checkedSubTotal - discount);
+  const appliedCouponEligibility = useMemo(() => {
+    if (!appliedCouponDef) return null;
+    return evaluateCouponEligibility(appliedCouponDef, couponContext);
+  }, [appliedCouponDef, couponContext]);
+
+  const discount = useMemo(() => {
+    if (!appliedCoupon || !appliedCouponEligibility?.eligible) return 0;
+    return computePreviewDiscount(appliedCoupon, checkedSubTotal);
+  }, [appliedCoupon, appliedCouponEligibility, checkedSubTotal]);
+
+  const postCouponSubTotal = Math.max(0, checkedSubTotal - discount);
+  const availablePoints = Math.max(
+    0,
+    Math.floor(currentUser?.loyaltyPoints ?? 0)
+  );
+  const maxRedeemablePoints = currentUser
+    ? calculateMaxRedeemablePoints(postCouponSubTotal, availablePoints)
+    : 0;
+  const effectiveRedeemPoints =
+    currentUser && usePoints
+      ? Math.min(Math.max(0, Math.floor(redeemPointsInput)), maxRedeemablePoints)
+      : 0;
+  const pointsDiscount = effectiveRedeemPoints * POINT_VALUE_VND;
+  const finalTotal = Math.max(0, postCouponSubTotal - pointsDiscount);
+
+  // Auto-clear an applied coupon if cart or auth state later makes it ineligible
+  useEffect(() => {
+    if (!hydrated || (currentUser && !loyaltyLoaded)) return;
+    if (!appliedCoupon) return;
+    if (!appliedCouponEligibility || !appliedCouponEligibility.eligible) {
+      const reasonText =
+        appliedCouponEligibility?.reason ||
+        `Mã ${appliedCoupon} không còn đủ điều kiện áp dụng.`;
+      setAppliedCoupon("");
+      try {
+        window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
+      setCouponFeedback({
+        type: "error",
+        text: reasonText,
+      });
+    }
+  }, [
+    hydrated,
+    currentUser,
+    loyaltyLoaded,
+    appliedCoupon,
+    appliedCouponEligibility,
+  ]);
+
+  // Dynamically clamp redeemPointsInput whenever maxRedeemablePoints shrinks
+  useEffect(() => {
+    if (!currentUser || !usePoints) return;
+    setRedeemPointsInput((prev) => {
+      const clamped = Math.min(
+        Math.max(0, Math.floor(prev)),
+        maxRedeemablePoints
+      );
+      return clamped === prev ? prev : clamped;
+    });
+  }, [currentUser, usePoints, maxRedeemablePoints]);
 
   // Build passenger slots matching checkedItems
   const passengerSlots = useMemo<PassengerSlotMeta[]>(() => {
@@ -312,6 +505,17 @@ export default function CartPage() {
     if (fieldErrors.passengers) {
       setFieldErrors((prev) => ({ ...prev, passengers: undefined }));
     }
+    if (field === "fullName" || field === "birthDate") {
+      const slotKey = passengerSlots[index]?.key;
+      if (slotKey) {
+        setSlotQuickFillHints((prev) => {
+          if (!prev[slotKey]) return prev;
+          const next = { ...prev };
+          delete next[slotKey];
+          return next;
+        });
+      }
+    }
   }
 
   function quickFillFirstPassenger() {
@@ -323,6 +527,85 @@ export default function CartPage() {
     if (fieldErrors.passengers) {
       setFieldErrors((prev) => ({ ...prev, passengers: undefined }));
     }
+    const firstSlotKey = passengerSlots[0]?.key;
+    if (firstSlotKey) {
+      setSlotQuickFillHints((prev) => {
+        if (!prev[firstSlotKey]) return prev;
+        const next = { ...prev };
+        delete next[firstSlotKey];
+        return next;
+      });
+    }
+  }
+
+  function quickFillSlotFromTraveler(
+    slotIndex: number,
+    slot: PassengerSlotMeta,
+    traveler: SavedTravelerItem
+  ) {
+    setPassengers((prev) =>
+      prev.map((p, idx) =>
+        idx === slotIndex
+          ? {
+              ...p,
+              fullName: traveler.fullName,
+              gender: traveler.gender,
+              birthDate: traveler.birthDate,
+              tier: slot.tier,
+              documentNumber: traveler.documentNumber || "",
+            }
+          : p
+      )
+    );
+    if (fieldErrors.passengers) {
+      setFieldErrors((prev) => ({ ...prev, passengers: undefined }));
+    }
+    setSlotQuickFillHints((prev) => {
+      const next = { ...prev };
+      if (traveler.defaultTier !== slot.tier) {
+        next[slot.key] = `Hành khách mặc định hạng ${TIER_LABELS[traveler.defaultTier]}, hệ thống giữ nguyên hạng vé ${TIER_LABELS[slot.tier]} theo suất đã chọn.`;
+      } else {
+        delete next[slot.key];
+      }
+      return next;
+    });
+  }
+
+  function applyEligibleCoupon(couponDef: CouponDefinition) {
+    const elig = evaluateCouponEligibility(couponDef, couponContext);
+    if (!elig.eligible) {
+      setAppliedCoupon("");
+      try {
+        window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
+      setCouponFeedback({
+        type: "error",
+        text: elig.reason || `Mã ${couponDef.code} chưa đủ điều kiện áp dụng.`,
+      });
+      return;
+    }
+
+    setAppliedCoupon(couponDef.code);
+    setCouponInput(couponDef.code);
+    try {
+      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, couponDef.code);
+    } catch {
+      // Ignore
+    }
+    setCouponFeedback({
+      type: "success",
+      text: getCouponSuccessText(couponDef.code),
+    });
+  }
+
+  function handleSelectCouponCard(couponDef: CouponDefinition) {
+    if (appliedCoupon === couponDef.code) {
+      clearCoupon();
+      return;
+    }
+    applyEligibleCoupon(couponDef);
   }
 
   function handleApplyCoupon(e: React.FormEvent) {
@@ -354,17 +637,7 @@ export default function CartPage() {
       return;
     }
 
-    setAppliedCoupon(couponDef.code);
-    setCouponInput(couponDef.code);
-    try {
-      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, couponDef.code);
-    } catch {
-      // Ignore
-    }
-    setCouponFeedback({
-      type: "success",
-      text: getCouponSuccessText(couponDef.code),
-    });
+    applyEligibleCoupon(couponDef);
   }
 
   function clearCoupon() {
@@ -489,6 +762,8 @@ export default function CartPage() {
 
     setSubmitting(true);
     try {
+      const redeemedOnSubmit =
+        currentUser && effectiveRedeemPoints > 0 ? effectiveRedeemPoints : 0;
       const res = await fetch("/api/client/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -500,6 +775,8 @@ export default function CartPage() {
           note: note.trim() || undefined,
           couponCode: appliedCoupon || undefined,
           paymentMethod,
+          ...(redeemedOnSubmit > 0 ? { redeemPoints: redeemedOnSubmit } : {}),
+          ...(currentUser ? { saveTravelers } : {}),
           passengers: passengers.map((p, idx) => ({
             fullName: p.fullName.trim(),
             gender: p.gender,
@@ -527,9 +804,27 @@ export default function CartPage() {
         return;
       }
 
+      const returnedClaimToken =
+        typeof data.claimToken === "string" && data.claimToken.trim()
+          ? data.claimToken.trim()
+          : null;
+      setClaimToken(returnedClaimToken);
+      setClaimSuccess(null);
+      setQuickRegPassword("");
+      setQuickRegError(null);
+      setQuickRegConflict(false);
+      refreshedPaidOrderRef.current = null;
       setCreatedOrder(data.order);
       clearCheckedItems();
       clearCoupon();
+      setUsePoints(false);
+      setRedeemPointsInput(0);
+      if (
+        currentUser &&
+        ((data.order?.pointsRedeemed ?? 0) > 0 || redeemedOnSubmit > 0)
+      ) {
+        void refreshUser();
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
       setSubmitError("Không thể kết nối máy chủ, vui lòng thử lại.");
@@ -560,6 +855,10 @@ export default function CartPage() {
                 refundStatus: data.order.refundStatus,
                 expiresAt: data.order.expiresAt,
                 paidAt: data.order.paidAt,
+                pointsEarned:
+                  typeof data.order.pointsEarned === "number"
+                    ? data.order.pointsEarned
+                    : prev.pointsEarned,
               }
             : prev
         );
@@ -592,6 +891,23 @@ export default function CartPage() {
     createdOrder?.status,
     createdOrder?.paymentStatus,
     pollOrderStatus,
+  ]);
+
+  // Refresh user points once when a logged-in order becomes PAID & not CANCELLED
+  useEffect(() => {
+    if (!createdOrder || !currentUser?.id) return;
+    if (
+      createdOrder.paymentStatus === "PAID" &&
+      createdOrder.status !== "CANCELLED" &&
+      refreshedPaidOrderRef.current !== createdOrder.id
+    ) {
+      refreshedPaidOrderRef.current = createdOrder.id;
+      void refreshUser();
+    }
+  }, [
+    createdOrder,
+    currentUser?.id,
+    refreshUser,
   ]);
 
   // Live 15:00 countdown timer
@@ -643,6 +959,67 @@ export default function CartPage() {
       setSandboxNotice("Lỗi kết nối khi gọi Sandbox Webhook");
     } finally {
       setSimulatingSandbox(false);
+    }
+  }
+
+  async function handleQuickRegisterClaim(e: React.FormEvent) {
+    e.preventDefault();
+    if (!claimToken || !createdOrder) return;
+    setQuickRegError(null);
+    setQuickRegConflict(false);
+
+    if (quickRegPassword.length < 6) {
+      setQuickRegError("Mật khẩu phải có ít nhất 6 ký tự.");
+      return;
+    }
+
+    setQuickRegLoading(true);
+    try {
+      const res = await fetch("/api/client/orders/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "quick-register",
+          claimToken,
+          password: quickRegPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 409) {
+        setQuickRegConflict(true);
+        setQuickRegError(
+          data.message ||
+            "Email này đã được đăng ký tài khoản VN.TRAVEL. Vui lòng đăng nhập để lưu đơn."
+        );
+        return;
+      }
+      if (!res.ok) {
+        setQuickRegError(
+          data.message || "Không thể tạo mật khẩu lưu đơn, vui lòng thử lại."
+        );
+        return;
+      }
+
+      if (data.user) {
+        setCurrentUser(data.user);
+      }
+      const orderPointsAwarded =
+        typeof data.pointsAwarded === "number" && data.pointsAwarded > 0
+          ? data.pointsAwarded
+          : 0;
+      if (createdOrder.paymentStatus === "PAID" || orderPointsAwarded > 0) {
+        refreshedPaidOrderRef.current = createdOrder.id;
+      }
+      setClaimSuccess({
+        totalPointsAdded: WELCOME_BONUS_POINTS + orderPointsAwarded,
+        orderPointsAwarded,
+      });
+      setClaimToken(null);
+      setQuickRegPassword("");
+    } catch {
+      setQuickRegError("Không thể kết nối máy chủ, vui lòng thử lại.");
+    } finally {
+      setQuickRegLoading(false);
     }
   }
 
@@ -764,6 +1141,39 @@ export default function CartPage() {
                 {PAYMENT_METHOD_LABELS[createdOrder.paymentMethod]}
               </strong>
             </div>
+            {(createdOrder.discount ?? 0) > 0 && (
+              <div>
+                <span className="text-ink-muted">
+                  Giảm giá
+                  {createdOrder.couponCode
+                    ? ` (${createdOrder.couponCode})`
+                    : ""}
+                  :
+                </span>{" "}
+                <strong className="text-client-accent tabular-nums">
+                  -{formatCurrencyVND(createdOrder.discount)}
+                </strong>
+              </div>
+            )}
+            {(createdOrder.pointsDiscount ?? 0) > 0 && (
+              <div>
+                <span className="text-ink-muted">Giảm từ điểm thưởng:</span>{" "}
+                <strong className="text-client-accent tabular-nums">
+                  -{formatCurrencyVND(createdOrder.pointsDiscount!)}
+                  {(createdOrder.pointsRedeemed ?? 0) > 0
+                    ? ` (${createdOrder.pointsRedeemed!.toLocaleString("vi-VN")} điểm)`
+                    : ""}
+                </strong>
+              </div>
+            )}
+            {(createdOrder.pointsEarned ?? 0) > 0 && (
+              <div>
+                <span className="text-ink-muted">Điểm thưởng nhận được:</span>{" "}
+                <strong className="text-status-success tabular-nums">
+                  +{createdOrder.pointsEarned!.toLocaleString("vi-VN")} điểm
+                </strong>
+              </div>
+            )}
             <div>
               <span className="text-ink-muted">Tổng thanh toán:</span>{" "}
               <strong className="text-client-accent text-[16px] tabular-nums">
@@ -777,6 +1187,131 @@ export default function CartPage() {
               </div>
             )}
           </div>
+
+          {claimSuccess ? (
+            <div
+              role="status"
+              className="mt-6 rounded-[12px] border border-status-success-border bg-status-success-bg p-5 space-y-3"
+            >
+              <div className="flex items-start gap-3">
+                <Award className="w-5 h-5 text-status-success shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-[15px] font-bold text-status-success">
+                    Đã lưu đơn {createdOrder.code} &amp; cộng +
+                    {WELCOME_BONUS_POINTS} điểm thưởng!
+                  </p>
+                  <p className="text-[13px] text-ink">
+                    {claimSuccess.orderPointsAwarded > 0
+                      ? `Bạn nhận được +${WELCOME_BONUS_POINTS} điểm chào mừng và +${claimSuccess.orderPointsAwarded.toLocaleString("vi-VN")} điểm từ đơn hàng (tổng +${claimSuccess.totalPointsAdded.toLocaleString("vi-VN")} điểm = ${formatCurrencyVND(claimSuccess.totalPointsAdded * POINT_VALUE_VND)}).`
+                      : `Tài khoản của bạn đã được kích hoạt với +${WELCOME_BONUS_POINTS} điểm thưởng (${formatCurrencyVND(WELCOME_BONUS_POINTS * POINT_VALUE_VND)}) cho lần đặt tiếp theo.`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5 pl-8">
+                <Link
+                  href="/account/orders"
+                  className="px-4 py-2 rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold transition-colors"
+                >
+                  Xem đơn hàng của tôi
+                </Link>
+                <Link
+                  href="/account"
+                  className="px-4 py-2 rounded-[8px] border border-client-border bg-white text-client-primary hover:bg-client-soft text-[13px] font-semibold transition-colors"
+                >
+                  Ví điểm &amp; Hạng thành viên
+                </Link>
+              </div>
+            </div>
+          ) : (
+            !currentUser &&
+            claimToken && (
+              <div className="mt-6 rounded-[12px] border border-client-border bg-client-soft p-5 space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <Gift className="w-5 h-5 text-client-primary shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <h2 className="text-[15px] sm:text-[16px] font-bold text-client-primary">
+                      Tạo mật khẩu lưu đơn {createdOrder.code} &amp; nhận ngay +
+                      {WELCOME_BONUS_POINTS} điểm thưởng ={" "}
+                      {formatCurrencyVND(WELCOME_BONUS_POINTS * POINT_VALUE_VND)}
+                    </h2>
+                    <p className="text-[12.5px] text-ink-muted">
+                      Email liên kết:{" "}
+                      <strong className="text-ink">
+                        {createdOrder.email || email}
+                      </strong>
+                      . Chỉ cần tạo mật khẩu 1 lần để lưu đơn này vào tài khoản,
+                      xem e-Voucher mọi lúc và tích điểm hoàn tiền.
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={handleQuickRegisterClaim}
+                  className="flex flex-col sm:flex-row gap-2.5 sm:items-center"
+                >
+                  <input
+                    type="password"
+                    minLength={6}
+                    required
+                    autoComplete="new-password"
+                    aria-label="Mật khẩu mới để lưu đơn"
+                    value={quickRegPassword}
+                    onChange={(e) => {
+                      setQuickRegPassword(e.target.value);
+                      if (quickRegError) setQuickRegError(null);
+                    }}
+                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                    className="flex-1 h-[42px] px-3.5 rounded-[8px] border border-strong bg-white text-[13.5px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={quickRegLoading}
+                    className="h-[42px] px-5 rounded-[8px] bg-client-primary hover:bg-client-primary-hover disabled:opacity-60 text-white text-[13.5px] font-semibold inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors shrink-0"
+                  >
+                    {quickRegLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
+                    <span>Tạo mật khẩu &amp; Lưu đơn</span>
+                  </button>
+                </form>
+
+                {quickRegError && (
+                  <div
+                    role="alert"
+                    className={`rounded-[8px] border px-3.5 py-2.5 text-[12.5px] font-medium ${
+                      quickRegConflict
+                        ? "bg-status-warn-bg border-status-warn-border text-status-warn"
+                        : "bg-status-danger-bg border-status-danger-border text-status-danger"
+                    }`}
+                  >
+                    <p>{quickRegError}</p>
+                    {quickRegConflict && (
+                      <Link
+                        href={`/login?next=/account/orders&claimToken=${encodeURIComponent(claimToken)}`}
+                        className="mt-1.5 inline-flex items-center gap-1 font-bold text-client-primary hover:underline"
+                      >
+                        Đã có tài khoản? Đăng nhập để lưu đơn
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-1 flex flex-wrap items-center justify-between gap-2 text-[12.5px]">
+                  <Link
+                    href={`/login?next=/account/orders&claimToken=${encodeURIComponent(claimToken)}`}
+                    className="font-semibold text-client-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Đã có tài khoản? Đăng nhập để lưu đơn</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <span className="text-ink-muted">
+                    Không bắt buộc — bạn vẫn có thể xem e-Voucher ngay bên dưới.
+                  </span>
+                </div>
+              </div>
+            )
+          )}
 
           {!isPaid && !isCancelled && (
             <>
@@ -894,7 +1429,11 @@ export default function CartPage() {
               </Link>
             ) : (
               <Link
-                href="/login?next=/account/orders"
+                href={
+                  claimToken
+                    ? `/login?next=/account/orders&claimToken=${encodeURIComponent(claimToken)}`
+                    : "/login?next=/account/orders"
+                }
                 className="px-6 py-2.5 rounded-[8px] border border-client-primary text-client-primary hover:bg-client-soft font-semibold text-[14px] transition-colors"
               >
                 Đăng nhập để theo dõi đơn
@@ -1383,60 +1922,249 @@ export default function CartPage() {
                 })}
               </div>
 
-              {/* Coupon & Summary Row */}
-              <div className="pt-5 border-t border-subtle flex flex-col md:flex-row md:items-start justify-between gap-6">
-                <div className="md:max-w-[440px] w-full">
-                  <form onSubmit={handleApplyCoupon} className="flex gap-2">
-                    <div className="relative flex-1 min-w-0">
-                      <Tag className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="text"
-                        aria-label="Mã giảm giá"
-                        value={couponInput}
-                        onChange={(e) => setCouponInput(e.target.value)}
-                        placeholder={
-                          activeCouponList[0]
-                            ? `Nhập mã (vd: ${activeCouponList[0].code})`
-                            : "Nhập mã giảm giá"
-                        }
-                        className={`w-full h-[42px] pl-9 rounded-[8px] border border-strong text-[13px] text-ink uppercase placeholder:normal-case placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
-                          showClearCouponBtn ? "pr-10" : "pr-3"
-                        }`}
-                      />
-                      {showClearCouponBtn && (
-                        <button
-                          type="button"
-                          onClick={clearCoupon}
-                          title="Xóa mã giảm giá"
-                          aria-label="Xóa mã giảm giá"
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-status-danger transition-colors rounded"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    <button
-                      type="submit"
-                      className="px-4 h-[42px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 shrink-0"
-                    >
-                      Dùng Mã
-                    </button>
-                  </form>
+              {/* Coupon, Loyalty Points & Summary Row */}
+              <div className="pt-5 border-t border-subtle flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                <div className="flex-1 min-w-0 space-y-4">
+                  <div>
+                    <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <Tag className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          aria-label="Mã giảm giá"
+                          value={couponInput}
+                          onChange={(e) => setCouponInput(e.target.value)}
+                          placeholder={
+                            activeCouponList[0]
+                              ? `Nhập mã (vd: ${activeCouponList[0].code})`
+                              : "Nhập mã giảm giá"
+                          }
+                          className={`w-full h-[42px] pl-9 rounded-[8px] border border-strong text-[13px] text-ink uppercase placeholder:normal-case placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
+                            showClearCouponBtn ? "pr-10" : "pr-3"
+                          }`}
+                        />
+                        {showClearCouponBtn && (
+                          <button
+                            type="button"
+                            onClick={clearCoupon}
+                            title="Xóa mã giảm giá"
+                            aria-label="Xóa mã giảm giá"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-status-danger transition-colors rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        className="px-4 h-[42px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 shrink-0"
+                      >
+                        Dùng Mã
+                      </button>
+                    </form>
 
-                  {couponFeedback && (
-                    <p
-                      className={`mt-2 text-[12px] font-medium tabular-nums ${
-                        couponFeedback.type === "success"
-                          ? "text-client-primary"
-                          : "text-status-danger"
-                      }`}
-                    >
-                      {couponFeedback.text}
-                    </p>
+                    {couponFeedback && (
+                      <p
+                        className={`mt-2 text-[12px] font-medium tabular-nums ${
+                          couponFeedback.type === "success"
+                            ? "text-client-primary"
+                            : "text-status-danger"
+                        }`}
+                      >
+                        {couponFeedback.text}
+                      </p>
+                    )}
+
+                    {/* Interactive Coupon Cards */}
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {activeCouponList.map((coupon) => {
+                        const elig = evaluateCouponEligibility(
+                          coupon,
+                          couponContext
+                        );
+                        const isApplied =
+                          appliedCoupon === coupon.code && elig.eligible;
+                        const discountBadge =
+                          coupon.discountType === "fixed"
+                            ? `-${coupon.maxDiscountVND.toLocaleString("vi-VN")}đ`
+                            : `-${coupon.value}%`;
+
+                        if (elig.requiresAuth) {
+                          return (
+                            <div
+                              key={coupon.code}
+                              className="rounded-[10px] border border-subtle bg-surface-page p-3 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink tabular-nums">
+                                  <Lock className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                                  <span>{coupon.code}</span>
+                                </span>
+                                <span className="px-2 py-0.5 rounded-full bg-surface-muted text-ink-muted text-[11px] font-bold tabular-nums">
+                                  {discountBadge}
+                                </span>
+                              </div>
+                              <p className="text-[11.5px] text-ink-muted leading-snug">
+                                {coupon.title}
+                                {coupon.minOrderVND
+                                  ? ` • Đơn từ ${coupon.minOrderVND.toLocaleString("vi-VN")}đ`
+                                  : ""}
+                              </p>
+                              <Link
+                                href="/login?next=/cart"
+                                className="inline-flex items-center gap-1 text-[12px] font-semibold text-client-primary hover:underline"
+                              >
+                                <Lock className="w-3 h-3 shrink-0" />
+                                <span>Đăng nhập để mở khóa</span>
+                              </Link>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={coupon.code}
+                            type="button"
+                            disabled={!elig.eligible}
+                            onClick={() => handleSelectCouponCard(coupon)}
+                            className={`text-left rounded-[10px] border p-3 space-y-1 transition-colors ${
+                              isApplied
+                                ? "bg-client-soft border-client-primary text-client-primary"
+                                : elig.eligible
+                                  ? "bg-surface-page border-subtle hover:border-client-border text-ink"
+                                  : "bg-surface-page border-subtle opacity-70 cursor-not-allowed text-ink-muted"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[12.5px] font-bold tabular-nums">
+                                {coupon.code}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums ${
+                                  isApplied
+                                    ? "bg-client-primary text-white"
+                                    : "bg-client-soft text-client-accent"
+                                }`}
+                              >
+                                {isApplied ? "Đang dùng" : discountBadge}
+                              </span>
+                            </div>
+                            <p className="text-[11.5px] text-ink-muted leading-snug">
+                              {coupon.title}
+                              {coupon.memberOnly ? " • Thành viên" : ""}
+                            </p>
+                            {!elig.eligible && elig.reason && (
+                              <p className="text-[11px] text-status-warn font-medium leading-snug">
+                                {elig.reason}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Loyalty Points Redemption (logged-in users with points > 0) */}
+                  {currentUser && availablePoints > 0 && (
+                    <div className="rounded-[12px] border border-client-border bg-client-soft/60 p-3.5 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="inline-flex items-center gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={usePoints}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setUsePoints(checked);
+                              if (checked && maxRedeemablePoints > 0) {
+                                setRedeemPointsInput((prev) =>
+                                  prev > 0
+                                    ? Math.min(prev, maxRedeemablePoints)
+                                    : maxRedeemablePoints
+                                );
+                              }
+                            }}
+                            className="w-4 h-4 accent-client-primary rounded shrink-0"
+                          />
+                          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-client-primary">
+                            <Coins className="w-4 h-4 shrink-0" />
+                            <span>Dùng điểm thưởng VN.TRAVEL</span>
+                          </span>
+                        </label>
+                        <span className="text-[12px] font-semibold text-ink tabular-nums">
+                          Số dư: {availablePoints.toLocaleString("vi-VN")} điểm
+                          (= {formatCurrencyVND(availablePoints * POINT_VALUE_VND)})
+                        </span>
+                      </div>
+
+                      <p className="text-[12px] text-ink-muted tabular-nums">
+                        1 điểm = {formatCurrencyVND(POINT_VALUE_VND)} • Dùng tối
+                        đa{" "}
+                        <strong className="text-ink">
+                          {maxRedeemablePoints.toLocaleString("vi-VN")} điểm
+                        </strong>{" "}
+                        (20% giá trị đơn sau mã giảm giá).
+                      </p>
+
+                      {usePoints &&
+                        (maxRedeemablePoints === 0 ? (
+                          <p className="text-[12px] text-status-warn font-medium">
+                            Giá trị đơn hàng hiện tại chưa đủ để quy đổi điểm
+                            (tối thiểu {formatCurrencyVND(5_000)}).
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex items-center gap-2">
+                              <label
+                                htmlFor="cart-redeem-points"
+                                className="text-[12.5px] font-medium text-ink"
+                              >
+                                Điểm quy đổi:
+                              </label>
+                              <input
+                                id="cart-redeem-points"
+                                type="number"
+                                min={0}
+                                max={maxRedeemablePoints}
+                                value={effectiveRedeemPoints}
+                                onChange={(e) => {
+                                  const raw = Number(e.target.value);
+                                  if (!Number.isFinite(raw)) {
+                                    setRedeemPointsInput(0);
+                                    return;
+                                  }
+                                  setRedeemPointsInput(
+                                    Math.min(
+                                      maxRedeemablePoints,
+                                      Math.max(0, Math.floor(raw))
+                                    )
+                                  );
+                                }}
+                                className="w-[104px] h-[36px] px-2.5 rounded-[8px] border border-strong bg-white text-[13px] font-bold text-ink tabular-nums focus:outline-none focus:border-client-primary"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRedeemPointsInput(maxRedeemablePoints)
+                              }
+                              className="px-3 h-[36px] rounded-[8px] border border-client-primary bg-white text-client-primary hover:bg-client-soft text-[12px] font-semibold transition-colors"
+                            >
+                              Dùng tối đa
+                            </button>
+
+                            {pointsDiscount > 0 && (
+                              <span className="text-[12.5px] font-bold text-client-accent tabular-nums">
+                                Giảm -{formatCurrencyVND(pointsDiscount)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                    </div>
                   )}
                 </div>
 
-                <div className="md:min-w-[300px] space-y-2 text-[14px] tabular-nums">
+                <div className="lg:min-w-[300px] space-y-2 text-[14px] tabular-nums shrink-0">
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-ink-muted">Tạm tính:</span>
                     <span className="font-semibold text-ink tabular-nums">
@@ -1449,6 +2177,16 @@ export default function CartPage() {
                       -{formatCurrencyVND(discount)}
                     </span>
                   </div>
+                  {pointsDiscount > 0 && (
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-ink-muted">
+                        Giảm từ điểm thưởng ({effectiveRedeemPoints.toLocaleString("vi-VN")} điểm):
+                      </span>
+                      <span className="font-semibold text-client-accent tabular-nums">
+                        -{formatCurrencyVND(pointsDiscount)}
+                      </span>
+                    </div>
+                  )}
                   <div className="pt-2 border-t border-subtle flex items-center justify-between gap-4">
                     <span className="font-bold text-ink">Thanh toán:</span>
                     <span className="text-[22px] font-extrabold text-client-accent tabular-nums">
@@ -1709,6 +2447,51 @@ export default function CartPage() {
                           </span>
                         </div>
 
+                        {currentUser && savedTravelers.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-[12px] font-semibold text-client-primary flex items-center gap-1.5">
+                              <BookUser className="w-3.5 h-3.5 shrink-0" />
+                              <span>Chọn nhanh từ Sổ hành khách:</span>
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {savedTravelers.map((traveler) => {
+                                const isMatched =
+                                  p.fullName.trim() ===
+                                    traveler.fullName.trim() &&
+                                  p.birthDate === traveler.birthDate;
+                                return (
+                                  <button
+                                    key={traveler.id}
+                                    type="button"
+                                    onClick={() =>
+                                      quickFillSlotFromTraveler(
+                                        idx,
+                                        slot,
+                                        traveler
+                                      )
+                                    }
+                                    className={`px-2.5 py-1 rounded-full border text-[12px] font-medium transition-colors ${
+                                      isMatched
+                                        ? "bg-client-soft border-client-primary text-client-primary font-semibold"
+                                        : "bg-white border-strong text-ink hover:border-client-primary hover:text-client-primary"
+                                    }`}
+                                  >
+                                    {traveler.fullName}
+                                    {traveler.relationship
+                                      ? ` (${traveler.relationship})`
+                                      : ""}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {slotQuickFillHints[slot.key] && (
+                              <p className="text-[11.5px] text-status-warn bg-status-warn-bg border border-status-warn-border rounded-[8px] px-2.5 py-1.5 font-medium">
+                                {slotQuickFillHints[slot.key]}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div className="lg:col-span-2">
                             <label className="block text-[12px] font-medium text-ink-muted mb-1">
@@ -1796,6 +2579,26 @@ export default function CartPage() {
                     );
                   })}
                 </div>
+
+                {currentUser && (
+                  <label className="flex items-start gap-2.5 rounded-[10px] border border-client-border bg-client-soft/50 px-3.5 py-3 text-[13px] text-ink cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={saveTravelers}
+                      onChange={(e) => setSaveTravelers(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 accent-client-primary rounded shrink-0"
+                    />
+                    <span>
+                      <strong className="text-client-primary">
+                        Lưu hành khách mới vào Sổ hành khách cho lần đặt sau
+                      </strong>
+                      <span className="block text-[12px] text-ink-muted mt-0.5">
+                        Lưu tự động họ tên, giới tính, ngày sinh và giấy tờ tùy
+                        thân để chọn nhanh trong các lần đặt tour tiếp theo.
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
 
               {submitError && (
@@ -1895,11 +2698,42 @@ export default function CartPage() {
                   ))}
                 </div>
 
-                <div className="pt-2 border-t border-subtle flex items-center justify-between font-bold text-[15px] tabular-nums">
-                  <span className="text-ink">Tổng thanh toán:</span>
-                  <span className="text-[20px] text-client-accent">
-                    {formatCurrencyVND(finalTotal)}
-                  </span>
+                <div className="pt-2 border-t border-subtle space-y-1.5 text-[13.5px] tabular-nums">
+                  {(discount > 0 || pointsDiscount > 0) && (
+                    <div className="flex items-center justify-between text-ink-muted">
+                      <span>Tạm tính:</span>
+                      <span className="font-semibold text-ink">
+                        {formatCurrencyVND(checkedSubTotal)}
+                      </span>
+                    </div>
+                  )}
+                  {discount > 0 && (
+                    <div className="flex items-center justify-between text-ink-muted">
+                      <span>
+                        Giảm giá{appliedCoupon ? ` (${appliedCoupon})` : ""}:
+                      </span>
+                      <span className="font-semibold text-client-accent">
+                        -{formatCurrencyVND(discount)}
+                      </span>
+                    </div>
+                  )}
+                  {pointsDiscount > 0 && (
+                    <div className="flex items-center justify-between text-ink-muted">
+                      <span>
+                        Giảm từ điểm thưởng (
+                        {effectiveRedeemPoints.toLocaleString("vi-VN")} điểm):
+                      </span>
+                      <span className="font-semibold text-client-accent">
+                        -{formatCurrencyVND(pointsDiscount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between font-bold text-[15px] pt-1">
+                    <span className="text-ink">Tổng thanh toán:</span>
+                    <span className="text-[20px] text-client-accent">
+                      {formatCurrencyVND(finalTotal)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

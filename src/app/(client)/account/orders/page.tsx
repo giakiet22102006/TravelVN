@@ -6,10 +6,12 @@ import {
   AlertTriangle,
   Calendar,
   FileText,
+  Link2,
   Loader2,
   MapPin,
   PackageOpen,
   Plane,
+  Sparkles,
   UserCheck,
   XCircle,
 } from "lucide-react";
@@ -57,6 +59,9 @@ interface CustomerOrder {
   subTotal: number;
   discount: number;
   couponCode: string | null;
+  pointsRedeemed?: number;
+  pointsDiscount?: number;
+  pointsEarned?: number;
   total: number;
   paymentMethod: "CASH" | "MOMO" | "BANK_TRANSFER";
   paymentStatus: "UNPAID" | "PAID";
@@ -98,7 +103,7 @@ const PAYMENT_LABELS: Record<CustomerOrder["paymentMethod"], string> = {
 };
 
 export default function CustomerOrdersPage() {
-  const { currentUser } = useClientMeta();
+  const { currentUser, refreshUser } = useClientMeta();
   const [statusFilter, setStatusFilter] = useState("");
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +111,14 @@ export default function CustomerOrdersPage() {
   const [confirmCancelOrder, setConfirmCancelOrder] =
     useState<CustomerOrder | null>(null);
   const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [claimCode, setClaimCode] = useState("");
+  const [claimPhone, setClaimPhone] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [claimFeedback, setClaimFeedback] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
@@ -173,7 +186,7 @@ export default function CustomerOrdersPage() {
         text: data.message || `Đã hủy đơn ${order.code}`,
       });
       setConfirmCancelOrder(null);
-      await fetchOrders();
+      await Promise.all([fetchOrders(), refreshUser()]);
     } catch {
       setFeedback({
         type: "error",
@@ -181,6 +194,60 @@ export default function CustomerOrdersPage() {
       });
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  async function handleClaimOrder(e: React.FormEvent) {
+    e.preventDefault();
+    setClaimFeedback(null);
+
+    const code = claimCode.trim().toUpperCase();
+    const phone = claimPhone.trim();
+    if (!code || !phone) {
+      setClaimFeedback({
+        type: "error",
+        text: "Vui lòng nhập đầy đủ mã đơn hàng và số điện thoại đặt đơn.",
+      });
+      return;
+    }
+
+    setClaiming(true);
+    try {
+      const res = await fetch("/api/client/orders/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "link",
+          orderCode: code,
+          phone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setClaimFeedback({
+          type: "error",
+          text: data.message || "Không thể liên kết đơn hàng.",
+        });
+        return;
+      }
+      const awardedText =
+        typeof data.pointsAwarded === "number" && data.pointsAwarded > 0
+          ? ` (+${data.pointsAwarded.toLocaleString("vi-VN")} điểm thưởng)`
+          : "";
+      setClaimFeedback({
+        type: "success",
+        text: `${data.message || `Đã liên kết đơn #${code} vào tài khoản!`}${awardedText}`,
+      });
+      setClaimCode("");
+      setClaimPhone("");
+      await Promise.all([fetchOrders(), refreshUser()]);
+    } catch {
+      setClaimFeedback({
+        type: "error",
+        text: "Không thể kết nối máy chủ.",
+      });
+    } finally {
+      setClaiming(false);
     }
   }
 
@@ -227,6 +294,83 @@ export default function CustomerOrdersPage() {
         </div>
 
         <div className="lg:col-span-8 space-y-5">
+          {/* Manual Guest Order Claim Card */}
+          <form
+            onSubmit={handleClaimOrder}
+            className="bg-white rounded-[16px] border border-subtle p-5 shadow-sm space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-client-primary shrink-0" />
+              <h2 className="text-[15px] font-bold text-ink">
+                Liên kết đơn đặt vãng lai
+              </h2>
+            </div>
+            <p className="text-[12px] text-ink-muted">
+              Bạn từng đặt tour khi chưa đăng nhập? Nhập mã đơn và số điện thoại
+              để đồng bộ đơn về tài khoản và nhận điểm tích lũy.
+            </p>
+
+            {claimFeedback && (
+              <div
+                role="alert"
+                className={`p-3 rounded-[10px] text-[13px] font-medium ${
+                  claimFeedback.type === "success"
+                    ? "bg-status-success-bg text-status-success border border-status-success-border"
+                    : "bg-status-danger-bg text-status-danger border border-status-danger-border"
+                }`}
+              >
+                {claimFeedback.text}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-5">
+                <label
+                  htmlFor="claim-order-code"
+                  className="block text-[12px] font-semibold text-ink mb-1"
+                >
+                  Mã đơn hàng
+                </label>
+                <input
+                  id="claim-order-code"
+                  type="text"
+                  required
+                  value={claimCode}
+                  onChange={(e) => setClaimCode(e.target.value)}
+                  placeholder="Ví dụ: OD123456"
+                  className="w-full h-[40px] px-3 rounded-[8px] border border-strong text-[13px] text-ink uppercase tabular-nums placeholder:normal-case placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                />
+              </div>
+              <div className="sm:col-span-4">
+                <label
+                  htmlFor="claim-order-phone"
+                  className="block text-[12px] font-semibold text-ink mb-1"
+                >
+                  Số điện thoại đặt đơn
+                </label>
+                <input
+                  id="claim-order-phone"
+                  type="tel"
+                  required
+                  value={claimPhone}
+                  onChange={(e) => setClaimPhone(e.target.value)}
+                  placeholder="0912345678"
+                  className="w-full h-[40px] px-3 rounded-[8px] border border-strong text-[13px] text-ink tabular-nums placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <button
+                  type="submit"
+                  disabled={claiming}
+                  className="w-full h-[40px] px-4 rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
+                >
+                  {claiming && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Liên kết đơn</span>
+                </button>
+              </div>
+            </div>
+          </form>
+
           {/* Status Filter Tabs */}
           <div className="bg-white rounded-[14px] border border-subtle p-3 flex flex-wrap gap-2 shadow-sm">
             {STATUS_TABS.map((tab) => (
@@ -313,6 +457,15 @@ export default function CustomerOrdersPage() {
                           {order.refundStatus === "REFUNDED" && (
                             <span className="text-[12px] font-semibold px-2.5 py-0.5 rounded-full border bg-status-success-bg text-status-success border-status-success-border">
                               Đã hoàn tiền
+                            </span>
+                          )}
+                          {(order.pointsEarned ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-0.5 rounded-full border bg-status-success-bg text-status-success border-status-success-border tabular-nums">
+                              <Sparkles className="w-3 h-3 shrink-0" />
+                              <span>
+                                +{(order.pointsEarned ?? 0).toLocaleString("vi-VN")}{" "}
+                                điểm thưởng
+                              </span>
                             </span>
                           )}
                         </div>
@@ -428,7 +581,7 @@ export default function CustomerOrdersPage() {
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[12px] text-ink-muted">
-                      <div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         {order.couponCode && (
                           <span className="tabular-nums">
                             Mã giảm:{" "}
@@ -439,6 +592,18 @@ export default function CustomerOrdersPage() {
                             <span className="text-client-accent font-semibold">
                               -{formatCurrencyVND(order.discount)}
                             </span>
+                            )
+                          </span>
+                        )}
+                        {(order.pointsRedeemed ?? 0) > 0 && (
+                          <span className="text-client-accent font-semibold tabular-nums">
+                            Đổi{" "}
+                            {(order.pointsRedeemed ?? 0).toLocaleString("vi-VN")}{" "}
+                            điểm (-
+                            {formatCurrencyVND(
+                              order.pointsDiscount ??
+                                (order.pointsRedeemed ?? 0) * 1000
+                            )}
                             )
                           </span>
                         )}
@@ -509,14 +674,23 @@ export default function CustomerOrdersPage() {
                   Đơn hàng sẽ chuyển sang trạng thái Đã hủy và hệ thống tự động
                   hoàn trả số chỗ đã giữ.
                 </p>
+                {(confirmCancelOrder.pointsRedeemed ?? 0) > 0 && (
+                  <p className="text-[12px] font-semibold text-client-primary mt-1.5 tabular-nums">
+                    {(confirmCancelOrder.pointsRedeemed ?? 0).toLocaleString(
+                      "vi-VN"
+                    )}{" "}
+                    điểm đã quy đổi sẽ được hoàn trả lại vào ví điểm của bạn.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end gap-2.5 pt-2">
               <button
                 type="button"
+                disabled={cancellingId === confirmCancelOrder.id}
                 onClick={() => setConfirmCancelOrder(null)}
-                className="px-4 py-2 rounded-[8px] border border-strong hover:bg-surface-muted text-[13px] font-semibold text-ink transition-colors"
+                className="px-4 py-2 rounded-[8px] border border-strong hover:bg-surface-muted text-[13px] font-semibold text-ink transition-colors disabled:opacity-60"
               >
                 Đóng
               </button>

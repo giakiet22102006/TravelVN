@@ -3,17 +3,65 @@ import {
   OrderStatus,
   PaymentStatus,
   type Prisma,
+  RecordStatus,
   RefundStatus,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { reserveOrderItemStock } from "@/lib/order-holds";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 import { sendOrderConfirmationEmail } from "@/lib/email";
+import { awardOrderPointsIfEligibleTx } from "@/lib/loyalty";
 
 class LatePaidRollbackError extends Error {
   constructor() {
     super("LATE_PAID_INSUFFICIENT_STOCK");
   }
+}
+
+export async function reconcileRedeemedPointsOnReopenTx(
+  tx: Prisma.TransactionClient,
+  order: { id: string; userId: string | null; pointsRedeemed: number }
+): Promise<{ reconciled: boolean; insufficient: boolean }> {
+  if (!order.userId || order.pointsRedeemed <= 0) {
+    return { reconciled: true, insufficient: false };
+  }
+
+  await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "id" = ${order.id} FOR UPDATE`;
+
+  const refundTx = await tx.loyaltyTransaction.findFirst({
+    where: {
+      userId: order.userId,
+      orderId: order.id,
+      type: "ORDER_REDEEM_REFUND",
+    },
+    select: { id: true },
+  });
+
+  if (!refundTx) {
+    return { reconciled: true, insufficient: false };
+  }
+
+  const deducted = await tx.user.updateMany({
+    where: {
+      id: order.userId,
+      deleted: false,
+      status: RecordStatus.ACTIVE,
+      loyaltyPoints: { gte: order.pointsRedeemed },
+    },
+    data: {
+      loyaltyPoints: { decrement: order.pointsRedeemed },
+    },
+  });
+
+  if (deducted.count === 0) {
+    return { reconciled: false, insufficient: true };
+  }
+
+  await tx.loyaltyTransaction.delete({
+    where: { id: refundTx.id },
+  });
+
+  return { reconciled: true, insufficient: false };
 }
 
 export function getPaymentWebhookSecret(): string {
@@ -206,6 +254,8 @@ export async function processSignedPaymentWebhook(
 
   try {
     txResult = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "code" = ${orderCode} AND "deleted" = false FOR UPDATE`;
+
       const order = await tx.order.findFirst({
         where: { code: orderCode, deleted: false },
         include: { items: true },
@@ -282,6 +332,8 @@ export async function processSignedPaymentWebhook(
           },
         });
 
+        await awardOrderPointsIfEligibleTx(tx, updated.id);
+
         await upsertWebhookLog(tx, {
           provider,
           eventId,
@@ -327,6 +379,15 @@ export async function processSignedPaymentWebhook(
         }
       }
 
+      const reconcile = await reconcileRedeemedPointsOnReopenTx(tx, {
+        id: order.id,
+        userId: order.userId,
+        pointsRedeemed: order.pointsRedeemed,
+      });
+      if (reconcile.insufficient) {
+        throw new LatePaidRollbackError();
+      }
+
       const reapproved = await tx.order.update({
         where: { id: order.id },
         data: {
@@ -338,6 +399,8 @@ export async function processSignedPaymentWebhook(
           cancelReason: null,
         },
       });
+
+      await awardOrderPointsIfEligibleTx(tx, reapproved.id);
 
       await upsertWebhookLog(tx, {
         provider,
@@ -371,6 +434,8 @@ export async function processSignedPaymentWebhook(
 
     // Re-reservation rolled back cleanly; record PAID + REFUND_REQUIRED on cancelled order
     txResult = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "code" = ${orderCode} AND "deleted" = false FOR UPDATE`;
+
       const order = await tx.order.findFirst({
         where: { code: orderCode, deleted: false },
       });

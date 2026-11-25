@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth";
-import { CLIENT_USER_SELECT } from "@/lib/client-auth";
+import { CLIENT_USER_SELECT, toClientUserPublic } from "@/lib/client-auth";
 import { attachClientSessionCookie } from "@/lib/oauth";
+import {
+  claimSingleGuestOrderTx,
+  OrderClaimError,
+  verifyOrderClaimToken,
+} from "@/lib/order-claim";
 import {
   checkRateLimit,
   getClientIp,
@@ -12,9 +17,26 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return NextResponse.json(
+          { message: "Dữ liệu đăng nhập không hợp lệ" },
+          { status: 400 }
+        );
+      }
+      body = raw as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { message: "Payload JSON không hợp lệ" },
+        { status: 400 }
+      );
+    }
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
+    const claimToken =
+      typeof body.claimToken === "string" ? body.claimToken.trim() : "";
 
     const ip = getClientIp(req);
     const rl = checkRateLimit(
@@ -78,11 +100,65 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { password: passwordHash, ...publicFields } = account;
-    const user = { ...publicFields, hasPassword: true };
+    const passwordHash = account.password;
+    let user = toClientUserPublic(account, { hasPassword: true });
+    let claimResult: Awaited<ReturnType<typeof claimSingleGuestOrderTx>> | null =
+      null;
+
+    if (claimToken) {
+      if (!verifyOrderClaimToken(claimToken)) {
+        return NextResponse.json(
+          {
+            message: "Liên kết lưu đơn hàng không hợp lệ hoặc đã hết hạn.",
+            code: "INVALID_TOKEN",
+          },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const claimed = await prisma.$transaction(async (tx) => {
+          const result = await claimSingleGuestOrderTx(tx, {
+            userId: account.id,
+            claimToken,
+          });
+          const freshUser = await tx.user.findUniqueOrThrow({
+            where: { id: account.id },
+            select: {
+              ...CLIENT_USER_SELECT,
+              password: true,
+            },
+          });
+          return {
+            user: toClientUserPublic(freshUser, { hasPassword: true }),
+            claimResult: result,
+          };
+        });
+        user = claimed.user;
+        claimResult = claimed.claimResult;
+      } catch (err) {
+        if (err instanceof OrderClaimError) {
+          return NextResponse.json(
+            { message: err.message, code: err.code },
+            { status: err.status }
+          );
+        }
+        throw err;
+      }
+    }
+
     const response = NextResponse.json({
       message: "Đăng nhập thành công!",
       user,
+      ...(claimResult
+        ? {
+            claimedOrder: {
+              ...claimResult.order,
+              orderCode: claimResult.order.code,
+            },
+            pointsAwarded: claimResult.pointsAwarded,
+          }
+        : {}),
     });
     return await attachClientSessionCookie(response, user, req, passwordHash);
   } catch (error) {

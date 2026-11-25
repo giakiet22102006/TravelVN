@@ -7,6 +7,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { syncTourSummaryFromDepartures } from "@/lib/departure-sync";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
+import { refundRedeemedPointsIfAnyTx } from "@/lib/loyalty";
 
 export const ORDER_HOLD_TTL_MS = 15 * 60 * 1000;
 
@@ -159,6 +160,8 @@ export async function releaseExpiredOrderHolds(opts?: {
 
   for (const candidate of candidates) {
     const transitioned = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "id" = ${candidate.id} AND "deleted" = false FOR UPDATE`;
+
       const claim = await tx.order.updateMany({
         where: {
           id: candidate.id,
@@ -175,6 +178,11 @@ export async function releaseExpiredOrderHolds(opts?: {
 
       if (claim.count === 0) return false;
       await restoreOrderInventoryShared(tx, candidate.items);
+      await refundRedeemedPointsIfAnyTx(
+        tx,
+        candidate.id,
+        "Hoàn điểm do giữ chỗ hết hạn"
+      );
       return true;
     });
 

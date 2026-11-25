@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import type { MemberTier } from "@/types/ota";
 import { prisma } from "./prisma";
+import { computeMemberTier } from "./loyalty";
 import {
   CLIENT_TOKEN_COOKIE,
   computePasswordSig,
@@ -15,6 +17,8 @@ export const CLIENT_USER_SELECT = {
   avatar: true,
   provider: true,
   status: true,
+  loyaltyPoints: true,
+  lifetimePoints: true,
   createdAt: true,
 } as const;
 
@@ -28,6 +32,48 @@ export interface ClientUserPublic {
   provider: string;
   status: string;
   hasPassword: boolean;
+  loyaltyPoints: number;
+  lifetimePoints: number;
+  memberTier?: MemberTier;
+}
+
+export interface RawClientUserRecord {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  avatar: string | null;
+  provider: string;
+  status: string;
+  loyaltyPoints: number;
+  lifetimePoints: number;
+  password?: string | null;
+}
+
+export function toClientUserPublic(
+  rawUser: RawClientUserRecord,
+  options?: { hasPassword?: boolean }
+): ClientUserPublic & { memberTier: MemberTier } {
+  const hasPassword =
+    options?.hasPassword !== undefined
+      ? options.hasPassword
+      : Boolean(rawUser.password);
+
+  return {
+    id: rawUser.id,
+    fullName: rawUser.fullName,
+    email: rawUser.email,
+    phone: rawUser.phone,
+    address: rawUser.address,
+    avatar: rawUser.avatar,
+    provider: rawUser.provider,
+    status: rawUser.status,
+    hasPassword,
+    loyaltyPoints: rawUser.loyaltyPoints,
+    lifetimePoints: rawUser.lifetimePoints,
+    memberTier: computeMemberTier(rawUser.lifetimePoints).tier,
+  };
 }
 
 export async function getCurrentUser(): Promise<ClientUserPublic | null> {
@@ -60,11 +106,7 @@ export async function getCurrentUser(): Promise<ClientUserPublic | null> {
       return null;
     }
 
-    const { password, ...rest } = user;
-    return {
-      ...rest,
-      hasPassword: Boolean(password),
-    };
+    return toClientUserPublic(user);
   } catch {
     return null;
   }

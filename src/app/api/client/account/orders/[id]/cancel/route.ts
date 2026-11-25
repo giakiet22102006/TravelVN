@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/client-auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 import { restoreOrderInventoryShared } from "@/lib/order-holds";
+import { refundRedeemedPointsIfAnyTx } from "@/lib/loyalty";
 
 export async function PATCH(
   _req: NextRequest,
@@ -49,11 +50,14 @@ export async function PATCH(
     }
 
     const cancelled = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "id" = ${order.id} AND "deleted" = false FOR UPDATE`;
+
       const updatedCount = await tx.order.updateMany({
         where: {
           id: order.id,
           deleted: false,
           status: OrderStatus.INITIAL,
+          paymentStatus: PaymentStatus.UNPAID,
         },
         data: {
           status: OrderStatus.CANCELLED,
@@ -66,6 +70,11 @@ export async function PATCH(
       }
 
       await restoreOrderInventoryShared(tx, order.items);
+      await refundRedeemedPointsIfAnyTx(
+        tx,
+        order.id,
+        "Hoàn điểm do khách hủy đơn"
+      );
 
       return true;
     });

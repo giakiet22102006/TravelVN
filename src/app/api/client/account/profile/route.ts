@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { CLIENT_USER_SELECT, getCurrentUser } from "@/lib/client-auth";
+import {
+  CLIENT_USER_SELECT,
+  getCurrentUser,
+  toClientUserPublic,
+} from "@/lib/client-auth";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,7 +21,22 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return NextResponse.json(
+          { message: "Dữ liệu cập nhật hồ sơ không hợp lệ" },
+          { status: 400 }
+        );
+      }
+      body = raw as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { message: "Payload JSON không hợp lệ" },
+        { status: 400 }
+      );
+    }
     const fullName = String(body.fullName || "").trim();
     const phone = String(body.phone || "").trim();
     const address = String(body.address || "").trim();
@@ -54,10 +73,9 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    const { password, ...rest } = updated;
     return NextResponse.json({
       message: "Cập nhật thông tin cá nhân thành công!",
-      user: { ...rest, hasPassword: Boolean(password) },
+      user: toClientUserPublic(updated),
     });
   } catch (error) {
     console.error("PUT /api/client/account/profile error:", error);

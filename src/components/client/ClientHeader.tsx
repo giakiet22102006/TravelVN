@@ -4,8 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Award,
   ChevronDown,
   ClipboardList,
+  Coins,
   Heart,
   LogOut,
   Mail,
@@ -15,12 +17,15 @@ import {
   ShoppingCart,
   User,
   UserCircle,
+  Users,
   X,
 } from "lucide-react";
 import { useCart } from "./CartContext";
 import { useWishlist } from "./WishlistContext";
 import { useClientMeta } from "./ClientLayoutShell";
 import { enhanceImageUrl } from "@/lib/image-quality";
+import { computeMemberTier } from "@/lib/loyalty";
+import type { MemberTier } from "@/types/ota";
 
 export interface CategoryTreeItem {
   id: string;
@@ -48,6 +53,21 @@ interface ClientHeaderProps {
   websiteInfo: WebsiteInfoData;
 }
 
+const HEADER_TIER_BADGES: Record<MemberTier, { label: string; cls: string }> = {
+  GOLD: {
+    label: "Hạng Vàng",
+    cls: "bg-client-sun/25 border-client-sun text-ink",
+  },
+  SILVER: {
+    label: "Hạng Bạc",
+    cls: "bg-client-soft border-client-border text-client-primary",
+  },
+  BRONZE: {
+    label: "Hạng Đồng",
+    cls: "bg-surface-muted border-strong text-ink-muted",
+  },
+};
+
 export function ClientHeader({
   categoryTree,
   websiteInfo,
@@ -69,6 +89,12 @@ export function ClientHeader({
   const [logoError, setLogoError] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const desktopNavRef = useRef<HTMLElement>(null);
+
+  const loyaltyPoints = currentUser?.loyaltyPoints ?? 0;
+  const lifetimePoints = currentUser?.lifetimePoints ?? 0;
+  const computedTier = computeMemberTier(lifetimePoints);
+  const memberTier: MemberTier = currentUser?.memberTier ?? computedTier.tier;
+  const tierBadge = HEADER_TIER_BADGES[memberTier];
 
   useEffect(() => {
     setAvatarError(false);
@@ -131,7 +157,7 @@ export function ClientHeader({
 
   return (
     <header className="sticky top-0 z-40 w-full font-lexend-deca">
-      {/* Top Bar - Deep Emerald */}
+      {/* Top Bar */}
       <div className="bg-client-primary text-white text-[12px] py-2">
         <div className="max-w-[1184px] mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
@@ -152,79 +178,109 @@ export function ClientHeader({
           </div>
 
           {currentUser ? (
-            <div ref={accountMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setAccountMenuOpen((v) => !v)}
-                aria-expanded={accountMenuOpen}
-                aria-label="Menu tài khoản khách hàng"
-                className="inline-flex items-center gap-1.5 text-white hover:bg-white/20 bg-white/15 px-3 py-1 rounded-full font-medium transition-colors"
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Link
+                href="/account"
+                aria-label={`Ví điểm thưởng: ${loyaltyPoints.toLocaleString("vi-VN")} điểm`}
+                className="inline-flex items-center gap-1 bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 rounded-full font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
-                {currentUser.avatar && !avatarError ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={enhanceImageUrl(currentUser.avatar, 120, 85)}
-                    alt={currentUser.fullName}
-                    onError={() => setAvatarError(true)}
-                    className="w-4 h-4 rounded-full object-cover"
-                  />
-                ) : (
-                  <UserCircle className="w-4 h-4 shrink-0" />
-                )}
-                <span className="max-w-[150px] truncate">
-                  Xin chào, {currentUser.fullName}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform ${
-                    accountMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+                <Coins className="w-3.5 h-3.5 text-client-sun shrink-0" />
+                <span>{loyaltyPoints.toLocaleString("vi-VN")} điểm</span>
+              </Link>
 
-              {accountMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[220px] bg-white text-ink rounded-[12px] shadow-[0_14px_34px_rgba(22,34,41,0.14)] border border-border-subtle py-1.5 z-50">
-                  <div className="px-4 py-2 border-b border-border-subtle">
-                    <p className="text-[13px] font-bold truncate">
-                      {currentUser.fullName}
-                    </p>
-                    <p className="text-[11px] text-ink-muted truncate">
-                      {currentUser.email}
-                    </p>
+              <div ref={accountMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((v) => !v)}
+                  aria-expanded={accountMenuOpen}
+                  aria-label="Menu tài khoản khách hàng"
+                  className="inline-flex items-center gap-1.5 text-white hover:bg-white/20 bg-white/15 px-3 py-1 rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                >
+                  {currentUser.avatar && !avatarError ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={enhanceImageUrl(currentUser.avatar, 120, 85)}
+                      alt={currentUser.fullName}
+                      onError={() => setAvatarError(true)}
+                      className="w-4 h-4 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span className="max-w-[105px] sm:max-w-[150px] truncate">
+                    Xin chào, {currentUser.fullName}
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform ${
+                      accountMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-[240px] bg-white text-ink rounded-[12px] shadow-[0_14px_34px_rgba(22,34,41,0.14)] border border-border-subtle py-1.5 z-50">
+                    <div className="px-4 py-2.5 border-b border-border-subtle">
+                      <p className="text-[13px] font-bold truncate">
+                        {currentUser.fullName}
+                      </p>
+                      <p className="text-[11px] text-ink-muted truncate">
+                        {currentUser.email}
+                      </p>
+                      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-semibold ${tierBadge.cls}`}
+                        >
+                          <Award className="w-3 h-3 shrink-0" />
+                          <span>{tierBadge.label}</span>
+                        </span>
+                        <span className="font-bold text-client-primary tabular-nums">
+                          {loyaltyPoints.toLocaleString("vi-VN")} điểm
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      href="/account/orders"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      <span>Đơn hàng của tôi</span>
+                    </Link>
+                    <Link
+                      href="/account/travelers"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Sổ hành khách</span>
+                    </Link>
+                    <Link
+                      href="/account/wishlist"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                    >
+                      <Heart className="w-4 h-4" />
+                      <span>Tour yêu thích</span>
+                    </Link>
+                    <Link
+                      href="/account"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Tài khoản cá nhân</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-status-danger hover:bg-status-danger-bg border-t border-border-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger/40"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Đăng xuất</span>
+                    </button>
                   </div>
-                  <Link
-                    href="/account/orders"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
-                  >
-                    <ClipboardList className="w-4 h-4" />
-                    <span>Đơn hàng của tôi</span>
-                  </Link>
-                  <Link
-                    href="/account/wishlist"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
-                  >
-                    <Heart className="w-4 h-4" />
-                    <span>Tour yêu thích</span>
-                  </Link>
-                  <Link
-                    href="/account"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
-                  >
-                    <User className="w-4 h-4" />
-                    <span>Tài khoản cá nhân</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-status-danger hover:bg-status-danger-bg border-t border-border-subtle transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Đăng xuất</span>
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ) : (
             <div className="inline-flex items-center gap-2">
@@ -426,7 +482,12 @@ export function ClientHeader({
             className="fixed inset-0 bg-black/50"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <aside className="relative z-10 w-[290px] max-w-[85vw] bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu điều hướng"
+            className="relative z-10 w-[290px] max-w-[85vw] bg-white h-full shadow-2xl flex flex-col overflow-y-auto"
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
               <span className="text-[20px] font-extrabold text-client-primary">
                 {websiteInfo.websiteName || "VN.TRAVEL"}
@@ -558,8 +619,26 @@ export function ClientHeader({
               <div className="pt-3 mt-3 border-t border-border-subtle space-y-1">
                 {currentUser ? (
                   <>
-                    <div className="px-3 py-2 text-[13px] font-bold text-client-primary truncate">
-                      {currentUser.fullName}
+                    <div className="px-3 py-2 space-y-1.5">
+                      <p className="text-[13px] font-bold text-client-primary truncate">
+                        {currentUser.fullName}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-semibold ${tierBadge.cls}`}
+                        >
+                          <Award className="w-3 h-3 shrink-0" />
+                          <span>{tierBadge.label}</span>
+                        </span>
+                        <Link
+                          href="/account"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-client-soft border border-client-border text-client-primary font-bold tabular-nums"
+                        >
+                          <Coins className="w-3 h-3 shrink-0" />
+                          <span>{loyaltyPoints.toLocaleString("vi-VN")} điểm</span>
+                        </Link>
+                      </div>
                     </div>
                     <Link
                       href="/account/orders"
@@ -568,6 +647,14 @@ export function ClientHeader({
                     >
                       <ClipboardList className="w-4 h-4" />
                       <span>Đơn hàng của tôi</span>
+                    </Link>
+                    <Link
+                      href="/account/travelers"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Sổ hành khách</span>
                     </Link>
                     <Link
                       href="/account"

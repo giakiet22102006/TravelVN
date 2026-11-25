@@ -11,7 +11,18 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/client-auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
-import { calculateCouponDiscount } from "@/lib/knowledge/coupons";
+import {
+  calculateCouponDiscount,
+  evaluateCouponEligibility,
+} from "@/lib/knowledge/coupons";
+import {
+  calculateMaxRedeemablePoints,
+  computeMemberTier,
+  InsufficientPointsError,
+  POINT_VALUE_VND,
+  redeemPointsForOrderTx,
+} from "@/lib/loyalty";
+import { signOrderClaimToken } from "@/lib/order-claim";
 import {
   ORDER_HOLD_TTL_MS,
   releaseExpiredOrderHolds,
@@ -59,6 +70,26 @@ function parseNonNegativeInt(value: unknown): number {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
 }
 
+function isValidCalendarBirthDate(birthDate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return false;
+  const [year, month, day] = birthDate.split("-").map(Number);
+  if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+  const utcCheck = new Date(Date.UTC(year, month - 1, day));
+  if (
+    utcCheck.getUTCFullYear() !== year ||
+    utcCheck.getUTCMonth() !== month - 1 ||
+    utcCheck.getUTCDate() !== day
+  ) {
+    return false;
+  }
+  const todayVN = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+  return birthDate <= todayVN;
+}
+
 function sanitizePassenger(
   raw: unknown,
   indexLabel: string
@@ -69,7 +100,9 @@ function sanitizePassenger(
     );
   }
   const p = raw as Record<string, unknown>;
-  const fullName = String(p.fullName || "").trim();
+  const fullName = String(p.fullName || "")
+    .trim()
+    .replace(/\s+/g, " ");
   const gender = String(p.gender || "").toUpperCase();
   const birthDate = String(p.birthDate || "").trim();
   const tier = String(p.tier || "").toUpperCase();
@@ -92,6 +125,11 @@ function sanitizePassenger(
       `Vui lòng nhập ngày sinh cho ${indexLabel}`
     );
   }
+  if (!isValidCalendarBirthDate(birthDate)) {
+    throw new OrderValidationError(
+      `Ngày sinh của ${indexLabel} không hợp lệ (định dạng YYYY-MM-DD)`
+    );
+  }
   if (!VALID_TIERS.has(tier)) {
     throw new OrderValidationError(
       `Hạng vé của ${indexLabel} không hợp lệ`
@@ -105,23 +143,6 @@ function sanitizePassenger(
     tier: tier as OrderPassengerInput["tier"],
     ...(documentNumber ? { documentNumber } : {}),
   };
-}
-
-function computeCouponDiscount(
-  couponRaw: string,
-  subTotal: number
-): {
-  discount: number;
-  normalizedCode: string | null;
-} {
-  const res = calculateCouponDiscount(couponRaw, subTotal);
-  if (!res.valid) {
-    throw new OrderValidationError(
-      `Mã giảm giá "${res.normalizedCode}" không hợp lệ hoặc đã hết hạn`,
-      400
-    );
-  }
-  return { discount: res.discount, normalizedCode: res.normalizedCode };
 }
 
 function randomUpperAlnum(length: number): string {
@@ -144,7 +165,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return NextResponse.json(
+          { message: "Dữ liệu đơn hàng không hợp lệ" },
+          { status: 400 }
+        );
+      }
+      body = raw as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { message: "Payload JSON không hợp lệ" },
+        { status: 400 }
+      );
+    }
+
     const fullName = String(body.fullName || "").trim();
     const phone = String(body.phone || "").trim();
     const email = String(body.email || "").trim();
@@ -155,11 +192,27 @@ export async function POST(req: NextRequest) {
       body.paymentMethod || PaymentMethod.CASH
     ).toUpperCase();
     const itemsInput: OrderRequestItem[] = Array.isArray(body.items)
-      ? body.items
+      ? (body.items as OrderRequestItem[])
       : [];
     const rawPassengers: unknown[] = Array.isArray(body.passengers)
       ? body.passengers
       : [];
+    const saveTravelers = body.saveTravelers === true;
+
+    let requestedRedeemPoints = 0;
+    if (body.redeemPoints !== undefined && body.redeemPoints !== null) {
+      if (
+        typeof body.redeemPoints !== "number" ||
+        !Number.isSafeInteger(body.redeemPoints) ||
+        body.redeemPoints < 0
+      ) {
+        return NextResponse.json(
+          { message: "Số điểm quy đổi phải là số nguyên không âm" },
+          { status: 400 }
+        );
+      }
+      requestedRedeemPoints = body.redeemPoints === 0 ? 0 : body.redeemPoints;
+    }
 
     if (!fullName) {
       return NextResponse.json(
@@ -251,17 +304,26 @@ export async function POST(req: NextRequest) {
 
     const currentUser = await getCurrentUser();
 
+    if (requestedRedeemPoints > 0 && !currentUser) {
+      return NextResponse.json(
+        { message: "Vui lòng đăng nhập để sử dụng điểm thưởng" },
+        { status: 401 }
+      );
+    }
+
     // Release expired holds before reserving stock so stale holds don't block valid bookings
     await releaseExpiredOrderHolds();
 
     let order = null;
+    let orderPassengersSnapshot: OrderPassengerInput[] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        order = await prisma.$transaction(async (tx) => {
+        const txResult = await prisma.$transaction(async (tx) => {
           let subTotal = 0;
           let passengerOffset = 0;
 
           const snapshotItems: Prisma.OrderItemCreateWithoutOrderInput[] = [];
+          const allOrderPassengers: OrderPassengerInput[] = [];
 
           for (const item of itemsInput) {
             const tourId = String(item.tourId || "").trim();
@@ -302,6 +364,7 @@ export async function POST(req: NextRequest) {
                     passengerOffset + itemPassengerCount
                   );
             passengerOffset += itemPassengerCount;
+            allOrderPassengers.push(...itemPassengers);
 
             const tour = await tx.tour.findFirst({
               where: {
@@ -468,11 +531,106 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          const { discount, normalizedCode } = computeCouponDiscount(
-            couponRaw,
-            subTotal
-          );
-          const total = Math.max(0, subTotal - discount);
+          const freshUser = currentUser
+            ? await tx.user.findFirst({
+                where: {
+                  id: currentUser.id,
+                  deleted: false,
+                  status: RecordStatus.ACTIVE,
+                },
+                select: {
+                  id: true,
+                  loyaltyPoints: true,
+                  lifetimePoints: true,
+                },
+              })
+            : null;
+
+          if (requestedRedeemPoints > 0 && !freshUser) {
+            throw new OrderValidationError(
+              "Tài khoản thành viên không khả dụng để đổi điểm",
+              403
+            );
+          }
+
+          const couponRes = calculateCouponDiscount(couponRaw, subTotal);
+          if (!couponRes.valid) {
+            throw new OrderValidationError(
+              `Mã giảm giá "${couponRes.normalizedCode}" không hợp lệ hoặc đã hết hạn`,
+              400
+            );
+          }
+
+          if (couponRes.coupon) {
+            const paidOrderCount =
+              freshUser &&
+              couponRes.coupon.minTier &&
+              couponRes.coupon.allowPaidOrderBypass
+                ? await tx.order.count({
+                    where: {
+                      userId: freshUser.id,
+                      deleted: false,
+                      status: OrderStatus.APPROVED,
+                      paymentStatus: PaymentStatus.PAID,
+                      refundStatus: { not: RefundStatus.REFUNDED },
+                    },
+                  })
+                : 0;
+
+            const memberTier = freshUser
+              ? computeMemberTier(freshUser.lifetimePoints).tier
+              : null;
+
+            const eligibility = evaluateCouponEligibility(couponRes.coupon, {
+              subTotal,
+              isAuthenticated: Boolean(freshUser),
+              memberTier,
+              paidOrderCount,
+            });
+
+            if (!eligibility.eligible) {
+              const errStatus = eligibility.requiresAuth
+                ? 401
+                : eligibility.reason?.startsWith("Mã này yêu cầu hạng")
+                  ? 403
+                  : 400;
+              throw new OrderValidationError(
+                eligibility.reason || "Mã giảm giá không đủ điều kiện áp dụng",
+                errStatus
+              );
+            }
+          }
+
+          const discount = couponRes.discount;
+          const normalizedCode = couponRes.normalizedCode;
+          const postCouponSubTotal = Math.max(0, subTotal - discount);
+
+          if (requestedRedeemPoints > 0 && freshUser) {
+            const maxBySubTotal = calculateMaxRedeemablePoints(
+              postCouponSubTotal,
+              Number.MAX_SAFE_INTEGER
+            );
+            if (requestedRedeemPoints > maxBySubTotal) {
+              throw new OrderValidationError(
+                postCouponSubTotal === 0
+                  ? "Không thể quy đổi điểm cho đơn hàng có giá trị sau giảm giá bằng 0đ"
+                  : `Số điểm quy đổi tối đa cho đơn này là ${maxBySubTotal.toLocaleString("vi-VN")} điểm (tối đa 20% giá trị đơn)`,
+                400
+              );
+            }
+
+            const maxRedeemable = calculateMaxRedeemablePoints(
+              postCouponSubTotal,
+              freshUser.loyaltyPoints
+            );
+            if (requestedRedeemPoints > maxRedeemable) {
+              throw new InsufficientPointsError();
+            }
+          }
+
+          const pointsRedeemed = requestedRedeemPoints;
+          const pointsDiscount = pointsRedeemed * POINT_VALUE_VND;
+          const total = Math.max(0, postCouponSubTotal - pointsDiscount);
 
           const latestOrder = await tx.order.findFirst({
             where: { code: { startsWith: "OD" } },
@@ -495,7 +653,7 @@ export async function POST(req: NextRequest) {
           const createdOrder = await tx.order.create({
             data: {
               code: nextCode,
-              userId: currentUser?.id ?? null,
+              userId: freshUser?.id ?? null,
               fullName,
               phone,
               email,
@@ -504,6 +662,9 @@ export async function POST(req: NextRequest) {
               discount,
               couponCode: normalizedCode,
               total,
+              pointsRedeemed,
+              pointsDiscount,
+              pointsEarned: 0,
               paymentMethod,
               paymentStatus: PaymentStatus.UNPAID,
               refundStatus: RefundStatus.NONE,
@@ -519,13 +680,26 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          return createdOrder;
+          if (pointsRedeemed > 0 && freshUser) {
+            await redeemPointsForOrderTx(tx, {
+              userId: freshUser.id,
+              orderId: createdOrder.id,
+              orderCode: createdOrder.code,
+              pointsToRedeem: pointsRedeemed,
+            });
+          }
+
+          return { createdOrder, allOrderPassengers };
         });
+        order = txResult.createdOrder;
+        orderPassengersSnapshot = txResult.allOrderPassengers;
         break;
       } catch (err) {
         const isCodeCollision =
           err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === "P2002";
+          err.code === "P2002" &&
+          Array.isArray(err.meta?.target) &&
+          err.meta.target.includes("code");
         if (isCodeCollision && attempt < 2) {
           continue;
         }
@@ -534,6 +708,54 @@ export async function POST(req: NextRequest) {
     }
 
     revalidateClientToursCache();
+
+    if (saveTravelers && currentUser && order) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT "id" FROM "User" WHERE "id" = ${currentUser.id} FOR UPDATE`;
+
+          const existingTravelers = await tx.savedTraveler.findMany({
+            where: { userId: currentUser.id },
+            select: { fullName: true, birthDate: true },
+          });
+          const seenKeys = new Set(
+            existingTravelers.map(
+              (t) =>
+                `${t.fullName.trim().toLowerCase().replace(/\s+/g, " ")}|${t.birthDate.trim()}`
+            )
+          );
+          let remainingSlots = Math.max(0, 20 - existingTravelers.length);
+          const toCreate: Prisma.SavedTravelerCreateManyInput[] = [];
+
+          for (const p of orderPassengersSnapshot) {
+            if (remainingSlots <= 0) break;
+            const normalizedBirthDate = p.birthDate.trim();
+            if (!isValidCalendarBirthDate(normalizedBirthDate)) continue;
+            const normalizedFullName = p.fullName.trim().replace(/\s+/g, " ");
+            const key = `${normalizedFullName.toLowerCase()}|${normalizedBirthDate}`;
+            if (seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            remainingSlots -= 1;
+            const trimmedDoc = p.documentNumber?.trim() || "";
+            toCreate.push({
+              userId: currentUser.id,
+              fullName: normalizedFullName,
+              gender: p.gender,
+              birthDate: normalizedBirthDate,
+              defaultTier: p.tier,
+              documentNumber: trimmedDoc ? trimmedDoc.slice(0, 30) : null,
+              relationship: null,
+            });
+          }
+
+          if (toCreate.length > 0) {
+            await tx.savedTraveler.createMany({ data: toCreate });
+          }
+        });
+      } catch {
+        // Best-effort saved travelers must never fail order creation
+      }
+    }
 
     if (order && order.email) {
       const baseUrl =
@@ -557,10 +779,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const claimToken =
+      !currentUser && order && order.email && order.phone
+        ? signOrderClaimToken({
+            orderId: order.id,
+            orderCode: order.code,
+            email: order.email,
+            phone: order.phone,
+          })
+        : undefined;
+
     return NextResponse.json(
       {
         message: "Đặt tour thành công!",
         order,
+        ...(claimToken ? { claimToken } : {}),
       },
       { status: 201 }
     );
@@ -568,6 +801,12 @@ export async function POST(req: NextRequest) {
     if (error instanceof OrderValidationError) {
       return NextResponse.json(
         { message: error.message },
+        { status: error.status }
+      );
+    }
+    if (error instanceof InsufficientPointsError) {
+      return NextResponse.json(
+        { message: error.message, code: error.code },
         { status: error.status }
       );
     }

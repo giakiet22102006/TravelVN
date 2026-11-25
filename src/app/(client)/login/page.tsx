@@ -3,23 +3,86 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { Loader2, Lock, Mail, Ticket } from "lucide-react";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import { SocialOAuthButtons } from "@/components/client/SocialOAuthButtons";
+
+const DUMMY_ORIGIN = "http://localhost";
+const SENTINEL_ORIGIN = "http://sentinel.invalid";
+
+function sanitizeNextPath(raw: string | null | undefined): string | null {
+  const rawNext = (raw || "").trim();
+  if (
+    !rawNext.startsWith("/") ||
+    rawNext.startsWith("//") ||
+    rawNext.startsWith("/\\") ||
+    rawNext.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(rawNext)
+  ) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawNext, DUMMY_ORIGIN);
+    if (
+      parsed.origin !== DUMMY_ORIGIN ||
+      parsed.host !== "localhost" ||
+      parsed.username !== "" ||
+      parsed.password !== "" ||
+      !parsed.pathname.startsWith("/") ||
+      parsed.pathname.startsWith("//") ||
+      parsed.pathname.startsWith("/\\") ||
+      /%5c/i.test(parsed.pathname)
+    ) {
+      return null;
+    }
+
+    const candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    if (
+      !candidate.startsWith("/") ||
+      candidate.startsWith("//") ||
+      candidate.startsWith("/\\") ||
+      candidate.includes("\\") ||
+      /[\u0000-\u001f\u007f]/.test(candidate) ||
+      /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i.test(candidate)
+    ) {
+      return null;
+    }
+
+    const reparsed = new URL(candidate, SENTINEL_ORIGIN);
+    if (
+      reparsed.origin !== SENTINEL_ORIGIN ||
+      reparsed.host !== "sentinel.invalid" ||
+      reparsed.username !== "" ||
+      reparsed.password !== "" ||
+      !reparsed.pathname.startsWith("/") ||
+      reparsed.pathname.startsWith("//") ||
+      reparsed.pathname.startsWith("/\\")
+    ) {
+      return null;
+    }
+
+    return candidate;
+  } catch {
+    return null;
+  }
+}
 
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setCurrentUser } = useClientMeta();
 
-  const nextParam = searchParams.get("next");
-  const safeNext =
-    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
-      : null;
+  const safeNext = sanitizeNextPath(searchParams.get("next"));
   const redirectTo = safeNext || "/account/orders";
-  const registerHref = safeNext
-    ? `/register?next=${encodeURIComponent(safeNext)}`
+  const claimToken = searchParams.get("claimToken")?.trim() || null;
+
+  const registerParams = new URLSearchParams();
+  if (safeNext) registerParams.set("next", safeNext);
+  if (claimToken) registerParams.set("claimToken", claimToken);
+  const registerQuery = registerParams.toString();
+  const registerHref = registerQuery
+    ? `/register?${registerQuery}`
     : "/register";
 
   const oauthSandboxRaw = searchParams.get("oauth_sandbox");
@@ -47,7 +110,11 @@ function LoginFormContent() {
       const res = await fetch("/api/client/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          ...(claimToken ? { claimToken } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -76,6 +143,24 @@ function LoginFormContent() {
             VN.TRAVEL.
           </p>
         </div>
+
+        {claimToken && (
+          <div
+            role="status"
+            className="mb-5 rounded-[12px] bg-client-soft border border-client-border px-4 py-3 flex items-start gap-2.5 text-[13px] text-ink"
+          >
+            <Ticket className="w-4 h-4 text-client-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-client-primary">
+                Liên kết đơn đặt tour sau khi đăng nhập
+              </p>
+              <p className="text-ink-muted text-[12.5px] mt-0.5">
+                Đơn đặt tour vừa tạo sẽ được tự động lưu vào tài khoản của bạn
+                ngay khi đăng nhập thành công.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form noValidate onSubmit={handleSubmit} className="space-y-4">
           {error && (

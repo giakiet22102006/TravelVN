@@ -10,6 +10,12 @@ import { requireAdmin } from "@/lib/auth";
 import { restoreOrderInventory } from "@/lib/admin-api";
 import { reserveOrderItemStock } from "@/lib/order-holds";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
+import {
+  awardOrderPointsIfEligibleTx,
+  refundRedeemedPointsIfAnyTx,
+  revokeEarnedPointsOnRefundTx,
+} from "@/lib/loyalty";
+import { reconcileRedeemedPointsOnReopenTx } from "@/lib/payment-webhook";
 
 class OrderUpdateError extends Error {
   status: number;
@@ -63,7 +69,23 @@ export async function PUT(
     const { admin } = auth;
 
     const { id } = await params;
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return NextResponse.json(
+          { message: "Dữ liệu cập nhật đơn hàng không hợp lệ" },
+          { status: 400 }
+        );
+      }
+      body = raw as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { message: "Payload JSON không hợp lệ" },
+        { status: 400 }
+      );
+    }
+
     const fullName = String(body.fullName || "").trim();
     const phone = String(body.phone || "").trim();
     const email =
@@ -88,25 +110,29 @@ export async function PUT(
     }
 
     const paymentMethod = Object.values(PaymentMethod).includes(
-      body.paymentMethod
+      body.paymentMethod as PaymentMethod
     )
       ? (body.paymentMethod as PaymentMethod)
       : PaymentMethod.CASH;
     const paymentStatus = Object.values(PaymentStatus).includes(
-      body.paymentStatus
+      body.paymentStatus as PaymentStatus
     )
       ? (body.paymentStatus as PaymentStatus)
       : PaymentStatus.UNPAID;
-    const nextStatus = Object.values(OrderStatus).includes(body.status)
+    const nextStatus = Object.values(OrderStatus).includes(
+      body.status as OrderStatus
+    )
       ? (body.status as OrderStatus)
       : OrderStatus.INITIAL;
     const nextRefundStatus = Object.values(RefundStatus).includes(
-      body.refundStatus
+      body.refundStatus as RefundStatus
     )
       ? (body.refundStatus as RefundStatus)
       : undefined;
 
     const updated = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "id" = ${id} FOR UPDATE`;
+
       const existing = await tx.order.findFirst({
         where: { id, deleted: false },
         include: { items: true },
@@ -116,9 +142,25 @@ export async function PUT(
         throw new OrderUpdateError("Không tìm thấy đơn hàng", 404);
       }
 
+      if (
+        existing.paymentStatus === PaymentStatus.PAID &&
+        paymentStatus === PaymentStatus.UNPAID &&
+        (nextStatus === OrderStatus.CANCELLED || Boolean(existing.paymentRef))
+      ) {
+        throw new OrderUpdateError(
+          "Đơn hàng đã được thanh toán trước đó. Vui lòng tải lại trang trước khi cập nhật hoặc hoàn tiền.",
+          409
+        );
+      }
+
       // Restore tour/departure inventory atomically when cancelling a non-cancelled order
       if (existing.status !== "CANCELLED" && nextStatus === "CANCELLED") {
         await restoreOrderInventory(tx, existing.items);
+        await refundRedeemedPointsIfAnyTx(
+          tx,
+          existing.id,
+          "Hoàn điểm do Admin hủy đơn"
+        );
       }
 
       // Re-reserve tour/departure inventory if restoring a cancelled order back to active processing
@@ -139,6 +181,18 @@ export async function PUT(
             );
           }
         }
+
+        const reconcile = await reconcileRedeemedPointsOnReopenTx(tx, {
+          id: existing.id,
+          userId: existing.userId,
+          pointsRedeemed: existing.pointsRedeemed,
+        });
+        if (reconcile.insufficient) {
+          throw new OrderUpdateError(
+            "Khách hàng không còn đủ điểm thưởng để kích hoạt lại đơn hàng đã hoàn điểm.",
+            409
+          );
+        }
       }
 
       const cancelReasonUpdate =
@@ -154,7 +208,7 @@ export async function PUT(
           ? { paidAt: existing.paidAt ?? new Date() }
           : {};
 
-      return tx.order.update({
+      const savedOrder = await tx.order.update({
         where: { id },
         data: {
           fullName,
@@ -173,6 +227,28 @@ export async function PUT(
         },
         include: { items: true },
       });
+
+      const effectiveRefundStatus = nextRefundStatus ?? existing.refundStatus;
+      if (
+        effectiveRefundStatus === RefundStatus.REFUNDED ||
+        nextStatus === OrderStatus.CANCELLED ||
+        paymentStatus === PaymentStatus.UNPAID
+      ) {
+        await revokeEarnedPointsOnRefundTx(tx, existing.id);
+        return savedOrder;
+      }
+
+      if (
+        nextStatus === OrderStatus.APPROVED &&
+        paymentStatus === PaymentStatus.PAID
+      ) {
+        const award = await awardOrderPointsIfEligibleTx(tx, existing.id);
+        if (award.awarded) {
+          return { ...savedOrder, pointsEarned: award.points };
+        }
+      }
+
+      return savedOrder;
     });
 
     revalidateClientToursCache();
@@ -208,6 +284,8 @@ export async function DELETE(
     const { id } = await params;
 
     await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT "id" FROM "Order" WHERE "id" = ${id} FOR UPDATE`;
+
       const existing = await tx.order.findFirst({
         where: { id, deleted: false },
         include: { items: true },
@@ -219,6 +297,15 @@ export async function DELETE(
 
       if (existing.status !== "CANCELLED") {
         await restoreOrderInventory(tx, existing.items);
+        await refundRedeemedPointsIfAnyTx(
+          tx,
+          existing.id,
+          "Hoàn điểm do xóa đơn"
+        );
+      }
+
+      if (existing.pointsEarned > 0) {
+        await revokeEarnedPointsOnRefundTx(tx, existing.id);
       }
 
       await tx.order.update({

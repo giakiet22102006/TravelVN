@@ -108,11 +108,27 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      const raw = await req.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return NextResponse.json(
+          { message: "Dữ liệu đăng nhập Google không hợp lệ" },
+          { status: 400 }
+        );
+      }
+      body = raw as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { message: "Payload JSON không hợp lệ" },
+        { status: 400 }
+      );
+    }
     const email = String(body.email || "").trim().toLowerCase();
     const fullName = String(body.fullName || "").trim();
     const avatar = body.avatar ? String(body.avatar).trim() : null;
     const providerId = String(body.providerId || `google-${email}`);
+    const emailVerified = body.emailVerified === false ? false : true;
 
     const result = await upsertOAuthUser({
       email,
@@ -120,6 +136,7 @@ export async function POST(
       avatar,
       provider: "GOOGLE",
       providerId,
+      emailVerified,
     });
 
     if (result.error || !result.user) {
@@ -132,6 +149,9 @@ export async function POST(
     const response = NextResponse.json({
       message: "Đăng nhập bằng Google thành công!",
       user: result.user,
+      isNewUser: Boolean(result.isNewUser),
+      claimedOrderCount: result.claimedOrderCount ?? 0,
+      pointsAwarded: result.pointsAwarded ?? 0,
     });
     return await attachClientSessionCookie(
       response,
