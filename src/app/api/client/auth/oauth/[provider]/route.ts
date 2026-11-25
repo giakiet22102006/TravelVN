@@ -8,6 +8,7 @@ import {
 import {
   attachClientSessionCookie,
   hasRealOAuthConfig,
+  isOAuthSandboxEnabled,
   parseOAuthProvider,
   sanitizeRedirectPath,
   upsertOAuthUser,
@@ -44,6 +45,17 @@ export async function GET(
   const isCheck = req.nextUrl.searchParams.get("check") === "1";
 
   if (!hasRealOAuthConfig(provider)) {
+    if (!isOAuthSandboxEnabled(provider)) {
+      if (isCheck) {
+        return NextResponse.json(
+          { message: "Đăng nhập Google chưa được cấu hình trên hệ thống" },
+          { status: 403 }
+        );
+      }
+      return NextResponse.redirect(
+        new URL("/login?error=oauth_config", req.nextUrl.origin)
+      );
+    }
     if (isCheck) {
       return NextResponse.json({ mode: "sandbox", provider, next: nextPath });
     }
@@ -87,11 +99,10 @@ export async function POST(
       );
     }
 
-    if (hasRealOAuthConfig(provider)) {
+    if (!isOAuthSandboxEnabled(provider)) {
       return NextResponse.json(
         {
-          message:
-            "Chế độ demo bị vô hiệu hóa khi Google OAuth 2.0 đã được cấu hình",
+          message: "Chế độ OAuth Sandbox đã bị vô hiệu hóa",
         },
         { status: 403 }
       );
@@ -122,7 +133,12 @@ export async function POST(
       message: "Đăng nhập bằng Google thành công!",
       user: result.user,
     });
-    return await attachClientSessionCookie(response, result.user, req);
+    return await attachClientSessionCookie(
+      response,
+      result.user,
+      req,
+      result.passwordHash
+    );
   } catch (error) {
     console.error("POST /api/client/auth/oauth/[provider] error:", error);
     return NextResponse.json(

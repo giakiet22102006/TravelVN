@@ -3,6 +3,11 @@ import { queryClientTours } from "@/lib/client-data";
 import { getCurrentUser } from "@/lib/client-auth";
 import { askTravelAssistant } from "@/lib/ai";
 import type { AssistantPageContext } from "@/lib/ai-tools";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -63,9 +68,20 @@ function sanitizePageContext(raw: unknown): AssistantPageContext | undefined {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`ai-chat:${ip}`, 15, 60 * 1000);
+    if (!rl.allowed) {
+      return rateLimitExceededResponse(
+        rl.retryAfterSec,
+        "Bạn gửi tin nhắn quá nhanh, vui lòng đợi một lát rồi thử lại."
+      );
+    }
+
     const body = await req.json();
     const message = String(body.message || "").trim();
-    const rawHistory = Array.isArray(body.history) ? body.history : [];
+    const rawHistory: unknown[] = Array.isArray(body.history)
+      ? body.history
+      : [];
     const pageContext = sanitizePageContext(body.pageContext);
 
     if (!message || message.length > 500) {
@@ -86,7 +102,11 @@ export async function POST(req: NextRequest) {
           );
         }
       )
-      .slice(-8);
+      .slice(-12)
+      .map((item: { role: "user" | "assistant"; content: string }) => ({
+        role: item.role,
+        content: item.content.slice(0, 1000),
+      }));
 
     const [{ tours }, currentUser] = await Promise.all([
       queryClientTours({ limit: 50 }),

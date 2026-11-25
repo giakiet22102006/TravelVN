@@ -5,22 +5,56 @@ export const CLIENT_TOKEN_COOKIE = "client_token";
 export const RESET_TOKEN_COOKIE = "admin_reset_token";
 export const OAUTH_STATE_COOKIE = "oauth_state";
 
-function getJwtSecret(): Uint8Array {
-  const secret =
-    process.env.JWT_SECRET || "travelvn-fallback-dev-secret-change-in-prod";
-  return new TextEncoder().encode(secret);
+function getSecretKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    if (!secret || secret.trim().length < 32) {
+      throw new Error(
+        "CRITICAL: JWT_SECRET must be set and at least 32 characters in production"
+      );
+    }
+    return new TextEncoder().encode(secret);
+  }
+  return new TextEncoder().encode(
+    secret || "travelvn-fallback-dev-secret-change-in-prod"
+  );
+}
+
+/**
+ * Computes a short, runtime-agnostic password fingerprint using Web Crypto
+ * so JWTs and reset tokens are automatically invalidated when the password changes
+ * without adding an extra database column.
+ */
+export async function computePasswordSig(
+  passwordHash: string | null | undefined
+): Promise<string> {
+  const encoded = new TextEncoder().encode(passwordHash || "no-password");
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  const bytes = new Uint8Array(digest);
+  let hex = "";
+  for (let i = 0; i < 6; i++) {
+    hex += bytes[i].toString(16).padStart(2, "0");
+  }
+  return hex;
 }
 
 export interface AdminJwtPayload {
   sub: string;
   email: string;
   roleId?: string | null;
+  pwdSig?: string;
 }
 
 export interface ClientJwtPayload {
   sub: string;
   email: string;
   type: "CLIENT_USER";
+  pwdSig?: string;
+}
+
+export interface ResetTokenPayload {
+  email: string;
+  pwdSig?: string;
 }
 
 export async function signAdminToken(
@@ -31,16 +65,18 @@ export async function signAdminToken(
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(expiresIn)
-    .sign(getJwtSecret());
+    .sign(getSecretKey());
 }
 
 export async function verifyAdminToken(
   token: string
 ): Promise<AdminJwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ["HS256"],
+    });
     if (
-      payload.type === "CLIENT_USER" ||
+      payload.type !== "ADMIN_USER" ||
       !payload.sub ||
       typeof payload.email !== "string"
     ) {
@@ -50,6 +86,7 @@ export async function verifyAdminToken(
       sub: payload.sub,
       email: payload.email,
       roleId: typeof payload.roleId === "string" ? payload.roleId : null,
+      pwdSig: typeof payload.pwdSig === "string" ? payload.pwdSig : undefined,
     };
   } catch {
     return null;
@@ -64,14 +101,16 @@ export async function signClientToken(
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(expiresIn)
-    .sign(getJwtSecret());
+    .sign(getSecretKey());
 }
 
 export async function verifyClientToken(
   token: string
 ): Promise<ClientJwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ["HS256"],
+    });
     if (
       payload.type !== "CLIENT_USER" ||
       !payload.sub ||
@@ -83,28 +122,43 @@ export async function verifyClientToken(
       sub: payload.sub,
       email: payload.email,
       type: "CLIENT_USER",
+      pwdSig: typeof payload.pwdSig === "string" ? payload.pwdSig : undefined,
     };
   } catch {
     return null;
   }
 }
 
-export async function signResetToken(email: string): Promise<string> {
-  return new SignJWT({ email, purpose: "password_reset" })
+export async function signResetToken(
+  email: string,
+  pwdSig?: string
+): Promise<string> {
+  return new SignJWT({
+    email,
+    purpose: "password_reset",
+    ...(pwdSig ? { pwdSig } : {}),
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("10m")
-    .sign(getJwtSecret());
+    .sign(getSecretKey());
 }
 
-export async function verifyResetToken(token: string): Promise<string | null> {
+export async function verifyResetToken(
+  token: string
+): Promise<ResetTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ["HS256"],
+    });
     if (
       payload.purpose === "password_reset" &&
       typeof payload.email === "string"
     ) {
-      return payload.email;
+      return {
+        email: payload.email,
+        pwdSig: typeof payload.pwdSig === "string" ? payload.pwdSig : undefined,
+      };
     }
     return null;
   } catch {

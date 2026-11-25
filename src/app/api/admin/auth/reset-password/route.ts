@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import {
   RESET_TOKEN_COOKIE,
+  buildCookieOptions,
+  computePasswordSig,
   hashPassword,
+  isHttpsRequest,
   verifyResetToken,
 } from "@/lib/auth";
 
@@ -19,10 +22,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const email = await verifyResetToken(resetToken);
-    if (!email) {
+    const resetPayload = await verifyResetToken(resetToken);
+    if (!resetPayload) {
       return NextResponse.json(
         { message: "Token đặt lại mật khẩu không hợp lệ" },
+        { status: 401 }
+      );
+    }
+
+    const account = await prisma.adminAccount.findFirst({
+      where: { email: resetPayload.email, deleted: false },
+      select: { id: true, email: true, password: true },
+    });
+
+    if (!account) {
+      return NextResponse.json(
+        { message: "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa" },
+        { status: 401 }
+      );
+    }
+
+    if (
+      resetPayload.pwdSig &&
+      resetPayload.pwdSig !== (await computePasswordSig(account.password))
+    ) {
+      return NextResponse.json(
+        { message: "Token đặt lại mật khẩu đã hết hạn hoặc đã được sử dụng" },
         { status: 401 }
       );
     }
@@ -47,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await hashPassword(password);
     await prisma.adminAccount.update({
-      where: { email },
+      where: { id: account.id },
       data: { password: hashedPassword },
     });
 
@@ -55,11 +80,11 @@ export async function POST(req: NextRequest) {
       message: "Đổi mật khẩu thành công! Vui lòng đăng nhập lại.",
     });
 
-    response.cookies.set(RESET_TOKEN_COOKIE, "", {
-      httpOnly: true,
-      path: "/",
-      maxAge: 0,
-    });
+    response.cookies.set(
+      RESET_TOKEN_COOKIE,
+      "",
+      buildCookieOptions(0, isHttpsRequest(req))
+    );
 
     return response;
   } catch (error) {

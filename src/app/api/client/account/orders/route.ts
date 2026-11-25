@@ -13,20 +13,9 @@ export async function GET(req: NextRequest) {
     }
 
     const statusParam = req.nextUrl.searchParams.get("status")?.trim() || "";
-    const ownershipFilters: Prisma.OrderWhereInput[] = [
-      { userId: currentUser.id },
-    ];
-
-    if (currentUser.phone) {
-      ownershipFilters.push({
-        userId: null,
-        phone: currentUser.phone,
-      });
-    }
-
     const where: Prisma.OrderWhereInput = {
       deleted: false,
-      OR: ownershipFilters,
+      userId: currentUser.id,
     };
 
     if (

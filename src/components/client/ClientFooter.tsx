@@ -80,7 +80,7 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Nhập email của bạn..."
                 aria-label="Nhập email của bạn"
-                className="w-full sm:flex-1 h-[44px] min-h-[44px] shrink-0 px-4 rounded-[8px] border border-[#CCD1D2] text-[14px] text-[#25282B] placeholder:text-[#99A2A5] focus:outline-none focus:border-[#4502C7]"
+                className="w-full sm:flex-1 h-[44px] min-h-[44px] shrink-0 px-4 rounded-[8px] border border-[#CCD1D2] text-[14px] text-[#25282B] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
               <button
                 type="submit"

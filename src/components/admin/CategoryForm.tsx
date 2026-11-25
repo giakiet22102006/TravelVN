@@ -68,14 +68,28 @@ export function CategoryForm({ mode, initialData }: CategoryFormProps) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
     fetch("/api/admin/categories?all=true")
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || "Không thể tải danh sách danh mục");
+        }
+        return data;
+      })
       .then((data) => {
-        if (Array.isArray(data.items)) {
+        if (active && Array.isArray(data.items)) {
           setCategories(data.items);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (active && err instanceof Error) {
+          setError((prev) => prev || err.message);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const parentOptions = buildIndentedOptions(

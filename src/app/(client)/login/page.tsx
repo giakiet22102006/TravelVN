@@ -13,10 +13,14 @@ function LoginFormContent() {
   const { setCurrentUser } = useClientMeta();
 
   const nextParam = searchParams.get("next");
-  const redirectTo =
+  const safeNext =
     nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
       ? nextParam
-      : "/account/orders";
+      : null;
+  const redirectTo = safeNext || "/account/orders";
+  const registerHref = safeNext
+    ? `/register?next=${encodeURIComponent(safeNext)}`
+    : "/register";
 
   const oauthSandboxRaw = searchParams.get("oauth_sandbox");
   const oauthSandbox = oauthSandboxRaw === "google" ? "google" : null;
@@ -91,7 +95,7 @@ function LoginFormContent() {
               Email
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="login-email"
                 type="email"
@@ -100,7 +104,7 @@ function LoginFormContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tenban@gmail.com"
                 autoComplete="email"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -113,7 +117,7 @@ function LoginFormContent() {
               Mật khẩu
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="login-password"
                 type="password"
@@ -122,7 +126,7 @@ function LoginFormContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -147,7 +151,7 @@ function LoginFormContent() {
         <p className="text-center text-[13px] text-[#667479] mt-4">
           Bạn chưa có tài khoản?{" "}
           <Link
-            href="/register"
+            href={registerHref}
             className="text-[#4502C7] font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
           >
             Đăng ký ngay

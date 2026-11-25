@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import { AccountSidebar } from "@/components/client/AccountSidebar";
-import { BankTransferInfoBox } from "@/components/client/BankTransferInfoBox";
+import {
+  BankTransferInfoBox,
+  MomoInfoBox,
+} from "@/components/client/BankTransferInfoBox";
 import { SmartImage } from "@/components/client/SmartImage";
 import {
   formatCurrencyVND,
@@ -123,6 +126,22 @@ export default function CustomerOrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    if (!confirmCancelOrder) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && cancellingId !== confirmCancelOrder.id) {
+        setConfirmCancelOrder(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [confirmCancelOrder, cancellingId]);
 
   async function handleCancelOrder(order: CustomerOrder) {
     setCancellingId(order.id);
@@ -241,7 +260,7 @@ export default function CustomerOrdersPage() {
             </div>
           ) : orders.length === 0 ? (
             <div className="bg-white rounded-[16px] border border-[#ECECEC] p-12 text-center shadow-sm">
-              <PackageOpen className="w-12 h-12 mx-auto text-[#99A2A5] mb-3" />
+              <PackageOpen className="w-12 h-12 mx-auto text-[#667085] mb-3" />
               <p className="text-[16px] font-bold text-[#25282B]">
                 Chưa có đơn hàng nào
               </p>
@@ -352,6 +371,12 @@ export default function CustomerOrdersPage() {
                         <BankTransferInfoBox orderCode={order.code} />
                       )}
 
+                    {order.paymentMethod === "MOMO" &&
+                      order.paymentStatus === "UNPAID" &&
+                      order.status !== "CANCELLED" && (
+                        <MomoInfoBox orderCode={order.code} />
+                      )}
+
                     {/* Actions */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[12px] text-[#667479]">
                       <div>
@@ -384,14 +409,32 @@ export default function CustomerOrdersPage() {
 
       {/* Confirmation Modal */}
       {confirmCancelOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-2xl border border-[#ECECEC] space-y-4">
+        <div
+          onClick={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              cancellingId !== confirmCancelOrder.id
+            ) {
+              setConfirmCancelOrder(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-order-dialog-title"
+            className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-2xl border border-[#ECECEC] space-y-4"
+          >
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-red-100 text-[#DA0808] flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-[17px] font-bold text-[#25282B]">
+                <h3
+                  id="cancel-order-dialog-title"
+                  className="text-[17px] font-bold text-[#25282B]"
+                >
                   Xác nhận hủy đơn #{confirmCancelOrder.code}?
                 </h3>
                 <p className="text-[13px] text-[#667479] mt-1">

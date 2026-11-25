@@ -31,13 +31,13 @@ export default async function NewsPage({
   if (category) apiParams.set("category", category);
   if (keyword) apiParams.set("keyword", keyword);
   apiParams.set("page", String(page));
-  apiParams.set("limit", "9");
+  apiParams.set("limit", "7");
 
   const initialResult = await queryClientNews({
     category: category || undefined,
     keyword: keyword || undefined,
     page,
-    limit: 9,
+    limit: 7,
   });
 
   return (

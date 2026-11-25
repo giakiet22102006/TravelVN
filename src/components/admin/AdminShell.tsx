@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -50,6 +50,21 @@ interface AdminNotificationsResponse {
 interface AdminShellProps {
   admin: CurrentAdminInfo;
   children: React.ReactNode;
+}
+
+interface AdminPermissionsContextValue {
+  permissions: string[];
+  hasPermission: (required?: string | string[]) => boolean;
+}
+
+export const AdminPermissionsContext =
+  createContext<AdminPermissionsContextValue>({
+    permissions: [],
+    hasPermission: () => false,
+  });
+
+export function useAdminPermissions() {
+  return useContext(AdminPermissionsContext);
 }
 
 const PRIMARY_NAV = [
@@ -136,11 +151,32 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const permSet = new Set(admin.permissions || []);
+  const permSet = useMemo(
+    () => new Set(admin.permissions || []),
+    [admin.permissions]
+  );
+
+  const hasPermission = useCallback(
+    (required?: string | string[]) => {
+      if (!required || (Array.isArray(required) && required.length === 0)) {
+        return true;
+      }
+      const list = Array.isArray(required) ? required : [required];
+      return list.some((key) => permSet.has(key));
+    },
+    [permSet]
+  );
+
   const canAccessNav = (required: string[]) =>
-    required.length === 0 ||
-    permSet.size === 0 ||
-    required.some((key) => permSet.has(key));
+    required.length === 0 || required.some((key) => permSet.has(key));
+
+  const permissionContextValue = useMemo(
+    () => ({
+      permissions: admin.permissions || [],
+      hasPermission,
+    }),
+    [admin.permissions, hasPermission]
+  );
 
   const visiblePrimaryNav = PRIMARY_NAV.filter((item) =>
     canAccessNav(item.requiredPermissions)
@@ -221,7 +257,8 @@ export function AdminShell({ admin, children }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6FA] flex flex-col">
+    <AdminPermissionsContext.Provider value={permissionContextValue}>
+      <div className="min-h-screen bg-[#F5F6FA] flex flex-col">
       {/* Top Bar (70px height matching Figma) */}
       <header className="h-[70px] bg-white border-b border-[#E0E0E0] sticky top-0 z-30 flex items-center justify-between px-4 lg:px-7">
         <div className="flex items-center gap-2.5">
@@ -273,7 +310,7 @@ export function AdminShell({ admin, children }: AdminShellProps) {
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white border border-[#E0E0E0] shadow-xl overflow-hidden z-40">
+              <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 md:w-96 rounded-2xl bg-white border border-[#E0E0E0] shadow-xl overflow-hidden z-40">
                 <div className="px-4 py-3 border-b border-[#E0E0E0] flex items-center justify-between bg-[#FCFDFD]">
                   <span className="text-sm font-bold text-[#202224]">
                     Thông báo cần xử lý
@@ -514,5 +551,6 @@ export function AdminShell({ admin, children }: AdminShellProps) {
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-7">{children}</main>
       </div>
     </div>
+    </AdminPermissionsContext.Provider>
   );
 }

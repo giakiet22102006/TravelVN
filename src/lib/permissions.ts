@@ -135,14 +135,14 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 };
 
 export const ORDER_STATUS_BADGE_CLASSES: Record<OrderStatus, string> = {
-  INITIAL: "bg-[#FFEBDA] text-[#FF8900]",
-  APPROVED: "bg-[#CCF0EB] text-[#00B69B]",
-  CANCELLED: "bg-[#FCD7D4] text-[#EF3826]",
+  INITIAL: "bg-[#FEF3C7] text-[#B45309]",
+  APPROVED: "bg-[#CCFBF1] text-[#0F766E]",
+  CANCELLED: "bg-[#FEE2E2] text-[#B91C1C]",
 };
 
 export const PAYMENT_STATUS_TEXT_CLASSES: Record<PaymentStatus, string> = {
-  PAID: "text-[#00B69B] font-bold",
-  UNPAID: "text-[#EF3826] font-bold",
+  PAID: "text-[#0F766E] font-bold",
+  UNPAID: "text-[#B91C1C] font-bold",
 };
 
 export const CONTACT_STATUS_LABELS: Record<ContactStatus, string> = {
@@ -151,6 +151,6 @@ export const CONTACT_STATUS_LABELS: Record<ContactStatus, string> = {
 };
 
 export const CONTACT_STATUS_BADGE_CLASSES: Record<ContactStatus, string> = {
-  NEW: "bg-[#FFEBDA] text-[#FF8900]",
-  PROCESSED: "bg-[#CCF0EB] text-[#00B69B]",
+  NEW: "bg-[#FEF3C7] text-[#B45309]",
+  PROCESSED: "bg-[#CCFBF1] text-[#0F766E]",
 };

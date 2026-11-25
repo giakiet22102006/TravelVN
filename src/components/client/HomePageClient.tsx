@@ -211,7 +211,7 @@ export function HomePageClient({
                     }}
                     placeholder="Bạn muốn đi đâu?"
                     aria-label="Bạn muốn đi đâu"
-                    className="w-full bg-transparent text-[14px] font-medium placeholder:text-[#667479] focus:outline-none"
+                    className="w-full bg-transparent text-[14px] font-medium placeholder:text-[#667479] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD600] rounded"
                   />
                 </div>
 
@@ -650,8 +650,8 @@ export function HomePageClient({
                       sizes="(max-width: 640px) 100vw, 360px"
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-4 text-white">
-                      <span className="text-[11px] text-white/80">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent flex flex-col justify-end p-4 text-white">
+                      <span className="text-[11px] text-white/90">
                         {formatDateVN(article.publishedAt)} · {article.category}
                       </span>
                       <h3 className="mt-1 text-[14px] sm:text-[15px] font-bold leading-snug line-clamp-2 group-hover:text-[#FFD600] transition-colors">

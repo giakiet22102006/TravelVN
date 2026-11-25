@@ -21,6 +21,8 @@ import {
 } from "@/lib/permissions";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface OrderItemRow {
   id: string;
@@ -52,6 +54,11 @@ interface OrderRow {
 }
 
 export default function AdminOrdersPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canView = hasPermission("order_view");
+  const canEdit = hasPermission("order_edit");
+  const canDelete = hasPermission("order_delete");
+
   const [items, setItems] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -66,6 +73,7 @@ export default function AdminOrdersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmState, setConfirmState] = useState<{
@@ -84,6 +92,7 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -97,11 +106,26 @@ export default function AdminOrdersPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/orders?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách đơn hàng");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
@@ -116,8 +140,19 @@ export default function AdminOrdersPage() {
   ]);
 
   useEffect(() => {
+    if (!canView) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchOrders();
-  }, [fetchOrders]);
+  }, [canView, fetchOrders]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard title="Bạn không có quyền xem Quản lý đơn hàng" />
+    );
+  }
 
   function resetFilters() {
     setStatus("");
@@ -142,7 +177,7 @@ export default function AdminOrdersPage() {
       const res = await fetch(`/api/admin/orders/${confirmState.id}`, {
         method: "DELETE",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.message || "Không thể xóa đơn hàng");
         return;
@@ -193,7 +228,7 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      {/* Filter Bar (Figma #9:2) */}
+      {/* Filter Bar */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-bold text-[#202224] pr-2">
           <Filter className="w-4 h-4" />
@@ -201,6 +236,7 @@ export default function AdminOrdersPage() {
         </div>
 
         <select
+          aria-label="Lọc theo trạng thái đơn"
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
@@ -216,6 +252,7 @@ export default function AdminOrdersPage() {
 
         <div className="flex items-center gap-2">
           <input
+            aria-label="Từ ngày"
             type="date"
             value={startDate}
             onChange={(e) => {
@@ -226,6 +263,7 @@ export default function AdminOrdersPage() {
           />
           <span className="text-sm text-[#667479]">-</span>
           <input
+            aria-label="Đến ngày"
             type="date"
             value={endDate}
             onChange={(e) => {
@@ -237,6 +275,7 @@ export default function AdminOrdersPage() {
         </div>
 
         <select
+          aria-label="Lọc theo phương thức thanh toán"
           value={paymentMethod}
           onChange={(e) => {
             setPaymentMethod(e.target.value);
@@ -251,6 +290,7 @@ export default function AdminOrdersPage() {
         </select>
 
         <select
+          aria-label="Lọc theo trạng thái thanh toán"
           value={paymentStatus}
           onChange={(e) => {
             setPaymentStatus(e.target.value);
@@ -266,7 +306,7 @@ export default function AdminOrdersPage() {
         <button
           type="button"
           onClick={resetFilters}
-          className="h-10 px-3 rounded-lg text-sm font-bold text-[#EA0234] hover:bg-red-50 inline-flex items-center gap-1.5"
+          className="h-10 px-3 rounded-lg text-sm font-bold text-[#B91C1C] hover:bg-red-50 inline-flex items-center gap-1.5"
         >
           <RotateCcw className="w-4 h-4" />
           Xóa bộ lọc
@@ -276,7 +316,7 @@ export default function AdminOrdersPage() {
       {/* Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#667479] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
@@ -296,21 +336,33 @@ export default function AdminOrdersPage() {
               <th className="py-4 px-3">Thông tin khách</th>
               <th className="py-4 px-3">Danh sách tour</th>
               <th className="py-4 px-3">Thanh toán</th>
-              <th className="py-4 px-3 text-center whitespace-nowrap">Trạng thái</th>
+              <th className="py-4 px-3 text-center whitespace-nowrap">
+                Trạng thái
+              </th>
               <th className="py-4 px-3 whitespace-nowrap">Ngày đặt</th>
-              <th className="py-4 px-3 text-center whitespace-nowrap">Hành động</th>
+              {(canEdit || canDelete) && (
+                <th className="py-4 px-3 text-center whitespace-nowrap">
+                  Hành động
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canEdit || canDelete ? 7 : 6}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canEdit || canDelete ? 7 : 6}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Không có đơn hàng nào phù hợp.
                 </td>
               </tr>
@@ -386,7 +438,7 @@ export default function AdminOrdersPage() {
                     )}
                     <div>
                       Thanh toán:{" "}
-                      <span className="font-extrabold text-[#EF3826]">
+                      <span className="font-extrabold text-[#B91C1C]">
                         {formatCurrencyVND(ord.total)}
                       </span>
                     </div>
@@ -414,25 +466,35 @@ export default function AdminOrdersPage() {
                   <td className="py-4 px-3 text-xs font-semibold text-[#606060] whitespace-nowrap">
                     {formatDateTimeVN(ord.createdAt)}
                   </td>
-                  <td className="py-4 px-3 text-center whitespace-nowrap">
-                    <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
-                      <Link
-                        href={`/admin/orders/edit/${ord.id}`}
-                        className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
-                        title="Chỉnh sửa"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => requestDelete(ord.id, ord.code)}
-                        className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#EF3826]"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {(canEdit || canDelete) && (
+                    <td className="py-4 px-3 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
+                        {canEdit && (
+                          <Link
+                            href={`/admin/orders/edit/${ord.id}`}
+                            className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
+                            title="Chỉnh sửa"
+                            aria-label={`Chỉnh sửa đơn ${ord.code}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => requestDelete(ord.id, ord.code)}
+                            className={`p-2 hover:bg-red-50 text-[#B91C1C] ${
+                              canEdit ? "border-l border-[#D5D5D5]" : ""
+                            }`}
+                            title="Xóa"
+                            aria-label={`Xóa đơn ${ord.code}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

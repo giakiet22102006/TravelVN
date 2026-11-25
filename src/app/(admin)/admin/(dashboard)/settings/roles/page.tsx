@@ -11,6 +11,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface RoleRow {
   id: string;
@@ -21,6 +23,12 @@ interface RoleRow {
 }
 
 export default function AdminRolesPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canView = hasPermission("role_view");
+  const canCreate = hasPermission("role_create");
+  const canEdit = hasPermission("role_edit");
+  const canDelete = hasPermission("role_delete");
+
   const [items, setItems] = useState<RoleRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -31,6 +39,7 @@ export default function AdminRolesPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmState, setConfirmState] = useState<
@@ -48,6 +57,7 @@ export default function AdminRolesPage() {
 
   const fetchRoles = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -56,20 +66,50 @@ export default function AdminRolesPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/settings/roles?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
-        setSelectedIds([]);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách nhóm quyền");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+      setSelectedIds([]);
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
   }, [page, debouncedSearch]);
 
   useEffect(() => {
+    if (!canView) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchRoles();
-  }, [fetchRoles]);
+  }, [canView, fetchRoles]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền xem Nhóm quyền"
+        backHref="/admin/settings"
+        backLabel="Quay lại Cài đặt chung"
+      />
+    );
+  }
 
   function handleDelete(id: string, name: string) {
     setConfirmState({ kind: "one", id, name });
@@ -90,7 +130,7 @@ export default function AdminRolesPage() {
           `/api/admin/settings/roles/${confirmState.id}`,
           { method: "DELETE" }
         );
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.message || "Không thể xóa nhóm quyền");
           return;
@@ -103,7 +143,7 @@ export default function AdminRolesPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "DELETE", ids: selectedIds }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.message || "Không thể xóa các nhóm quyền đã chọn");
           return;
@@ -167,27 +207,30 @@ export default function AdminRolesPage() {
       {/* Action & Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
-            >
-              <option value="">-- Hành động --</option>
-              <option value="DELETE">Xóa</option>
-            </select>
-            <button
-              type="button"
-              onClick={handleBulkApply}
-              disabled={!bulkAction || selectedIds.length === 0}
-              className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#EA0234] hover:bg-red-50 disabled:opacity-40"
-            >
-              Áp dụng
-            </button>
-          </div>
+          {canDelete && (
+            <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
+              <select
+                aria-label="Hành động hàng loạt"
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value)}
+                className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
+              >
+                <option value="">-- Hành động --</option>
+                <option value="DELETE">Xóa</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleBulkApply}
+                disabled={!bulkAction || selectedIds.length === 0}
+                className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#B91C1C] hover:bg-red-50 disabled:opacity-40"
+              >
+                Áp dụng
+              </button>
+            </div>
+          )}
 
           <div className="relative">
-            <Search className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#667479] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
@@ -198,13 +241,15 @@ export default function AdminRolesPage() {
           </div>
         </div>
 
-        <Link
-          href="/admin/settings/roles/create"
-          className="h-11 px-5 rounded-[14px] bg-[#4880FF] hover:bg-[#3a6ce0] text-white text-sm font-bold inline-flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo mới
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/settings/roles/create"
+            className="h-11 px-5 rounded-[14px] bg-[#4880FF] hover:bg-[#3a6ce0] text-white text-sm font-bold inline-flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Tạo mới
+          </Link>
+        )}
       </div>
 
       {/* Table */}
@@ -212,36 +257,47 @@ export default function AdminRolesPage() {
         <table className="w-full min-w-[700px] text-left border-collapse">
           <thead>
             <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-extrabold uppercase text-[#202224]">
-              <th className="py-4 px-4 w-12">
-                <input
-                  type="checkbox"
-                  checked={
-                    items.length > 0 && selectedIds.length === items.length
-                  }
-                  onChange={(e) =>
-                    setSelectedIds(
-                      e.target.checked ? items.map((it) => it.id) : []
-                    )
-                  }
-                  className="w-4 h-4 rounded accent-[#4880FF]"
-                />
-              </th>
+              {canDelete && (
+                <th className="py-4 px-4 w-12">
+                  <input
+                    type="checkbox"
+                    aria-label="Chọn tất cả nhóm quyền"
+                    checked={
+                      items.length > 0 && selectedIds.length === items.length
+                    }
+                    onChange={(e) =>
+                      setSelectedIds(
+                        e.target.checked ? items.map((it) => it.id) : []
+                      )
+                    }
+                    className="w-4 h-4 rounded accent-[#4880FF]"
+                  />
+                </th>
+              )}
               <th className="py-4 px-4">Tên nhóm quyền</th>
               <th className="py-4 px-4">Mô tả ngắn</th>
               <th className="py-4 px-4 text-center">Số quyền</th>
-              <th className="py-4 px-4 text-center">Hành động</th>
+              {(canEdit || canDelete) && (
+                <th className="py-4 px-4 text-center">Hành động</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canDelete ? 5 : 4}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canDelete ? 5 : 4}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Không có nhóm quyền nào phù hợp.
                 </td>
               </tr>
@@ -252,20 +308,23 @@ export default function AdminRolesPage() {
                   : 0;
                 return (
                   <tr key={r.id} className="hover:bg-[#F5F6FA]/60">
-                    <td className="py-3.5 px-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(r.id)}
-                        onChange={() =>
-                          setSelectedIds((prev) =>
-                            prev.includes(r.id)
-                              ? prev.filter((item) => item !== r.id)
-                              : [...prev, r.id]
-                          )
-                        }
-                        className="w-4 h-4 rounded accent-[#4880FF]"
-                      />
-                    </td>
+                    {canDelete && (
+                      <td className="py-3.5 px-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Chọn nhóm quyền ${r.name}`}
+                          checked={selectedIds.includes(r.id)}
+                          onChange={() =>
+                            setSelectedIds((prev) =>
+                              prev.includes(r.id)
+                                ? prev.filter((item) => item !== r.id)
+                                : [...prev, r.id]
+                            )
+                          }
+                          className="w-4 h-4 rounded accent-[#4880FF]"
+                        />
+                      </td>
+                    )}
                     <td className="py-3.5 px-4 font-bold text-[#202224]">
                       {r.name}
                     </td>
@@ -273,29 +332,39 @@ export default function AdminRolesPage() {
                       {r.description || "-"}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block px-3 py-1 rounded-md bg-[#4880FF]/10 text-[#4880FF] text-xs font-bold">
+                      <span className="inline-block px-3 py-1 rounded-md bg-[#4880FF]/10 text-[#1D4ED8] text-xs font-bold">
                         {permCount} quyền
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
-                        <Link
-                          href={`/admin/settings/roles/edit/${r.id}`}
-                          className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
-                          title="Chỉnh sửa"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(r.id, r.name)}
-                          className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#EF3826]"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    {(canEdit || canDelete) && (
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
+                          {canEdit && (
+                            <Link
+                              href={`/admin/settings/roles/edit/${r.id}`}
+                              className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
+                              title="Chỉnh sửa"
+                              aria-label={`Chỉnh sửa ${r.name}`}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Link>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(r.id, r.name)}
+                              className={`p-2 hover:bg-red-50 text-[#B91C1C] ${
+                                canEdit ? "border-l border-[#D5D5D5]" : ""
+                              }`}
+                              title="Xóa"
+                              aria-label={`Xóa ${r.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })

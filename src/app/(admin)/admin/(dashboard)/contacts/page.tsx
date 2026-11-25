@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Filter,
+  Loader2,
   RotateCcw,
   Search,
   Trash2,
@@ -18,6 +19,8 @@ import {
   CONTACT_STATUS_LABELS,
 } from "@/lib/permissions";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface ContactRow {
   id: string;
@@ -32,6 +35,12 @@ type ConfirmAction =
   | null;
 
 export default function AdminContactsPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canView = hasPermission("contact_view");
+  const canEdit = hasPermission("contact_edit");
+  const canDelete = hasPermission("contact_delete");
+  const canBulk = canEdit || canDelete;
+
   const [items, setItems] = useState<ContactRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -45,7 +54,10 @@ export default function AdminContactsPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmState, setConfirmState] = useState<ConfirmAction>(null);
@@ -61,6 +73,7 @@ export default function AdminContactsPage() {
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -72,14 +85,25 @@ export default function AdminContactsPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/contacts?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
-        setSelectedIds([]);
-      } else {
-        setError(data.message || "Không thể tải danh sách liên hệ");
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách liên hệ");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+      setSelectedIds([]);
     } catch {
       setError("Không thể kết nối máy chủ");
     } finally {
@@ -88,8 +112,19 @@ export default function AdminContactsPage() {
   }, [page, statusFilter, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
+    if (!canView) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchContacts();
-  }, [fetchContacts]);
+  }, [canView, fetchContacts]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard title="Bạn không có quyền xem Thông tin liên hệ" />
+    );
+  }
 
   function resetFilters() {
     setStatusFilter("");
@@ -101,7 +136,9 @@ export default function AdminContactsPage() {
   }
 
   async function toggleStatus(c: ContactRow) {
+    if (togglingId) return;
     setError("");
+    setTogglingId(c.id);
     const nextStatus =
       c.status === ContactStatus.PROCESSED
         ? ContactStatus.NEW
@@ -112,7 +149,7 @@ export default function AdminContactsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.message || "Không thể cập nhật trạng thái liên hệ");
         return;
@@ -121,28 +158,35 @@ export default function AdminContactsPage() {
       fetchContacts();
     } catch {
       setError("Không thể kết nối máy chủ");
+    } finally {
+      setTogglingId(null);
     }
   }
 
   async function executeBulk(action: string) {
     setError("");
-    const res = await fetch("/api/admin/contacts", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message || "Thao tác hàng loạt thất bại");
-      return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/contacts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids: selectedIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Thao tác hàng loạt thất bại");
+        return;
+      }
+      setNotice(data.message);
+      setBulkAction("");
+      fetchContacts();
+    } finally {
+      setBulkLoading(false);
     }
-    setNotice(data.message);
-    setBulkAction("");
-    fetchContacts();
   }
 
   async function handleBulkApply() {
-    if (!bulkAction || selectedIds.length === 0) return;
+    if (!bulkAction || selectedIds.length === 0 || bulkLoading) return;
     if (bulkAction === "DELETE") {
       setConfirmState({ kind: "bulk-delete", count: selectedIds.length });
       return;
@@ -163,7 +207,7 @@ export default function AdminContactsPage() {
         const res = await fetch(`/api/admin/contacts/${confirmState.id}`, {
           method: "DELETE",
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.message || "Không thể xóa liên hệ");
           return;
@@ -225,6 +269,7 @@ export default function AdminContactsPage() {
         </div>
 
         <select
+          aria-label="Lọc theo trạng thái"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
@@ -239,6 +284,7 @@ export default function AdminContactsPage() {
 
         <div className="flex items-center gap-2">
           <input
+            aria-label="Từ ngày"
             type="date"
             value={startDate}
             onChange={(e) => {
@@ -249,6 +295,7 @@ export default function AdminContactsPage() {
           />
           <span className="text-sm text-[#667479]">-</span>
           <input
+            aria-label="Đến ngày"
             type="date"
             value={endDate}
             onChange={(e) => {
@@ -262,7 +309,7 @@ export default function AdminContactsPage() {
         <button
           type="button"
           onClick={resetFilters}
-          className="h-10 px-3 rounded-lg text-sm font-bold text-[#EA0234] hover:bg-red-50 inline-flex items-center gap-1.5"
+          className="h-10 px-3 rounded-lg text-sm font-bold text-[#B91C1C] hover:bg-red-50 inline-flex items-center gap-1.5"
         >
           <RotateCcw className="w-4 h-4" />
           Xóa bộ lọc
@@ -271,29 +318,34 @@ export default function AdminContactsPage() {
 
       {/* Action & Search Bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
-          <select
-            value={bulkAction}
-            onChange={(e) => setBulkAction(e.target.value)}
-            className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
-          >
-            <option value="">-- Hành động --</option>
-            <option value="MARK_PROCESSED">Đánh dấu đã liên hệ</option>
-            <option value="MARK_NEW">Chuyển chưa xử lý</option>
-            <option value="DELETE">Xóa</option>
-          </select>
-          <button
-            type="button"
-            onClick={handleBulkApply}
-            disabled={!bulkAction || selectedIds.length === 0}
-            className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#4880FF] hover:bg-[#4880FF]/10 disabled:opacity-40"
-          >
-            Áp dụng
-          </button>
-        </div>
+        {canBulk && (
+          <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
+            <select
+              aria-label="Hành động hàng loạt"
+              value={bulkAction}
+              onChange={(e) => setBulkAction(e.target.value)}
+              className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
+            >
+              <option value="">-- Hành động --</option>
+              {canEdit && (
+                <option value="MARK_PROCESSED">Đánh dấu đã liên hệ</option>
+              )}
+              {canEdit && <option value="MARK_NEW">Chuyển chưa xử lý</option>}
+              {canDelete && <option value="DELETE">Xóa</option>}
+            </select>
+            <button
+              type="button"
+              onClick={handleBulkApply}
+              disabled={!bulkAction || selectedIds.length === 0 || bulkLoading}
+              className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#4880FF] hover:bg-[#4880FF]/10 disabled:opacity-40"
+            >
+              {bulkLoading ? "Đang xử lý..." : "Áp dụng"}
+            </button>
+          </div>
+        )}
 
         <div className="relative">
-          <Search className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#667479] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
@@ -309,56 +361,70 @@ export default function AdminContactsPage() {
         <table className="w-full min-w-[680px] text-left border-collapse">
           <thead>
             <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-extrabold uppercase text-[#202224]">
-              <th className="py-4 px-4 w-12">
-                <input
-                  type="checkbox"
-                  checked={
-                    items.length > 0 && selectedIds.length === items.length
-                  }
-                  onChange={(e) =>
-                    setSelectedIds(
-                      e.target.checked ? items.map((it) => it.id) : []
-                    )
-                  }
-                  className="w-4 h-4 rounded accent-[#4880FF]"
-                />
-              </th>
+              {canBulk && (
+                <th className="py-4 px-4 w-12">
+                  <input
+                    type="checkbox"
+                    aria-label="Chọn tất cả liên hệ"
+                    checked={
+                      items.length > 0 && selectedIds.length === items.length
+                    }
+                    onChange={(e) =>
+                      setSelectedIds(
+                        e.target.checked ? items.map((it) => it.id) : []
+                      )
+                    }
+                    className="w-4 h-4 rounded accent-[#4880FF]"
+                  />
+                </th>
+              )}
               <th className="py-4 px-4">Email</th>
               <th className="py-4 px-4 text-center">Trạng thái</th>
               <th className="py-4 px-4">Ngày tạo</th>
-              <th className="py-4 px-4 text-center">Hành động</th>
+              {(canEdit || canDelete) && (
+                <th className="py-4 px-4 text-center">Hành động</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
             {loading ? (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canBulk ? 5 : 4}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canBulk ? 5 : 4}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Không có email liên hệ nào.
                 </td>
               </tr>
             ) : (
               items.map((c) => (
                 <tr key={c.id} className="hover:bg-[#F5F6FA]/60">
-                  <td className="py-3.5 px-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(c.id)}
-                      onChange={() =>
-                        setSelectedIds((prev) =>
-                          prev.includes(c.id)
-                            ? prev.filter((item) => item !== c.id)
-                            : [...prev, c.id]
-                        )
-                      }
-                      className="w-4 h-4 rounded accent-[#4880FF]"
-                    />
-                  </td>
+                  {canBulk && (
+                    <td className="py-3.5 px-4">
+                      <input
+                        type="checkbox"
+                        aria-label={`Chọn liên hệ ${c.email}`}
+                        checked={selectedIds.includes(c.id)}
+                        onChange={() =>
+                          setSelectedIds((prev) =>
+                            prev.includes(c.id)
+                              ? prev.filter((item) => item !== c.id)
+                              : [...prev, c.id]
+                          )
+                        }
+                        className="w-4 h-4 rounded accent-[#4880FF]"
+                      />
+                    </td>
+                  )}
                   <td className="py-3.5 px-4 font-bold text-[#202224]">
                     {c.email}
                   </td>
@@ -374,51 +440,60 @@ export default function AdminContactsPage() {
                   <td className="py-3.5 px-4 text-xs font-semibold text-[#606060] whitespace-nowrap">
                     {formatDateTimeVN(c.createdAt)}
                   </td>
-                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleStatus(c)}
-                        className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                          c.status === ContactStatus.PROCESSED
-                            ? "border-[#D5D5D5] bg-[#FAFBFD] text-[#606060] hover:bg-amber-50 hover:text-amber-700"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        }`}
-                        title={
-                          c.status === ContactStatus.PROCESSED
-                            ? "Chuyển lại chưa xử lý"
-                            : "Đánh dấu đã liên hệ"
-                        }
-                      >
-                        {c.status === ContactStatus.PROCESSED ? (
-                          <>
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>Chưa xử lý</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Đã liên hệ</span>
-                          </>
+                  {(canEdit || canDelete) && (
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        {canEdit && (
+                          <button
+                            type="button"
+                            disabled={togglingId === c.id}
+                            onClick={() => toggleStatus(c)}
+                            className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 ${
+                              c.status === ContactStatus.PROCESSED
+                                ? "border-[#D5D5D5] bg-[#FAFBFD] text-[#606060] hover:bg-amber-50 hover:text-[#B45309]"
+                                : "border-[#CCFBF1] bg-[#CCFBF1] text-[#0F766E] hover:opacity-90"
+                            }`}
+                            title={
+                              c.status === ContactStatus.PROCESSED
+                                ? "Chuyển lại chưa xử lý"
+                                : "Đánh dấu đã liên hệ"
+                            }
+                          >
+                            {togglingId === c.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : c.status === ContactStatus.PROCESSED ? (
+                              <Clock className="w-3.5 h-3.5" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>
+                              {c.status === ContactStatus.PROCESSED
+                                ? "Chưa xử lý"
+                                : "Đã liên hệ"}
+                            </span>
+                          </button>
                         )}
-                      </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setConfirmState({
-                            kind: "delete-one",
-                            id: c.id,
-                            email: c.email,
-                          })
-                        }
-                        className="p-2 rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] hover:bg-red-50 text-[#EF3826]"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setConfirmState({
+                                kind: "delete-one",
+                                id: c.id,
+                                email: c.email,
+                              })
+                            }
+                            className="p-2 rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] hover:bg-red-50 text-[#B91C1C]"
+                            title="Xóa"
+                            aria-label={`Xóa liên hệ ${c.email}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

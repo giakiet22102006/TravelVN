@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCw } from "lucide-react";
 import { AdminAuthCard } from "@/components/admin/AdminAuthCard";
 
 function OtpPasswordForm() {
@@ -14,11 +14,23 @@ function OtpPasswordForm() {
   const [email, setEmail] = useState(initialEmail);
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(initialEmail ? 60 : 0);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
     try {
       const res = await fetch("/api/admin/auth/otp-password", {
@@ -26,7 +38,7 @@ function OtpPasswordForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.message || "Mã OTP không hợp lệ");
         return;
@@ -39,6 +51,38 @@ function OtpPasswordForm() {
     }
   }
 
+  async function handleResendOtp() {
+    if (!email.trim()) {
+      setError("Vui lòng nhập email trước khi gửi lại mã OTP");
+      return;
+    }
+    if (cooldown > 0 || resending) return;
+
+    setError("");
+    setNotice("");
+    setResending(true);
+    try {
+      const res = await fetch("/api/admin/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Không thể gửi lại mã OTP");
+        return;
+      }
+      setNotice(
+        data.message || "Đã gửi lại mã OTP mới. Vui lòng kiểm tra email."
+      );
+      setCooldown(60);
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
@@ -46,12 +90,21 @@ function OtpPasswordForm() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 font-medium">
+          {notice}
+        </div>
+      )}
 
       <div>
-        <label className="block text-[15px] font-semibold text-[#202224]/80 mb-2">
+        <label
+          htmlFor="otp-email"
+          className="block text-[15px] font-semibold text-[#202224]/80 mb-2"
+        >
           Email:
         </label>
         <input
+          id="otp-email"
           type="email"
           required
           value={email}
@@ -62,10 +115,33 @@ function OtpPasswordForm() {
       </div>
 
       <div>
-        <label className="block text-[15px] font-semibold text-[#202224]/80 mb-2">
-          Mã OTP:
-        </label>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <label
+            htmlFor="otp-code"
+            className="block text-[15px] font-semibold text-[#202224]/80"
+          >
+            Mã OTP:
+          </label>
+          <button
+            type="button"
+            disabled={cooldown > 0 || resending}
+            onClick={handleResendOtp}
+            className="text-xs font-bold text-[#4880FF] hover:underline disabled:text-[#667479] disabled:no-underline disabled:cursor-not-allowed inline-flex items-center gap-1"
+          >
+            {resending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RotateCw className="w-3.5 h-3.5" />
+            )}
+            <span>
+              {cooldown > 0
+                ? `Gửi lại mã OTP (${cooldown}s)`
+                : "Gửi lại mã OTP"}
+            </span>
+          </button>
+        </div>
         <input
+          id="otp-code"
           type="text"
           required
           value={otp}

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
+  RotateCcw,
   ShoppingBag,
   Trash2,
   TrendingUp,
@@ -17,6 +19,8 @@ import {
   PAYMENT_STATUS_TEXT_CLASSES,
 } from "@/lib/permissions";
 import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface ChartPoint {
   day: number;
@@ -73,33 +77,96 @@ function formatMonthDisplay(monthKey: string): string {
 }
 
 export default function AdminDashboardPage() {
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const { hasPermission } = useAdminPermissions();
+  const canViewDashboard = hasPermission("dashboard_view");
+  const canViewTrash = hasPermission("tour_trash");
+  const canViewOrders = hasPermission("order_view");
+  const canEditOrders = hasPermission("order_edit");
+
+  const [requestedMonth, setRequestedMonth] = useState<string>("");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
+  const [error, setError] = useState("");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    setForbidden(false);
+    try {
+      const qs = requestedMonth
+        ? `?month=${encodeURIComponent(requestedMonth)}`
+        : "";
+      const res = await fetch(`/api/admin/dashboard${qs}`);
+      const json = await res.json().catch(() => null);
+
+      if (res.status === 403) {
+        setForbidden(true);
+        setData(null);
+        return;
+      }
+
+      if (!res.ok || !json || !json.kpis) {
+        setError(
+          (json && typeof json.message === "string" && json.message) ||
+            "Không thể tải dữ liệu Tổng quan."
+        );
+        return;
+      }
+
+      setData(json as DashboardData);
+    } catch {
+      setError("Không thể kết nối máy chủ. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  }, [requestedMonth]);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    const qs = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
-    fetch(`/api/admin/dashboard${qs}`)
-      .then((res) => res.json())
-      .then((json: DashboardData) => {
-        if (!active) return;
-        setData(json);
-        if (!selectedMonth && json.selectedMonth) {
-          setSelectedMonth(json.selectedMonth);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    if (!canViewDashboard) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
+    loadDashboard();
+  }, [canViewDashboard, loadDashboard, reloadTick]);
 
-    return () => {
-      active = false;
-    };
-  }, [selectedMonth]);
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền xem trang Tổng quan"
+        description="Tài khoản quản trị của bạn chưa được cấp quyền xem báo cáo Tổng quan. Vui lòng sử dụng menu bên trái hoặc liên hệ Quản trị viên."
+      />
+    );
+  }
 
+  if (error && !data) {
+    return (
+      <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-8 sm:p-12 flex flex-col items-center justify-center text-center min-h-[360px] space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#B91C1C] flex items-center justify-center">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-lg font-bold text-[#202224]">
+            Tải trang Tổng quan thất bại
+          </h1>
+          <p className="text-sm text-[#606060]">{error}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setReloadTick((n) => n + 1)}
+          className="h-10 px-5 rounded-xl bg-[#4880FF] hover:bg-[#3a6ce0] text-white text-sm font-bold inline-flex items-center gap-2"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Tải lại
+        </button>
+      </div>
+    );
+  }
+
+  const activeMonth = requestedMonth || data?.selectedMonth || "";
   const points = data?.chartData || [];
   const maxRevenue = Math.max(
     10_000_000,
@@ -127,7 +194,10 @@ export default function AdminDashboardPage() {
   const linePath =
     coords.length > 0
       ? coords
-          .map((c, idx) => `${idx === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+          .map(
+            (c, idx) =>
+              `${idx === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`
+          )
           .join(" ")
       : "";
   const areaPath =
@@ -144,24 +214,41 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl sm:text-[32px] font-bold text-[#202224]">
           Tổng quan
         </h1>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin/tours/trash"
-            className="px-4 py-2 rounded-lg bg-white border border-[#D5D5D5] text-sm font-semibold text-[#F93C65] hover:border-[#F93C65] inline-flex items-center gap-1.5"
-          >
-            <Trash2 className="w-4 h-4" />
-            Thùng rác tour
-          </Link>
-          <Link
-            href="/admin/orders"
-            className="px-4 py-2 rounded-lg bg-[#4880FF] text-white text-sm font-semibold hover:bg-[#3a6ce0]"
-          >
-            Quản lý đơn hàng
-          </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {canViewTrash && (
+            <Link
+              href="/admin/tours/trash"
+              className="px-4 py-2 rounded-lg bg-white border border-[#D5D5D5] text-sm font-semibold text-[#B91C1C] hover:border-[#B91C1C] inline-flex items-center gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              Thùng rác tour
+            </Link>
+          )}
+          {canViewOrders && (
+            <Link
+              href="/admin/orders"
+              className="px-4 py-2 rounded-lg bg-[#4880FF] text-white text-sm font-semibold hover:bg-[#3a6ce0]"
+            >
+              Quản lý đơn hàng
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* 3 KPI Summary Cards (Figma #6:282) */}
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-semibold flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setReloadTick((n) => n + 1)}
+            className="text-xs font-bold underline shrink-0"
+          >
+            Tải lại
+          </button>
+        </div>
+      )}
+
+      {/* 3 KPI Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-6 flex items-center justify-between">
           <div>
@@ -182,7 +269,7 @@ export default function AdminDashboardPage() {
               {data ? data.kpis.orderCount.toLocaleString("vi-VN") : "..."}
             </p>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-[#FEC53D]/20 text-[#D99B00] flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-[#FEC53D]/20 text-[#B45309] flex items-center justify-center">
             <ShoppingBag className="w-7 h-7" />
           </div>
         </div>
@@ -194,7 +281,7 @@ export default function AdminDashboardPage() {
               {data ? formatCurrencyVND(data.kpis.totalRevenue) : "..."}
             </p>
           </div>
-          <div className="w-14 h-14 rounded-2xl bg-[#4AD991]/20 text-[#00B69B] flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-[#4AD991]/20 text-[#0F766E] flex items-center justify-center">
             <TrendingUp className="w-7 h-7" />
           </div>
         </div>
@@ -202,7 +289,7 @@ export default function AdminDashboardPage() {
 
       {/* Revenue Area/Line Chart Card */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-xl font-bold text-[#202224]">
               Biểu đồ doanh thu
@@ -218,34 +305,50 @@ export default function AdminDashboardPage() {
           </div>
 
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            aria-label="Chọn tháng xem doanh thu"
+            value={activeMonth}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val !== activeMonth) {
+                setRequestedMonth(val);
+              }
+            }}
             className="h-10 px-3.5 rounded-lg border border-[#D5D5D5] bg-[#FCFDFD] text-sm font-semibold text-[#202224] focus:outline-none focus:border-[#4880FF]"
           >
-            {(data?.monthOptions || (selectedMonth ? [selectedMonth] : [])).map((m) => (
-              <option key={m} value={m}>
-                {formatMonthDisplay(m)}
-              </option>
-            ))}
+            {(data?.monthOptions || (activeMonth ? [activeMonth] : [])).map(
+              (m) => (
+                <option key={m} value={m}>
+                  {formatMonthDisplay(m)}
+                </option>
+              )
+            )}
           </select>
         </div>
 
         {loading && !data ? (
-          <div className="h-[260px] flex items-center justify-center text-sm text-[#667479]">
+          <div className="h-[306px] flex items-center justify-center text-sm text-[#667479]">
             Đang tải biểu đồ doanh thu...
           </div>
         ) : (
           <div className="relative w-full overflow-x-auto">
-            {hovered && (
-              <div className="mb-2 inline-flex flex-wrap items-center gap-3 px-3.5 py-1.5 rounded-lg bg-[#4880FF] text-white text-xs font-bold shadow-sm">
-                <span>Ngày {hovered.pt.label}</span>
-                <span>•</span>
-                <span>
-                  Doanh thu: {formatCurrencyVND(hovered.pt.revenue)} (
-                  {hovered.pt.orderCount} đơn)
+            {/* Fixed-height hover readout container prevents layout shift (0px CLS) */}
+            <div className="min-h-[36px] mb-2 flex items-center">
+              {hovered ? (
+                <div className="inline-flex flex-wrap items-center gap-3 px-3.5 py-1.5 rounded-lg bg-[#4880FF] text-white text-xs font-bold shadow-sm">
+                  <span>Ngày {hovered.pt.label}</span>
+                  <span>•</span>
+                  <span>
+                    Doanh thu: {formatCurrencyVND(hovered.pt.revenue)} (
+                    {hovered.pt.orderCount} đơn)
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-[#667479]">
+                  Di chuột vào các điểm trên biểu đồ để xem doanh thu chi tiết
+                  theo ngày.
                 </span>
-              </div>
-            )}
+              )}
+            </div>
 
             <svg
               viewBox={`0 0 ${chartW} ${chartH}`}
@@ -253,7 +356,13 @@ export default function AdminDashboardPage() {
               onMouseLeave={() => setHoveredIdx(null)}
             >
               <defs>
-                <linearGradient id="revenueAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient
+                  id="revenueAreaGrad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
                   <stop offset="0%" stopColor="#4379EE" stopOpacity="0.24" />
                   <stop offset="100%" stopColor="#4379EE" stopOpacity="0.01" />
                 </linearGradient>
@@ -276,7 +385,7 @@ export default function AdminDashboardPage() {
                       x={padL - 10}
                       y={yVal + 4}
                       textAnchor="end"
-                      fill="#979797"
+                      fill="#667479"
                       fontSize="11"
                       fontWeight="600"
                     >
@@ -323,7 +432,7 @@ export default function AdminDashboardPage() {
                         x={c.x}
                         y={chartH - 10}
                         textAnchor="middle"
-                        fill="#979797"
+                        fill="#667479"
                         fontSize="11"
                         fontWeight="600"
                       >
@@ -357,16 +466,18 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      {/* Recent Orders Table (Đơn hàng mới) */}
+      {/* Recent Orders Table */}
       <div className="bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
         <div className="px-6 py-5 border-b border-[#E0E0E0] flex items-center justify-between">
           <h2 className="text-xl font-bold text-[#202224]">Đơn hàng mới</h2>
-          <Link
-            href="/admin/orders"
-            className="text-sm font-bold text-[#4880FF] hover:underline"
-          >
-            Xem tất cả
-          </Link>
+          {canViewOrders && (
+            <Link
+              href="/admin/orders"
+              className="text-sm font-bold text-[#4880FF] hover:underline"
+            >
+              Xem tất cả
+            </Link>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -392,12 +503,18 @@ export default function AdminDashboardPage() {
                 data.recentOrders.map((ord) => (
                   <tr key={ord.id} className="hover:bg-[#F5F6FA]/60 align-top">
                     <td className="py-4 px-4">
-                      <Link
-                        href={`/admin/orders/edit/${ord.id}`}
-                        className="font-bold text-[#4880FF] hover:underline"
-                      >
-                        {ord.code}
-                      </Link>
+                      {canEditOrders ? (
+                        <Link
+                          href={`/admin/orders/edit/${ord.id}`}
+                          className="font-bold text-[#4880FF] hover:underline"
+                        >
+                          {ord.code}
+                        </Link>
+                      ) : (
+                        <span className="font-bold text-[#202224]">
+                          {ord.code}
+                        </span>
+                      )}
                     </td>
                     <td className="py-4 px-4 text-xs space-y-1 text-[#202224]">
                       <div>
@@ -467,7 +584,7 @@ export default function AdminDashboardPage() {
                       )}
                       <div>
                         Thanh toán:{" "}
-                        <span className="font-extrabold text-[#EF3826]">
+                        <span className="font-extrabold text-[#B91C1C]">
                           {formatCurrencyVND(ord.total)}
                         </span>
                       </div>

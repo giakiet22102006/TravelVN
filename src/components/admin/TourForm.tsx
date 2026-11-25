@@ -135,8 +135,8 @@ export function TourForm({ mode, initialData }: TourFormProps) {
       ? initialData.schedules
       : [
           {
-            title: "NGÀY 1 | TP.HCM – THỦ ĐÔ HÀ NỘI",
-            description: "Nội dung chi tiết ngày 1...",
+            title: "",
+            description: "",
           },
         ]
   );
@@ -145,18 +145,34 @@ export function TourForm({ mode, initialData }: TourFormProps) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
     fetch("/api/admin/categories?all=true")
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || "Không thể tải danh mục");
+        }
+        return data;
+      })
       .then((data) => {
+        if (!active) return;
         if (Array.isArray(data.items)) {
           setCategories(data.items);
-          if (!categoryId && data.items.length > 0) {
-            setCategoryId(data.items[0].id);
+          const firstId = data.items[0]?.id || "";
+          if (firstId) {
+            setCategoryId((prev) => prev || firstId);
           }
         }
       })
-      .catch(() => {});
-  }, [categoryId]);
+      .catch((err: unknown) => {
+        if (active && err instanceof Error) {
+          setError((prev) => prev || err.message);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const categoryOptions = buildIndentedCategories(categories);
 
@@ -191,7 +207,7 @@ export function TourForm({ mode, initialData }: TourFormProps) {
     setSchedules((prev) => [
       ...prev,
       {
-        title: `NGÀY ${prev.length + 1} | `,
+        title: "",
         description: "",
       },
     ]);
@@ -393,10 +409,11 @@ export function TourForm({ mode, initialData }: TourFormProps) {
                 />
                 <button
                   type="button"
+                  aria-label={`Xóa ảnh gallery ${idx + 1}`}
                   onClick={() =>
                     setImages((prev) => prev.filter((_, i) => i !== idx))
                   }
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/65 text-white text-xs flex items-center justify-center hover:bg-red-600"
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/65 text-white text-xs flex items-center justify-center hover:bg-red-600"
                 >
                   ×
                 </button>
@@ -658,11 +675,16 @@ export function TourForm({ mode, initialData }: TourFormProps) {
                     onChange={(e) =>
                       updateSchedule(idx, "title", e.target.value)
                     }
-                    placeholder={`NGÀY ${idx + 1} | Tiêu đề lịch trình...`}
+                    placeholder={
+                      idx === 0
+                        ? "Ví dụ: NGÀY 1 | TP.HCM – THỦ ĐÔ HÀ NỘI"
+                        : `Ví dụ: NGÀY ${idx + 1} | Tiêu đề lịch trình...`
+                    }
                     className="flex-1 h-10 px-3 rounded-lg border border-[#D5D5D5] bg-white text-sm font-semibold"
                   />
                   <button
                     type="button"
+                    aria-label={`Xóa lịch trình ngày ${idx + 1}`}
                     onClick={() => removeSchedule(idx)}
                     className="h-10 w-10 rounded-lg bg-[#EF3826] text-white flex items-center justify-center hover:bg-red-700"
                     title="Xóa lịch trình"
@@ -676,7 +698,7 @@ export function TourForm({ mode, initialData }: TourFormProps) {
                   onChange={(e) =>
                     updateSchedule(idx, "description", e.target.value)
                   }
-                  placeholder={`Nội dung chi tiết ngày ${idx + 1}...`}
+                  placeholder={`Nhập nội dung chi tiết cho ngày ${idx + 1}...`}
                   className="w-full p-3 rounded-lg border border-[#D5D5D5] bg-white text-sm"
                 />
               </div>

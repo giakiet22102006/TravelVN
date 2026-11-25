@@ -30,7 +30,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const auth = await requireAdmin(["setting_edit", "setting_view"]);
+    const auth = await requireAdmin("setting_edit");
     if (auth.error) return auth.error;
 
     const body = await req.json();

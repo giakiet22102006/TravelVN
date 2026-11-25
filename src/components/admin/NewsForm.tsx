@@ -132,7 +132,7 @@ export function NewsForm({
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-[14px] border border-[#E0E0E0] p-6 space-y-5 shadow-xs"
+        className="bg-white rounded-[14px] border border-[#E0E0E0] p-6 space-y-5 shadow-sm"
       >
         {error && (
           <div className="p-3.5 rounded-[10px] bg-red-50 border border-red-200 text-sm text-red-700 font-medium">

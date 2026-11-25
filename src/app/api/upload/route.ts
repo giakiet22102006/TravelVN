@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAdmin } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/client-auth";
-import { StorageService } from "@/lib/storage";
+import { detectSafeImageType, StorageService } from "@/lib/storage";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -26,21 +26,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (file.size <= 0 || file.size > MAX_FILE_SIZE_BYTES) {
       return NextResponse.json(
-        { message: "Chỉ hỗ trợ định dạng ảnh (PNG, JPG, WebP, SVG)" },
+        { message: "Dung lượng ảnh phải lớn hơn 0 và tối đa 10MB" },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const detected = detectSafeImageType(buffer);
+    if (!detected) {
       return NextResponse.json(
-        { message: "Dung lượng ảnh tối đa 10MB" },
+        { message: "Chỉ hỗ trợ ảnh hợp lệ định dạng JPEG, PNG, GIF hoặc WebP" },
         { status: 400 }
       );
     }
 
-    const result = await StorageService.uploadImage(file);
+    const result = await StorageService.uploadImage(file, buffer);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Upload error:", error);

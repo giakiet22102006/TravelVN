@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { Compass } from "lucide-react";
 import {
   enhanceImageUrl,
   isNextImageOptimizable,
@@ -39,6 +40,29 @@ export function SmartImage({
 }: SmartImageProps) {
   const finalSrc = enhanceImageUrl(src, targetWidth, quality);
   const canOptimize = isNextImageOptimizable(finalSrc);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [finalSrc]);
+
+  if (hasError || !finalSrc) {
+    return (
+      <div
+        role="img"
+        aria-label={alt}
+        style={!fill && width && height ? { width, height } : undefined}
+        className={`${
+          fill ? "absolute inset-0" : ""
+        } flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#F4EEFF] via-[#EFEAFD] to-[#E5DDFB] text-[#4502C7] select-none ${className}`}
+      >
+        <Compass className="w-6 h-6 opacity-75" />
+        <span className="text-[10px] font-bold tracking-wider uppercase opacity-80">
+          VN.TRAVEL
+        </span>
+      </div>
+    );
+  }
 
   if (!fill && width && height) {
     return (
@@ -51,6 +75,7 @@ export function SmartImage({
         priority={priority}
         sizes={sizes}
         unoptimized={!canOptimize}
+        onError={() => setHasError(true)}
         className={className}
       />
     );
@@ -65,6 +90,7 @@ export function SmartImage({
       priority={priority}
       sizes={sizes}
       unoptimized={!canOptimize}
+      onError={() => setHasError(true)}
       className={className}
     />
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertCircle,
   CheckCircle2,
+  Lightbulb,
   Loader2,
   MessageSquare,
   Send,
@@ -72,9 +73,10 @@ export function TourReviewsSection({
 
   const [reviews, setReviews] = useState<TourReviewItem[]>(initialReviews);
   const [stats, setStats] = useState<TourReviewsStats>(initialStats);
-  const [ratingFilter, setRatingFilter] = useState<number>(0);
+  const [ratingFilter, setRatingFilter] = useState<string>("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
+  const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
 
   const [isVerifiedBooking, setIsVerifiedBooking] = useState(false);
   const [ratingInput, setRatingInput] = useState<number>(5);
@@ -120,14 +122,14 @@ export function TourReviewsSection({
     };
   }, [currentUser, tourSlug]);
 
-  async function applyFilter(nextRating: number, nextVerified: boolean) {
+  async function applyFilter(nextRating: string, nextVerified: boolean) {
     setRatingFilter(nextRating);
     setVerifiedOnly(nextVerified);
     setLoadingList(true);
     try {
       const params = new URLSearchParams({ limit: "20" });
-      if (nextRating >= 1 && nextRating <= 5) {
-        params.set("rating", String(nextRating));
+      if (nextRating) {
+        params.set("rating", nextRating);
       }
       if (nextVerified) {
         params.set("verified", "true");
@@ -202,8 +204,8 @@ export function TourReviewsSection({
       }
 
       // Reset filter to all so user sees their newly published review immediately
-      if (ratingFilter !== 0 || verifiedOnly) {
-        await applyFilter(0, false);
+      if (ratingFilter !== "" || verifiedOnly) {
+        await applyFilter("", false);
       } else if (data.review) {
         setReviews((prev) => [data.review, ...prev]);
       }
@@ -290,15 +292,17 @@ export function TourReviewsSection({
           </div>
 
           <div className="pt-4 space-y-2">
-            {breakdownRows.map((row) => (
+            {breakdownRows.map((row) => {
+              const starStr = String(row.star);
+              return (
               <button
                 key={row.star}
                 type="button"
                 onClick={() =>
-                  applyFilter(ratingFilter === row.star ? 0 : row.star, verifiedOnly)
+                  applyFilter(ratingFilter === starStr ? "" : starStr, verifiedOnly)
                 }
                 className={`w-full flex items-center gap-2.5 text-[12px] py-0.5 rounded hover:bg-white/70 transition-colors ${
-                  ratingFilter === row.star ? "font-bold text-[#4502C7]" : "text-[#4F4F4F]"
+                  ratingFilter === starStr ? "font-bold text-[#4502C7]" : "text-[#4F4F4F]"
                 }`}
               >
                 <span className="w-11 text-left inline-flex items-center gap-1">
@@ -313,7 +317,8 @@ export function TourReviewsSection({
                 </div>
                 <span className="w-8 text-right font-semibold">{row.count}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -373,9 +378,12 @@ export function TourReviewsSection({
                 </div>
 
                 {aiSummary.tips && (
-                  <div className="rounded-[8px] bg-white/90 border border-[#E5E0F6] px-3 py-2 text-[12px] text-[#4F4F4F]">
-                    <span className="font-bold text-[#4502C7]">💡 Mẹo từ AI: </span>
-                    {aiSummary.tips}
+                  <div className="rounded-[8px] bg-white/90 border border-[#E5E0F6] px-3 py-2 text-[12px] text-[#4F4F4F] flex items-start gap-1.5">
+                    <Lightbulb className="w-4 h-4 shrink-0 text-[#4502C7] mt-0.5" />
+                    <div>
+                      <span className="font-bold text-[#4502C7]">Mẹo từ AI: </span>
+                      {aiSummary.tips}
+                    </div>
                   </div>
                 )}
               </div>
@@ -467,7 +475,7 @@ export function TourReviewsSection({
               onChange={(e) => setCommentInput(e.target.value)}
               placeholder="Chia sẻ trải nghiệm về lịch trình, hướng dẫn viên, khách sạn, bữa ăn... (tối thiểu 10 ký tự)"
               maxLength={1500}
-              className="w-full rounded-[10px] border border-[#CCD1D2] bg-white px-3.5 py-2.5 text-[14px] text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+              className="w-full rounded-[10px] border border-[#CCD1D2] bg-white px-3.5 py-2.5 text-[14px] text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
             />
 
             {feedback && (
@@ -519,11 +527,11 @@ export function TourReviewsSection({
       {/* Filter Pills */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         {[
-          { label: "Tất cả", rating: 0 },
-          { label: "5 Sao", rating: 5 },
-          { label: "4 Sao", rating: 4 },
-          { label: "3 Sao", rating: 3 },
-          { label: "1–2 Sao", rating: 2 },
+          { label: "Tất cả", rating: "" },
+          { label: "5 Sao", rating: "5" },
+          { label: "4 Sao", rating: "4" },
+          { label: "3 Sao", rating: "3" },
+          { label: "1–2 Sao", rating: "1,2" },
         ].map((pill) => {
           const active = ratingFilter === pill.rating && !verifiedOnly;
           return (
@@ -544,7 +552,7 @@ export function TourReviewsSection({
 
         <button
           type="button"
-          onClick={() => applyFilter(0, !verifiedOnly)}
+          onClick={() => applyFilter("", !verifiedOnly)}
           className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border inline-flex items-center gap-1.5 transition-colors ${
             verifiedOnly
               ? "bg-emerald-600 text-white border-emerald-600"
@@ -580,11 +588,14 @@ export function TourReviewsSection({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-[#4502C7]/12 text-[#4502C7] font-bold flex items-center justify-center shrink-0">
-                      {rev.user.avatar ? (
+                      {rev.user.avatar && !failedAvatars[rev.id] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={rev.user.avatar}
                           alt={rev.user.fullName}
+                          onError={() =>
+                            setFailedAvatars((prev) => ({ ...prev, [rev.id]: true }))
+                          }
                           className="w-full h-full object-cover"
                         />
                       ) : (

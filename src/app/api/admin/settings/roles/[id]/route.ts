@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import {
+  extractPermissionStrings,
+  isSuperAdmin,
+  requireAdmin,
+} from "@/lib/auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 
 const VALID_PERMISSIONS = new Set(ALL_PERMISSION_KEYS);
@@ -57,6 +61,16 @@ export async function PUT(
     const { admin } = auth;
 
     const { id } = await params;
+    if (id === "role-admin" && !isSuperAdmin(admin)) {
+      return NextResponse.json(
+        {
+          message:
+            "Chỉ Super Admin mới được phép chỉnh sửa nhóm quyền Quản trị viên hệ thống",
+        },
+        { status: 403 }
+      );
+    }
+
     const existing = await prisma.role.findFirst({
       where: { id, deleted: false },
     });
@@ -76,12 +90,31 @@ export async function PUT(
       );
     }
 
+    const requestedPermissions = sanitizePermissions(body.permissions);
+    if (!isSuperAdmin(admin)) {
+      const callerPerms = new Set(
+        extractPermissionStrings(admin.role?.permissions)
+      );
+      const unauthorized = requestedPermissions.filter(
+        (key) => !callerPerms.has(key)
+      );
+      if (unauthorized.length > 0) {
+        return NextResponse.json(
+          {
+            message:
+              "Bạn không thể cấp quyền mà tài khoản của bạn không sở hữu",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const item = await prisma.role.update({
       where: { id },
       data: {
         name,
         description: body.description ? String(body.description).trim() : null,
-        permissions: sanitizePermissions(body.permissions),
+        permissions: requestedPermissions,
         updatedById: admin.id,
       },
     });

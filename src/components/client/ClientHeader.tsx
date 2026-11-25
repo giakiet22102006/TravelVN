@@ -58,20 +58,51 @@ export function ClientHeader({
   const [openMobileCategory, setOpenMobileCategory] = useState<string | null>(
     null
   );
+  const [openDesktopCategory, setOpenDesktopCategory] = useState<string | null>(
+    null
+  );
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const desktopNavRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [currentUser?.avatar]);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [websiteInfo.logo]);
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      if (accountMenuRef.current && !accountMenuRef.current.contains(target)) {
         setAccountMenuOpen(false);
+      }
+      if (desktopNavRef.current && !desktopNavRef.current.contains(target)) {
+        setOpenDesktopCategory(null);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setAccountMenuOpen(false);
+        setOpenDesktopCategory(null);
+        if (
+          document.activeElement instanceof HTMLElement &&
+          desktopNavRef.current?.contains(document.activeElement)
+        ) {
+          document.activeElement.blur();
+        }
       }
     }
     document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   useEffect(() => {
@@ -126,11 +157,12 @@ export function ClientHeader({
                 aria-label="Menu tài khoản khách hàng"
                 className="inline-flex items-center gap-1.5 text-white hover:bg-white/20 bg-white/15 px-3 py-1 rounded-full font-medium transition-colors"
               >
-                {currentUser.avatar ? (
+                {currentUser.avatar && !avatarError ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={enhanceImageUrl(currentUser.avatar, 120, 85)}
                     alt={currentUser.fullName}
+                    onError={() => setAvatarError(true)}
                     className="w-4 h-4 rounded-full object-cover"
                   />
                 ) : (
@@ -221,10 +253,12 @@ export function ClientHeader({
             href="/"
             className="flex items-center gap-2 shrink-0"
           >
-            {websiteInfo.logo ? (
+            {websiteInfo.logo && !logoError ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={websiteInfo.logo}
                 alt={websiteInfo.websiteName || "VN.TRAVEL"}
+                onError={() => setLogoError(true)}
                 className="h-9 w-auto object-contain"
               />
             ) : (
@@ -240,7 +274,10 @@ export function ClientHeader({
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-[#25282B]">
+          <nav
+            ref={desktopNavRef}
+            className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-[#25282B]"
+          >
             <Link
               href="/"
               className={`py-2 transition-colors hover:text-[#4502C7] ${
@@ -250,35 +287,62 @@ export function ClientHeader({
               Trang Chủ
             </Link>
 
-            {categoryTree.map((cat) => (
-              <div key={cat.id} className="relative group py-2">
-                <Link
-                  href={`/tours?category=${encodeURIComponent(cat.slug)}`}
-                  className="inline-flex items-center gap-1 text-[#25282B] hover:text-[#4502C7] transition-colors"
-                >
-                  <span>{cat.name}</span>
+            {categoryTree.map((cat) => {
+              const isCatOpen = openDesktopCategory === cat.id;
+              return (
+                <div key={cat.id} className="relative group py-2 flex items-center gap-0.5">
+                  <Link
+                    href={`/tours?category=${encodeURIComponent(cat.slug)}`}
+                    onClick={() => setOpenDesktopCategory(null)}
+                    className="inline-flex items-center text-[#25282B] hover:text-[#4502C7] transition-colors"
+                  >
+                    <span>{cat.name}</span>
+                  </Link>
                   {cat.children.length > 0 && (
-                    <ChevronDown className="w-4 h-4 transition-transform group-hover:rotate-180" />
+                    <button
+                      type="button"
+                      aria-label={`Danh mục con ${cat.name}`}
+                      aria-expanded={isCatOpen}
+                      onClick={() =>
+                        setOpenDesktopCategory(isCatOpen ? null : cat.id)
+                      }
+                      className="p-1 rounded text-[#25282B] hover:text-[#4502C7] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${
+                          isCatOpen
+                            ? "rotate-180"
+                            : "group-hover:rotate-180 group-focus-within:rotate-180"
+                        }`}
+                      />
+                    </button>
                   )}
-                </Link>
 
-                {cat.children.length > 0 && (
-                  <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-75 absolute left-0 top-full pt-1 w-[240px] z-50">
-                    <div className="bg-white rounded-[10px] shadow-[0_14px_34px_rgba(18,22,29,0.2)] border border-[#DCE0E5] py-2 overflow-hidden">
-                      {cat.children.map((child) => (
-                        <Link
-                          key={child.id}
-                          href={`/tours?category=${encodeURIComponent(child.slug)}`}
-                          className="block px-4 py-2.5 text-[14px] text-[#25282B] hover:bg-[#4502C7] hover:text-white transition-colors"
-                        >
-                          {child.name}
-                        </Link>
-                      ))}
+                  {cat.children.length > 0 && (
+                    <div
+                      className={`transition-opacity duration-75 absolute left-0 top-full pt-1 w-[240px] z-50 ${
+                        isCatOpen
+                          ? "visible opacity-100"
+                          : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+                      }`}
+                    >
+                      <div className="bg-white rounded-[10px] shadow-[0_14px_34px_rgba(18,22,29,0.2)] border border-[#DCE0E5] py-2 overflow-hidden">
+                        {cat.children.map((child) => (
+                          <Link
+                            key={child.id}
+                            href={`/tours?category=${encodeURIComponent(child.slug)}`}
+                            onClick={() => setOpenDesktopCategory(null)}
+                            className="block px-4 py-2.5 text-[14px] text-[#25282B] hover:bg-[#4502C7] hover:text-white focus:bg-[#4502C7] focus:text-white transition-colors"
+                          >
+                            {child.name}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
 
             <Link
               href="/tours"

@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 import {
   buildCookieOptions,
   CLIENT_TOKEN_COOKIE,
+  computePasswordSig,
   isHttpsRequest,
   signClientToken,
 } from "./jwt";
@@ -27,22 +28,40 @@ export function hasRealOAuthConfig(provider: SupportedOAuthProvider): boolean {
   return false;
 }
 
+export function isOAuthSandboxEnabled(
+  provider: SupportedOAuthProvider
+): boolean {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.ENABLE_OAUTH_SANDBOX === "true" &&
+    !hasRealOAuthConfig(provider)
+  );
+}
+
 export function sanitizeRedirectPath(raw: string | null | undefined): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) {
-    return "/account/orders";
+  const trimmed = (raw || "").trim();
+  if (
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\")
+  ) {
+    return "/";
   }
-  return raw;
+  return trimmed;
 }
 
 export async function attachClientSessionCookie(
   res: NextResponse,
   user: ClientUserPublic,
-  req: NextRequest
+  req: NextRequest,
+  passwordHash?: string | null
 ) {
+  const pwdSig = await computePasswordSig(passwordHash);
   const token = await signClientToken(
     {
       sub: user.id,
       email: user.email,
+      pwdSig,
     },
     "30d"
   );
@@ -60,7 +79,13 @@ export async function upsertOAuthUser(input: {
   avatar?: string | null;
   provider: "GOOGLE";
   providerId: string;
-}): Promise<{ user?: ClientUserPublic; error?: string; status?: number }> {
+}): Promise<{
+  user?: ClientUserPublic;
+  passwordHash?: string | null;
+  error?: string;
+  errorCode?: string;
+  status?: number;
+}> {
   const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
 
@@ -80,9 +105,10 @@ export async function upsertOAuthUser(input: {
     },
   });
 
-  if (existing && !existing.deleted && existing.status === RecordStatus.INACTIVE) {
+  if (existing && (existing.deleted || existing.status === RecordStatus.INACTIVE)) {
     return {
       error: "Tài khoản của bạn đang bị tạm khóa. Vui lòng liên hệ CSKH.",
+      errorCode: "account_locked",
       status: 403,
     };
   }
@@ -91,12 +117,10 @@ export async function upsertOAuthUser(input: {
     const updated = await prisma.user.update({
       where: { id: existing.id },
       data: {
-        fullName: existing.deleted ? fullName : existing.fullName || fullName,
+        fullName: existing.fullName || fullName,
         avatar: existing.avatar || input.avatar || null,
         provider: existing.password ? existing.provider : input.provider,
         providerId: input.providerId,
-        deleted: false,
-        status: RecordStatus.ACTIVE,
       },
       select: {
         ...CLIENT_USER_SELECT,
@@ -104,7 +128,10 @@ export async function upsertOAuthUser(input: {
       },
     });
     const { password, ...rest } = updated;
-    return { user: { ...rest, hasPassword: Boolean(password) } };
+    return {
+      user: { ...rest, hasPassword: Boolean(password) },
+      passwordHash: password,
+    };
   }
 
   const created = await prisma.user.create({
@@ -123,5 +150,8 @@ export async function upsertOAuthUser(input: {
   });
 
   const { password, ...rest } = created;
-  return { user: { ...rest, hasPassword: Boolean(password) } };
+  return {
+    user: { ...rest, hasPassword: Boolean(password) },
+    passwordHash: password,
+  };
 }

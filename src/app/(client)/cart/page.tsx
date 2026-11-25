@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
   ArrowLeft,
   CheckCircle2,
   CreditCard,
@@ -16,6 +17,7 @@ import {
 import { useCart } from "@/components/client/CartContext";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import {
+  ACTIVE_COUPONS,
   calculateCouponDiscount,
   findCouponDefinition,
 } from "@/lib/knowledge/coupons";
@@ -80,9 +82,28 @@ export default function CartPage() {
     toggleAll,
     removeItem,
     clearCheckedItems,
+    refreshCartFromServer,
     checkedSubTotal,
   } = useCart();
   const { currentUser } = useClientMeta();
+
+  const [syncNotices, setSyncNotices] = useState<string[]>([]);
+  const didSyncRef = useRef(false);
+
+  useEffect(() => {
+    if (!hydrated || didSyncRef.current) return;
+    didSyncRef.current = true;
+    if (items.length === 0) return;
+    let cancelled = false;
+    refreshCartFromServer().then((res) => {
+      if (!cancelled && res.notices.length > 0) {
+        setSyncNotices(res.notices);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, items.length, refreshCartFromServer]);
 
   // Coupon state (persisted across reloads)
   const [couponInput, setCouponInput] = useState("");
@@ -93,6 +114,11 @@ export default function CartPage() {
   } | null>(null);
   const [itemQtyHints, setItemQtyHints] = useState<Record<string, string>>({});
 
+  const activeCouponList = useMemo(
+    () => ACTIVE_COUPONS.filter((c) => c.active),
+    []
+  );
+
   useEffect(() => {
     try {
       const saved = (
@@ -100,16 +126,13 @@ export default function CartPage() {
       )
         .trim()
         .toUpperCase();
-      if (
-        saved === "TOUR2026" ||
-        saved === "TOURMUAHE2024" ||
-        saved === "GIAM10"
-      ) {
-        setAppliedCoupon(saved);
-        setCouponInput(saved);
+      const couponDef = findCouponDefinition(saved);
+      if (couponDef && couponDef.active) {
+        setAppliedCoupon(couponDef.code);
+        setCouponInput(couponDef.code);
         setCouponFeedback({
           type: "success",
-          text: getCouponSuccessText(saved),
+          text: getCouponSuccessText(couponDef.code),
         });
       }
     } catch {
@@ -141,11 +164,18 @@ export default function CartPage() {
     useState<CreatedOrderResponse | null>(null);
 
   const checkedItems = useMemo(
-    () => items.filter((item) => item.checked),
+    () => items.filter((item) => item.checked && item.active !== false),
     [items]
   );
 
-  const allChecked = items.length > 0 && checkedItems.length === items.length;
+  const selectableItems = useMemo(
+    () => items.filter((item) => item.active !== false),
+    [items]
+  );
+
+  const allChecked =
+    selectableItems.length > 0 &&
+    checkedItems.length === selectableItems.length;
 
   const discount = useMemo(
     () => computePreviewDiscount(appliedCoupon, checkedSubTotal),
@@ -162,34 +192,37 @@ export default function CartPage() {
       return;
     }
 
-    if (
-      code !== "TOUR2026" &&
-      code !== "TOURMUAHE2024" &&
-      code !== "GIAM10"
-    ) {
+    const couponDef = findCouponDefinition(code);
+    if (!couponDef || !couponDef.active) {
       setAppliedCoupon("");
       try {
         window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
       } catch {
         // Ignore
       }
+      const suggestedCodes = activeCouponList
+        .slice(0, 2)
+        .map((c) => c.code)
+        .join(" hoặc ");
       setCouponFeedback({
         type: "error",
-        text: `Mã "${code}" không hợp lệ. Thử dùng TOUR2026 hoặc GIAM10.`,
+        text: suggestedCodes
+          ? `Mã "${code}" không hợp lệ. Thử dùng ${suggestedCodes}.`
+          : `Mã "${code}" không hợp lệ.`,
       });
       return;
     }
 
-    setAppliedCoupon(code);
-    setCouponInput(code);
+    setAppliedCoupon(couponDef.code);
+    setCouponInput(couponDef.code);
     try {
-      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, code);
+      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, couponDef.code);
     } catch {
       // Ignore
     }
     setCouponFeedback({
       type: "success",
-      text: getCouponSuccessText(code),
+      text: getCouponSuccessText(couponDef.code),
     });
   }
 
@@ -433,7 +466,7 @@ export default function CartPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="py-12 text-center">
-            <ShoppingBag className="w-12 h-12 mx-auto text-[#99A2A5] mb-3" />
+            <ShoppingBag className="w-12 h-12 mx-auto text-[#667085] mb-3" />
             <p className="text-[16px] font-bold text-[#25282B]">
               Giỏ hàng của bạn đang trống
             </p>
@@ -449,12 +482,37 @@ export default function CartPage() {
           </div>
         ) : (
           <>
+            {syncNotices.length > 0 && (
+              <div
+                role="status"
+                className="mt-4 rounded-[12px] bg-amber-50 border border-amber-200 p-3.5 text-[12.5px] text-amber-900 flex items-start justify-between gap-3"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-700" />
+                  <ul className="space-y-1">
+                    {syncNotices.map((notice, idx) => (
+                      <li key={idx}>{notice}</li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Đóng thông báo cập nhật giỏ hàng"
+                  onClick={() => setSyncNotices([])}
+                  className="p-1 text-amber-700 hover:text-amber-950 rounded shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Select All Bar */}
             <div className="py-3 flex items-center justify-between border-b border-[#ECECEC] text-[13px]">
               <label className="inline-flex items-center gap-2 cursor-pointer select-none font-medium text-[#25282B]">
                 <input
                   type="checkbox"
                   checked={allChecked}
+                  disabled={selectableItems.length === 0}
                   onChange={(e) => toggleAll(e.target.checked)}
                   className="w-4 h-4 accent-[#4502C7] rounded"
                 />
@@ -469,6 +527,7 @@ export default function CartPage() {
             {/* Cart Items List */}
             <div className="divide-y divide-[#ECECEC]">
               {items.map((item) => {
+                const isInactive = item.active === false;
                 const usedBySameTour = items.reduce(
                   (acc, other) => {
                     if (other.tourId !== item.tourId) return acc;
@@ -484,7 +543,9 @@ export default function CartPage() {
                 return (
                 <div
                   key={item.cartKey}
-                  className="py-5 flex flex-col lg:flex-row gap-4 lg:items-center justify-between"
+                  className={`py-5 flex flex-col lg:flex-row gap-4 lg:items-center justify-between ${
+                    isInactive ? "opacity-75" : ""
+                  }`}
                 >
                   {/* Left: Checkbox + Remove + Thumbnail + Info */}
                   <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
@@ -492,10 +553,11 @@ export default function CartPage() {
                       <label className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-[#F6F6F6] cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={item.checked}
+                          checked={item.checked && !isInactive}
+                          disabled={isInactive}
                           onChange={() => toggleCheck(item.cartKey)}
                           aria-label={`Chọn tour ${item.name}`}
-                          className="w-4 h-4 accent-[#4502C7] rounded cursor-pointer"
+                          className="w-4 h-4 accent-[#4502C7] rounded cursor-pointer disabled:cursor-not-allowed"
                         />
                       </label>
                       <button
@@ -503,7 +565,7 @@ export default function CartPage() {
                         onClick={() => removeItem(item.cartKey)}
                         title="Xóa khỏi giỏ"
                         aria-label={`Xóa ${item.name}`}
-                        className="w-11 h-11 flex items-center justify-center rounded-lg text-[#99A2A5] hover:text-[#DA0808] hover:bg-red-50 transition-colors"
+                        className="w-11 h-11 flex items-center justify-center rounded-lg text-[#667085] hover:text-[#DA0808] hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -531,6 +593,11 @@ export default function CartPage() {
                       >
                         {item.name}
                       </Link>
+                      {isInactive && (
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-[#DA0808] text-[11px] font-semibold">
+                          Tour tạm ngừng nhận đặt
+                        </span>
+                      )}
                       <p className="text-[12px] text-[#667479]">
                         Mã Tour:{" "}
                         <strong className="text-[#25282B]">{item.code}</strong>
@@ -588,12 +655,12 @@ export default function CartPage() {
                         price: item.priceNewBaby,
                       },
                     ].map((row) => {
-                      const atMin = row.qty <= row.minQty;
-                      const atMax = row.totalUsed >= row.stock;
+                      const atMin = isInactive || row.qty <= row.minQty;
+                      const atMax = isInactive || row.totalUsed >= row.stock;
                       return (
                       <div
                         key={row.tier}
-                        className="flex items-center justify-between gap-2 text-[13px]"
+                        className="flex flex-wrap items-center justify-between gap-2 text-[13px]"
                       >
                         <span className="text-[#25282B] w-[78px] shrink-0">
                           {row.label}
@@ -605,6 +672,7 @@ export default function CartPage() {
                             aria-label={`Giảm số lượng ${row.name}`}
                             aria-disabled={atMin}
                             onClick={() => {
+                              if (isInactive) return;
                               if (atMin) {
                                 if (row.tier === "adult") {
                                   setItemQtyHints((prev) => ({
@@ -628,7 +696,7 @@ export default function CartPage() {
                             }}
                             className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
                               atMin
-                                ? "text-[#99A2A5] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
+                                ? "text-[#667085] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
                                 : "hover:bg-[#F6F6F6] text-[#25282B]"
                             }`}
                           >
@@ -642,6 +710,7 @@ export default function CartPage() {
                             aria-label={`Tăng số lượng ${row.name}`}
                             aria-disabled={atMax}
                             onClick={() => {
+                              if (isInactive) return;
                               if (atMax) {
                                 setItemQtyHints((prev) => ({
                                   ...prev,
@@ -662,7 +731,7 @@ export default function CartPage() {
                             }}
                             className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
                               atMax
-                                ? "text-[#99A2A5] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
+                                ? "text-[#667085] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
                                 : "hover:bg-[#F6F6F6] text-[#25282B]"
                             }`}
                           >
@@ -670,7 +739,7 @@ export default function CartPage() {
                           </button>
                         </div>
 
-                        <div className="min-w-[92px] text-right font-semibold text-[#4502C7] text-[12px]">
+                        <div className="min-w-[92px] text-right font-semibold text-[#4502C7] text-[12px] tabular-nums shrink-0">
                           {row.qty} x{" "}
                           <span className="text-[#DA0808]">
                             {row.price.toLocaleString("vi-VN")}
@@ -699,14 +768,18 @@ export default function CartPage() {
               <div className="md:max-w-[440px] w-full">
                 <form onSubmit={handleApplyCoupon} className="flex gap-2">
                   <div className="relative flex-1 min-w-0">
-                    <Tag className="w-4 h-4 text-[#99A2A5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Tag className="w-4 h-4 text-[#667085] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       aria-label="Mã giảm giá"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      placeholder="Nhập mã (vd: GIAM10)"
-                      className={`w-full h-[42px] pl-9 rounded-[8px] border border-[#CCD1D2] text-[13px] uppercase placeholder:normal-case focus:outline-none focus:border-[#4502C7] ${
+                      placeholder={
+                        activeCouponList[0]
+                          ? `Nhập mã (vd: ${activeCouponList[0].code})`
+                          : "Nhập mã giảm giá"
+                      }
+                      className={`w-full h-[42px] pl-9 rounded-[8px] border border-[#CCD1D2] text-[13px] uppercase placeholder:normal-case focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
                         showClearCouponBtn ? "pr-10" : "pr-3"
                       }`}
                     />
@@ -804,7 +877,7 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: Nguyễn Minh An"
                   aria-invalid={Boolean(fieldErrors.fullName)}
-                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
                     fieldErrors.fullName
                       ? "border-[#DA0808] bg-red-50/40"
                       : "border-[#CCD1D2]"
@@ -842,7 +915,7 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: 0912345678"
                   aria-invalid={Boolean(fieldErrors.phone)}
-                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
                     fieldErrors.phone
                       ? "border-[#DA0808] bg-red-50/40"
                       : "border-[#CCD1D2]"
@@ -871,7 +944,7 @@ export default function CartPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Yêu cầu đặc biệt (phòng view biển, ăn chay, xuất hóa đơn VAT...)"
-                  className="w-full p-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full p-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
             </div>

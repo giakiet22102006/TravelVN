@@ -2,7 +2,11 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
-import { ADMIN_TOKEN_COOKIE, verifyAdminToken } from "./jwt";
+import {
+  ADMIN_TOKEN_COOKIE,
+  computePasswordSig,
+  verifyAdminToken,
+} from "./jwt";
 
 export * from "./jwt";
 
@@ -40,6 +44,7 @@ export async function getCurrentAdmin() {
       avatar: true,
       status: true,
       roleId: true,
+      password: true,
       role: {
         select: {
           id: true,
@@ -50,7 +55,17 @@ export async function getCurrentAdmin() {
     },
   });
 
-  return account;
+  if (!account) return null;
+
+  if (
+    payload.pwdSig &&
+    payload.pwdSig !== (await computePasswordSig(account.password))
+  ) {
+    return null;
+  }
+
+  const { password: _pw, ...publicAccount } = account;
+  return publicAccount;
 }
 
 export type CurrentAdminRecord = NonNullable<
@@ -58,7 +73,7 @@ export type CurrentAdminRecord = NonNullable<
 >;
 
 export function isSuperAdmin(admin: CurrentAdminRecord): boolean {
-  return admin.roleId === "role-admin" || admin.role?.name === "Quản trị viên";
+  return admin.roleId === "role-admin";
 }
 
 export function extractPermissionStrings(raw: unknown): string[] {

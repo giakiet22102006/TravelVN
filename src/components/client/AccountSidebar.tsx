@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, LogOut, User, UserCircle } from "lucide-react";
@@ -10,6 +11,11 @@ export function AccountSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, logoutUser } = useClientMeta();
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [currentUser?.avatar]);
 
   async function handleLogout() {
     await logoutUser();
@@ -21,11 +27,12 @@ export function AccountSidebar() {
     <aside className="bg-white rounded-[16px] border border-[#ECECEC] p-5 shadow-sm space-y-4">
       {currentUser && (
         <div className="flex items-center gap-3 pb-4 border-b border-[#ECECEC]">
-          {currentUser.avatar ? (
+          {currentUser.avatar && !avatarError ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={enhanceImageUrl(currentUser.avatar, 200, 90)}
               alt={currentUser.fullName}
+              onError={() => setAvatarError(true)}
               className="w-12 h-12 rounded-full object-cover border border-[#ECECEC] shrink-0"
             />
           ) : (

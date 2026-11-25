@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentAdmin, hasAdminPermission } from "@/lib/auth";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 import { NewsForm } from "@/components/admin/NewsForm";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,18 @@ export default async function AdminNewsEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const admin = await getCurrentAdmin();
+  if (!admin) redirect("/admin/account/login");
+  if (!hasAdminPermission(admin, "news_edit")) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền chỉnh sửa bài viết"
+        backHref="/admin/news"
+        backLabel="Quay lại danh sách tin tức"
+      />
+    );
+  }
+
   const { id } = await params;
   const item = await prisma.newsArticle.findFirst({
     where: { id, deleted: false },

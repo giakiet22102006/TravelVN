@@ -1,5 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Globe, ShieldCheck, UserCog } from "lucide-react";
+import { getCurrentAdmin, hasAdminPermission } from "@/lib/auth";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
+
+export const dynamic = "force-dynamic";
 
 const SETTINGS_CARDS = [
   {
@@ -9,6 +14,7 @@ const SETTINGS_CARDS = [
       "Cấu hình tên thương hiệu, hotline, email, địa chỉ, logo và favicon.",
     icon: Globe,
     colorClass: "bg-[#4880FF]/15 text-[#4880FF]",
+    permission: "setting_view",
   },
   {
     href: "/admin/settings/accounts",
@@ -17,6 +23,7 @@ const SETTINGS_CARDS = [
       "Quản lý tài khoản nhân sự vận hành hệ thống và phân nhóm quyền.",
     icon: UserCog,
     colorClass: "bg-[#8280FF]/15 text-[#8280FF]",
+    permission: "admin_view",
   },
   {
     href: "/admin/settings/roles",
@@ -24,11 +31,28 @@ const SETTINGS_CARDS = [
     description:
       "Thiết lập vai trò RBAC và phân quyền chi tiết cho từng chức năng.",
     icon: ShieldCheck,
-    colorClass: "bg-[#4AD991]/20 text-[#00B69B]",
+    colorClass: "bg-[#4AD991]/20 text-[#0F766E]",
+    permission: "role_view",
   },
 ];
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+  const admin = await getCurrentAdmin();
+  if (!admin) redirect("/admin/account/login");
+
+  const visibleCards = SETTINGS_CARDS.filter((card) =>
+    hasAdminPermission(admin, card.permission)
+  );
+
+  if (visibleCards.length === 0) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền xem Cài đặt chung"
+        description="Tài khoản quản trị của bạn chưa được cấp quyền truy cập khu vực cài đặt hệ thống."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl sm:text-[32px] font-bold text-[#202224]">
@@ -36,7 +60,7 @@ export default function AdminSettingsPage() {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {SETTINGS_CARDS.map((card) => {
+        {visibleCards.map((card) => {
           const Icon = card.icon;
           return (
             <Link

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   ADMIN_TOKEN_COOKIE,
   buildCookieOptions,
+  computePasswordSig,
   getCurrentAdmin,
   isHttpsRequest,
   signAdminToken,
@@ -74,20 +75,25 @@ export async function PUT(req: NextRequest) {
         positionCompany: true,
         avatar: true,
         roleId: true,
+        password: true,
         role: { select: { id: true, name: true } },
       },
     });
 
+    const { password: passwordHash, ...publicUpdated } = updated;
+
     const response = NextResponse.json({
       message: "Cập nhật thông tin cá nhân thành công!",
-      item: updated,
+      item: publicUpdated,
     });
 
     if (email !== admin.email) {
+      const pwdSig = await computePasswordSig(passwordHash);
       const token = await signAdminToken({
-        sub: updated.id,
-        email: updated.email,
-        roleId: updated.roleId,
+        sub: publicUpdated.id,
+        email: publicUpdated.email,
+        roleId: publicUpdated.roleId,
+        pwdSig,
       });
       response.cookies.set(
         ADMIN_TOKEN_COOKIE,

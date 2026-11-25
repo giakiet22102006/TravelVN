@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Loader2,
   Pencil,
   Plus,
   RotateCcw,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { formatDateVN } from "@/lib/format";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface AdminNewsRow {
   id: string;
@@ -41,6 +44,12 @@ const CATEGORIES = [
 ];
 
 export default function AdminNewsPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canView = hasPermission("news_view");
+  const canCreate = hasPermission("news_create");
+  const canEdit = hasPermission("news_edit");
+  const canDelete = hasPermission("news_delete");
+
   const [items, setItems] = useState<AdminNewsRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -50,7 +59,9 @@ export default function AdminNewsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [patchingKey, setPatchingKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmItem, setConfirmItem] = useState<AdminNewsRow | null>(null);
@@ -66,6 +77,7 @@ export default function AdminNewsPage() {
 
   const fetchNews = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -76,38 +88,73 @@ export default function AdminNewsPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/news?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách bài viết");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
   }, [page, categoryFilter, statusFilter, debouncedSearch]);
 
   useEffect(() => {
+    if (!canView) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchNews();
-  }, [fetchNews]);
+  }, [canView, fetchNews]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard title="Bạn không có quyền xem Quản lý tin tức" />
+    );
+  }
 
   async function quickPatch(
     item: AdminNewsRow,
     payload: { status?: "ACTIVE" | "INACTIVE"; featured?: boolean },
-    msg: string
+    msg: string,
+    keySuffix: string
   ) {
+    if (patchingKey) return;
     setError("");
-    const res = await fetch(`/api/admin/news/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(data.message || "Không thể cập nhật bài viết");
-      return;
+    setPatchingKey(`${item.id}:${keySuffix}`);
+    try {
+      const res = await fetch(`/api/admin/news/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Không thể cập nhật bài viết");
+        return;
+      }
+      setNotice(msg);
+      fetchNews();
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setPatchingKey(null);
     }
-    setNotice(msg);
-    fetchNews();
   }
 
   function handleDelete(item: AdminNewsRow) {
@@ -147,17 +194,20 @@ export default function AdminNewsPage() {
             Quản lý tin tức &amp; cẩm nang
           </h1>
           <p className="text-sm text-[#606060] mt-0.5">
-            Quản lý bài viết hiển thị trên Trang chủ &amp; chuyên trang Tin Tức ({total} bài)
+            Quản lý bài viết hiển thị trên Trang chủ &amp; chuyên trang Tin Tức (
+            {total} bài)
           </p>
         </div>
 
-        <Link
-          href="/admin/news/create"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#4880FF] hover:bg-[#3a6ee8] text-white text-sm font-semibold shadow-xs transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Viết bài mới
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/news/create"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#4880FF] hover:bg-[#3a6ee8] text-white text-sm font-semibold shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Viết bài mới
+          </Link>
+        )}
       </div>
 
       {notice && (
@@ -187,9 +237,9 @@ export default function AdminNewsPage() {
       )}
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-4 flex flex-wrap items-center gap-3 shadow-xs">
+      <div className="bg-white rounded-[14px] border border-[#E0E0E0] p-4 flex flex-wrap items-center gap-3 shadow-sm">
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="w-4 h-4 text-[#99A2A5] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#667479] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
@@ -200,6 +250,7 @@ export default function AdminNewsPage() {
         </div>
 
         <select
+          aria-label="Lọc theo chuyên mục"
           value={categoryFilter}
           onChange={(e) => {
             setCategoryFilter(e.target.value);
@@ -216,6 +267,7 @@ export default function AdminNewsPage() {
         </select>
 
         <select
+          aria-label="Lọc theo trạng thái"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
@@ -245,9 +297,9 @@ export default function AdminNewsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden shadow-xs">
+      <div className="bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[820px] text-left border-collapse">
             <thead>
               <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-bold uppercase text-[#606060]">
                 <th className="py-3.5 px-4">Bài viết</th>
@@ -262,13 +314,13 @@ export default function AdminNewsPage() {
             <tbody className="divide-y divide-[#F0F0F0] text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#808080]">
+                  <td colSpan={7} className="py-12 text-center text-[#667479]">
                     Đang tải danh sách bài viết...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#808080]">
+                  <td colSpan={7} className="py-12 text-center text-[#667479]">
                     Chưa có bài viết nào phù hợp.
                   </td>
                 </tr>
@@ -307,27 +359,46 @@ export default function AdminNewsPage() {
                     </td>
 
                     <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          quickPatch(
-                            item,
-                            { featured: !item.featured },
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          disabled={patchingKey === `${item.id}:featured`}
+                          onClick={() =>
+                            quickPatch(
+                              item,
+                              { featured: !item.featured },
+                              item.featured
+                                ? "Đã bỏ ghim bài viết nổi bật"
+                                : "Đã ghim làm bài viết nổi bật!",
+                              "featured"
+                            )
+                          }
+                          title="Bật/tắt bài nổi bật"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors disabled:opacity-50 ${
                             item.featured
-                              ? "Đã bỏ ghim bài viết nổi bật"
-                              : "Đã ghim làm bài viết nổi bật!"
-                          )
-                        }
-                        title="Bật/tắt bài nổi bật"
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
-                          item.featured
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                        }`}
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        {item.featured ? "Nổi bật" : "Thường"}
-                      </button>
+                              ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {patchingKey === `${item.id}:featured` ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3 h-3" />
+                          )}
+                          {item.featured ? "Nổi bật" : "Thường"}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                            item.featured
+                              ? "bg-[#FEF3C7] text-[#B45309]"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          {item.featured ? "Nổi bật" : "Thường"}
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4 text-center font-medium text-[#202224]">
@@ -339,33 +410,56 @@ export default function AdminNewsPage() {
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          quickPatch(
-                            item,
-                            {
-                              status:
-                                item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-                            },
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          disabled={patchingKey === `${item.id}:status`}
+                          onClick={() =>
+                            quickPatch(
+                              item,
+                              {
+                                status:
+                                  item.status === "ACTIVE"
+                                    ? "INACTIVE"
+                                    : "ACTIVE",
+                              },
+                              item.status === "ACTIVE"
+                                ? "Đã tạm ẩn bài viết"
+                                : "Đã bật hiển thị bài viết",
+                              "status"
+                            )
+                          }
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold disabled:opacity-50 ${
                             item.status === "ACTIVE"
-                              ? "Đã tạm ẩn bài viết"
-                              : "Đã bật hiển thị bài viết"
-                          )
-                        }
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
-                          item.status === "ACTIVE"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {item.status === "ACTIVE" ? (
-                          <Eye className="w-3 h-3" />
-                        ) : (
-                          <EyeOff className="w-3 h-3" />
-                        )}
-                        {item.status === "ACTIVE" ? "Hiển thị" : "Tạm ẩn"}
-                      </button>
+                              ? "bg-[#CCFBF1] text-[#0F766E]"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {patchingKey === `${item.id}:status` ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : item.status === "ACTIVE" ? (
+                            <Eye className="w-3 h-3" />
+                          ) : (
+                            <EyeOff className="w-3 h-3" />
+                          )}
+                          {item.status === "ACTIVE" ? "Hiển thị" : "Tạm ẩn"}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                            item.status === "ACTIVE"
+                              ? "bg-[#CCFBF1] text-[#0F766E]"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {item.status === "ACTIVE" ? (
+                            <Eye className="w-3 h-3" />
+                          ) : (
+                            <EyeOff className="w-3 h-3" />
+                          )}
+                          {item.status === "ACTIVE" ? "Hiển thị" : "Tạm ẩn"}
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
@@ -373,26 +467,34 @@ export default function AdminNewsPage() {
                         <Link
                           href={`/news/${item.slug}`}
                           target="_blank"
+                          rel="noopener noreferrer"
                           title="Xem trang công khai"
+                          aria-label={`Xem bài viết công khai ${item.title}`}
                           className="p-2 rounded-lg border border-[#E0E0E0] text-[#606060] hover:text-[#4880FF] hover:border-[#4880FF]"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Link>
-                        <Link
-                          href={`/admin/news/edit/${item.id}`}
-                          title="Chỉnh sửa"
-                          className="p-2 rounded-lg border border-[#E0E0E0] text-[#606060] hover:text-[#4880FF] hover:border-[#4880FF]"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item)}
-                          title="Xóa bài viết"
-                          className="p-2 rounded-lg border border-[#E0E0E0] text-[#606060] hover:text-red-600 hover:border-red-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canEdit && (
+                          <Link
+                            href={`/admin/news/edit/${item.id}`}
+                            title="Chỉnh sửa"
+                            aria-label={`Chỉnh sửa ${item.title}`}
+                            className="p-2 rounded-lg border border-[#E0E0E0] text-[#606060] hover:text-[#4880FF] hover:border-[#4880FF]"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item)}
+                            title="Xóa bài viết"
+                            aria-label={`Xóa bài viết ${item.title}`}
+                            className="p-2 rounded-lg border border-[#E0E0E0] text-[#606060] hover:text-[#B91C1C] hover:border-red-300"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -410,6 +512,7 @@ export default function AdminNewsPage() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
+                aria-label="Trang trước"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
                 className="p-2 rounded-lg border border-[#D5D5D5] disabled:opacity-40"
@@ -418,6 +521,7 @@ export default function AdminNewsPage() {
               </button>
               <button
                 type="button"
+                aria-label="Trang sau"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="p-2 rounded-lg border border-[#D5D5D5] disabled:opacity-40"
@@ -433,7 +537,9 @@ export default function AdminNewsPage() {
         open={Boolean(confirmItem)}
         title="Xác nhận xóa bài viết"
         description={
-          confirmItem ? `Bạn có chắc muốn xóa bài viết "${confirmItem.title}"?` : ""
+          confirmItem
+            ? `Bạn có chắc muốn xóa bài viết "${confirmItem.title}"?`
+            : ""
         }
         confirmLabel="Xóa bài viết"
         loading={confirmLoading}

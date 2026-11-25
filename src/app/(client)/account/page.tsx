@@ -1,11 +1,158 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, KeyRound, Loader2, Save, UserCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  ImagePlus,
+  KeyRound,
+  Loader2,
+  Save,
+  UserCheck,
+  UserCircle,
+  X,
+} from "lucide-react";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import { AccountSidebar } from "@/components/client/AccountSidebar";
-import { ImageUploadBox } from "@/components/admin/ImageUploadBox";
+import { uploadImageFile } from "@/lib/client-image-upload";
+import { enhanceImageUrl } from "@/lib/image-quality";
+
+function ClientAvatarUploader({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [previewError, setPreviewError] = useState(false);
+
+  useEffect(() => {
+    setPreviewError(false);
+  }, [value]);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setUploading(true);
+    try {
+      const result = await uploadImageFile(file);
+      if (!result.ok || !result.url) {
+        setError(result.message || "Tải ảnh thất bại");
+        return;
+      }
+      onChange(result.url);
+    } catch {
+      setError("Không thể kết nối máy chủ tải ảnh");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor="account-avatar-url"
+        className="block text-[13px] font-semibold text-[#25282B]"
+      >
+        Ảnh đại diện
+      </label>
+
+      <div className="flex flex-col sm:flex-row items-start gap-4">
+        <div className="relative w-28 h-28 rounded-2xl border-2 border-dashed border-[#D6CCF4] bg-[#F8F7FC] overflow-hidden shrink-0">
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+            aria-label="Chọn ảnh đại diện để tải lên"
+            className="w-full h-full flex flex-col items-center justify-center hover:bg-[#F3EEFF] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4502C7]/50"
+          >
+            {uploading ? (
+              <Loader2 className="w-6 h-6 text-[#4502C7] animate-spin" />
+            ) : value && !previewError ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={enhanceImageUrl(value, 320, 88)}
+                alt="Ảnh đại diện hiện tại"
+                onError={() => setPreviewError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : value && previewError ? (
+              <div className="flex flex-col items-center text-[#4502C7] px-2 text-center">
+                <UserCircle className="w-8 h-8 mb-1 opacity-70" />
+                <span className="text-[11px] font-medium">Ảnh lỗi, đổi ảnh</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-[#4502C7] px-2 text-center">
+                <ImagePlus className="w-6 h-6 mb-1" />
+                <span className="text-[11px] font-semibold">Tải ảnh lên</span>
+              </div>
+            )}
+          </button>
+
+          {value && !uploading && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              aria-label="Xóa ảnh đại diện"
+              title="Xóa ảnh đại diện"
+              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/65 text-white flex items-center justify-center hover:bg-[#DA0808] transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex-1 w-full space-y-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+              className="px-3.5 h-[38px] rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7] hover:text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            >
+              <ImagePlus className="w-4 h-4" />
+              <span>{uploading ? "Đang tải..." : "Chọn ảnh từ máy"}</span>
+            </button>
+          </div>
+          <input
+            id="account-avatar-url"
+            type="url"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onBlur={() => {
+              if (value.trim()) {
+                onChange(enhanceImageUrl(value, 1600, 90));
+              }
+            }}
+            placeholder="Hoặc dán URL ảnh (https://...)"
+            className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] bg-white text-[13px] text-[#25282B] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+          />
+          <p className="text-[12px] text-[#667479]">
+            Hỗ trợ PNG, JPG, WebP (tối đa 10MB).
+          </p>
+          {error && (
+            <p role="alert" className="text-[12px] text-[#DA0808] font-medium">
+              {error}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CustomerAccountPage() {
   const { currentUser, setCurrentUser } = useClientMeta();
@@ -200,31 +347,35 @@ export default function CustomerAccountPage() {
               </div>
             )}
 
-            <ImageUploadBox
-              label="Ảnh đại diện"
-              value={avatar}
-              onChange={setAvatar}
-            />
+            <ClientAvatarUploader value={avatar} onChange={setAvatar} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-fullName"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Họ và tên <span className="text-[#DA0808]">*</span>
                 </label>
                 <input
+                  id="account-fullName"
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-email"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Email
                 </label>
                 <input
+                  id="account-email"
                   type="email"
                   disabled
                   value={currentUser.email}
@@ -233,28 +384,36 @@ export default function CustomerAccountPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-phone"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Số điện thoại
                 </label>
                 <input
+                  id="account-phone"
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Ví dụ: 0912345678"
-                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-address"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Địa chỉ
                 </label>
                 <input
+                  id="account-address"
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Địa chỉ liên hệ..."
-                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
             </div>
@@ -303,45 +462,57 @@ export default function CustomerAccountPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {currentUser.hasPassword && (
                 <div className="sm:col-span-2">
-                  <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                  <label
+                    htmlFor="account-current-password"
+                    className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                  >
                     Mật khẩu hiện tại
                   </label>
                   <input
+                    id="account-current-password"
                     type="password"
                     required
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                    className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-new-password"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Mật khẩu mới
                 </label>
                 <input
+                  id="account-new-password"
                   type="password"
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Ít nhất 6 ký tự"
-                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
 
               <div>
-                <label className="block text-[13px] font-semibold text-[#25282B] mb-1.5">
+                <label
+                  htmlFor="account-confirm-password"
+                  className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+                >
                   Xác nhận mật khẩu mới
                 </label>
                 <input
+                  id="account-confirm-password"
                   type="password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Nhập lại mật khẩu mới"
-                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[42px] px-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
               </div>
             </div>

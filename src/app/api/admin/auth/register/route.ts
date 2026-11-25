@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`admin-register:${ip}`, 5, 10 * 60 * 1000);
+    if (!rl.allowed) {
+      return rateLimitExceededResponse(
+        rl.retryAfterSec,
+        "Bạn đăng ký quá nhiều lần, vui lòng thử lại sau."
+      );
+    }
+
     const adminCount = await prisma.adminAccount.count({
       where: { deleted: false },
     });
@@ -59,10 +74,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const defaultRole = await prisma.role.findFirst({
-      where: { deleted: false },
-      orderBy: { createdAt: "asc" },
-    });
+    const isBootstrap = adminCount === 0;
+    const defaultRole = isBootstrap
+      ? await prisma.role.findFirst({
+          where: { deleted: false },
+          orderBy: { createdAt: "asc" },
+        })
+      : null;
 
     const hashedPassword = await hashPassword(password);
 
@@ -72,13 +90,17 @@ export async function POST(req: NextRequest) {
         email,
         phone: phone || null,
         password: hashedPassword,
-        roleId: defaultRole?.id || null,
-        status: "ACTIVE",
+        roleId: isBootstrap ? defaultRole?.id || null : null,
+        status: isBootstrap ? RecordStatus.ACTIVE : RecordStatus.INITIAL,
       },
     });
 
     return NextResponse.json(
-      { message: "Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay." },
+      {
+        message: isBootstrap
+          ? "Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay."
+          : "Đăng ký tài khoản thành công! Vui lòng chờ Quản trị viên kích hoạt tài khoản.",
+      },
       { status: 201 }
     );
   } catch (error) {

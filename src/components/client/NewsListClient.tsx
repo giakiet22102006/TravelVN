@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertCircle,
   ArrowRight,
   Calendar,
   ChevronLeft,
@@ -56,6 +57,8 @@ export function NewsListClient({
     initialResult.categories
   );
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [lastKey, setLastKey] = useState(initialQueryKey);
 
   useEffect(() => {
@@ -67,15 +70,19 @@ export function NewsListClient({
     if (urlCategory) apiParams.set("category", urlCategory);
     if (urlKeyword) apiParams.set("keyword", urlKeyword);
     apiParams.set("page", String(urlPage));
-    apiParams.set("limit", "9");
+    apiParams.set("limit", "7");
 
     const nextKey = apiParams.toString();
-    if (nextKey === lastKey) return;
+    if (nextKey === lastKey && retryNonce === 0) return;
 
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
     fetch(`/api/client/news?${nextKey}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to fetch news");
+        return res.json();
+      })
       .then((data) => {
         if (cancelled) return;
         setLastKey(nextKey);
@@ -85,6 +92,13 @@ export function NewsListClient({
         setTotalPages(Math.max(1, Number(data.totalPages || 1)));
         if (Array.isArray(data.categories)) setCategories(data.categories);
       })
+      .catch(() => {
+        if (!cancelled) {
+          setFetchError(
+            "Không thể tải danh sách tin tức lúc này. Vui lòng kiểm tra kết nối và thử lại."
+          );
+        }
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -92,7 +106,7 @@ export function NewsListClient({
     return () => {
       cancelled = true;
     };
-  }, [urlCategory, urlKeyword, urlPage, lastKey]);
+  }, [urlCategory, urlKeyword, urlPage, lastKey, retryNonce]);
 
   function navigateWithParams(
     overrides: Record<string, string | number | null>
@@ -203,14 +217,14 @@ export function NewsListClient({
             className="flex items-center gap-2 w-full lg:w-[340px] shrink-0"
           >
             <div className="relative flex-1 min-w-0">
-              <Search className="w-4 h-4 text-[#99A2A5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#667085] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={keywordDraft}
                 onChange={(e) => setKeywordDraft(e.target.value)}
                 placeholder="Tìm bài viết, điểm đến..."
                 aria-label="Tìm kiếm tin tức"
-                className="w-full h-[42px] pl-9 pr-3 rounded-[8px] border border-[#CCD1D2] text-[13px] text-[#25282B] placeholder:text-[#99A2A5] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[42px] pl-9 pr-3 rounded-[8px] border border-[#CCD1D2] text-[13px] text-[#25282B] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
             <button
@@ -258,9 +272,25 @@ export function NewsListClient({
               </div>
             ))}
           </div>
+        ) : fetchError ? (
+          <div className="bg-white rounded-[16px] border border-red-200 p-10 text-center shadow-sm">
+            <AlertCircle className="w-10 h-10 mx-auto text-[#DA0808] mb-3" />
+            <p className="text-[17px] font-bold text-[#25282B]">
+              Đã có sự cố tải bài viết
+            </p>
+            <p className="text-[13px] text-[#667479] mt-1">{fetchError}</p>
+            <button
+              type="button"
+              onClick={() => setRetryNonce((n) => n + 1)}
+              className="mt-5 inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[44px] rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[14px] font-semibold transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Thử lại</span>
+            </button>
+          </div>
         ) : articles.length === 0 ? (
           <div className="bg-white rounded-[16px] border border-[#ECECEC] p-12 text-center shadow-sm">
-            <Newspaper className="w-11 h-11 mx-auto text-[#99A2A5] mb-3" />
+            <Newspaper className="w-11 h-11 mx-auto text-[#667085] mb-3" />
             <p className="text-[17px] font-bold text-[#25282B]">
               Không tìm thấy bài viết phù hợp
             </p>
@@ -384,7 +414,7 @@ export function NewsListClient({
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {!fetchError && totalPages > 1 && (
               <div className="pt-2 flex items-center justify-center gap-2">
                 <button
                   type="button"

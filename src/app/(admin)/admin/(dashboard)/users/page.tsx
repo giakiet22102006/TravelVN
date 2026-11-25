@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { ImageUploadBox } from "@/components/admin/ImageUploadBox";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface UserRow {
   id: string;
@@ -28,6 +30,10 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canView = hasPermission("user_view");
+  const canEdit = hasPermission("user_edit");
+
   const [items, setItems] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -41,7 +47,9 @@ export default function AdminUsersPage() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmState, setConfirmState] = useState<
@@ -57,7 +65,9 @@ export default function AdminUsersPage() {
   const [formPhone, setFormPhone] = useState("");
   const [formAddress, setFormAddress] = useState("");
   const [formAvatar, setFormAvatar] = useState("");
-  const [formStatus, setFormStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+  const [formStatus, setFormStatus] = useState<
+    "INITIAL" | "ACTIVE" | "INACTIVE"
+  >("ACTIVE");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -69,8 +79,27 @@ export default function AdminUsersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Modal A11y: body scroll lock & Escape close
+  useEffect(() => {
+    if (!modalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !saving) {
+        setModalOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [modalOpen, saving]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -82,20 +111,46 @@ export default function AdminUsersPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/users?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
-        setSelectedIds([]);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách người dùng");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+      setSelectedIds([]);
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
   }, [page, status, startDate, endDate, debouncedSearch]);
 
   useEffect(() => {
+    if (!canView) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchUsers();
-  }, [fetchUsers]);
+  }, [canView, fetchUsers]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard title="Bạn không có quyền xem Quản lý người dùng" />
+    );
+  }
 
   function resetFilters() {
     setStatus("");
@@ -125,7 +180,7 @@ export default function AdminUsersPage() {
     setFormPhone(user.phone || "");
     setFormAddress(user.address || "");
     setFormAvatar(user.avatar || "");
-    setFormStatus(user.status === "INACTIVE" ? "INACTIVE" : "ACTIVE");
+    setFormStatus(user.status);
     setFormError("");
     setModalOpen(true);
   }
@@ -152,7 +207,7 @@ export default function AdminUsersPage() {
           status: formStatus,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setFormError(data.message || "Không thể lưu người dùng");
         return;
@@ -173,23 +228,28 @@ export default function AdminUsersPage() {
 
   async function executeBulk(action: string) {
     setError("");
-    const res = await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message || "Không thể thực hiện thao tác hàng loạt");
-      return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids: selectedIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Không thể thực hiện thao tác hàng loạt");
+        return;
+      }
+      setNotice(data.message);
+      setBulkAction("");
+      fetchUsers();
+    } finally {
+      setBulkLoading(false);
     }
-    setNotice(data.message);
-    setBulkAction("");
-    fetchUsers();
   }
 
   async function handleBulkApply() {
-    if (!bulkAction || selectedIds.length === 0) return;
+    if (!bulkAction || selectedIds.length === 0 || bulkLoading) return;
     if (bulkAction === "DELETE") {
       setConfirmState({ kind: "bulk", count: selectedIds.length });
       return;
@@ -210,7 +270,7 @@ export default function AdminUsersPage() {
         const res = await fetch(`/api/admin/users/${confirmState.id}`, {
           method: "DELETE",
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.message || "Không thể xóa người dùng");
           return;
@@ -272,6 +332,7 @@ export default function AdminUsersPage() {
         </div>
 
         <select
+          aria-label="Lọc theo trạng thái"
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
@@ -281,11 +342,13 @@ export default function AdminUsersPage() {
         >
           <option value="">Trạng thái</option>
           <option value="ACTIVE">Hoạt động</option>
+          <option value="INITIAL">Khởi tạo</option>
           <option value="INACTIVE">Tạm dừng</option>
         </select>
 
         <div className="flex items-center gap-2">
           <input
+            aria-label="Từ ngày"
             type="date"
             value={startDate}
             onChange={(e) => {
@@ -296,6 +359,7 @@ export default function AdminUsersPage() {
           />
           <span className="text-sm text-[#667479]">-</span>
           <input
+            aria-label="Đến ngày"
             type="date"
             value={endDate}
             onChange={(e) => {
@@ -309,7 +373,7 @@ export default function AdminUsersPage() {
         <button
           type="button"
           onClick={resetFilters}
-          className="h-10 px-3 rounded-lg text-sm font-bold text-[#EA0234] hover:bg-red-50 inline-flex items-center gap-1.5"
+          className="h-10 px-3 rounded-lg text-sm font-bold text-[#B91C1C] hover:bg-red-50 inline-flex items-center gap-1.5"
         >
           <RotateCcw className="w-4 h-4" />
           Xóa bộ lọc
@@ -319,29 +383,32 @@ export default function AdminUsersPage() {
       {/* Action & Search Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
-            >
-              <option value="">-- Hành động --</option>
-              <option value="ACTIVE">Hoạt động</option>
-              <option value="INACTIVE">Tạm dừng</option>
-              <option value="DELETE">Xóa</option>
-            </select>
-            <button
-              type="button"
-              onClick={handleBulkApply}
-              disabled={!bulkAction || selectedIds.length === 0}
-              className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#EA0234] hover:bg-red-50 disabled:opacity-40"
-            >
-              Áp dụng
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
+              <select
+                aria-label="Hành động hàng loạt"
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value)}
+                className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
+              >
+                <option value="">-- Hành động --</option>
+                <option value="ACTIVE">Hoạt động</option>
+                <option value="INACTIVE">Tạm dừng</option>
+                <option value="DELETE">Xóa</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleBulkApply}
+                disabled={!bulkAction || selectedIds.length === 0 || bulkLoading}
+                className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#B91C1C] hover:bg-red-50 disabled:opacity-40"
+              >
+                {bulkLoading ? "Đang xử lý..." : "Áp dụng"}
+              </button>
+            </div>
+          )}
 
           <div className="relative">
-            <Search className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#667479] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
@@ -352,14 +419,16 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="h-11 px-5 rounded-[14px] bg-[#4880FF] hover:bg-[#3a6ce0] text-white text-sm font-bold inline-flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo mới
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="h-11 px-5 rounded-[14px] bg-[#4880FF] hover:bg-[#3a6ce0] text-white text-sm font-bold inline-flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Tạo mới
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -367,59 +436,71 @@ export default function AdminUsersPage() {
         <table className="w-full min-w-[880px] text-left border-collapse">
           <thead>
             <tr className="bg-[#FCFDFD] border-b border-[#E0E0E0] text-xs font-extrabold uppercase text-[#202224]">
-              <th className="py-4 px-4 w-12">
-                <input
-                  type="checkbox"
-                  checked={
-                    items.length > 0 && selectedIds.length === items.length
-                  }
-                  onChange={(e) =>
-                    setSelectedIds(
-                      e.target.checked ? items.map((it) => it.id) : []
-                    )
-                  }
-                  className="w-4 h-4 rounded accent-[#4880FF]"
-                />
-              </th>
+              {canEdit && (
+                <th className="py-4 px-4 w-12">
+                  <input
+                    type="checkbox"
+                    aria-label="Chọn tất cả người dùng"
+                    checked={
+                      items.length > 0 && selectedIds.length === items.length
+                    }
+                    onChange={(e) =>
+                      setSelectedIds(
+                        e.target.checked ? items.map((it) => it.id) : []
+                      )
+                    }
+                    className="w-4 h-4 rounded accent-[#4880FF]"
+                  />
+                </th>
+              )}
               <th className="py-4 px-4">Họ tên</th>
               <th className="py-4 px-4 text-center">Ảnh đại diện</th>
               <th className="py-4 px-4">Email</th>
               <th className="py-4 px-4">Số điện thoại</th>
               <th className="py-4 px-4">Địa chỉ</th>
               <th className="py-4 px-4 text-center">Trạng thái</th>
-              <th className="py-4 px-4 text-center">Hành động</th>
+              {canEdit && <th className="py-4 px-4 text-center">Hành động</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E0E0E0] text-sm">
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canEdit ? 8 : 6}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Đang tải dữ liệu...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-10 text-center text-[#667479]">
+                <td
+                  colSpan={canEdit ? 8 : 6}
+                  className="py-10 text-center text-[#667479]"
+                >
                   Không có người dùng nào phù hợp.
                 </td>
               </tr>
             ) : (
               items.map((u) => (
                 <tr key={u.id} className="hover:bg-[#F5F6FA]/60">
-                  <td className="py-3.5 px-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(u.id)}
-                      onChange={() =>
-                        setSelectedIds((prev) =>
-                          prev.includes(u.id)
-                            ? prev.filter((item) => item !== u.id)
-                            : [...prev, u.id]
-                        )
-                      }
-                      className="w-4 h-4 rounded accent-[#4880FF]"
-                    />
-                  </td>
+                  {canEdit && (
+                    <td className="py-3.5 px-4">
+                      <input
+                        type="checkbox"
+                        aria-label={`Chọn người dùng ${u.fullName}`}
+                        checked={selectedIds.includes(u.id)}
+                        onChange={() =>
+                          setSelectedIds((prev) =>
+                            prev.includes(u.id)
+                              ? prev.filter((item) => item !== u.id)
+                              : [...prev, u.id]
+                          )
+                        }
+                        className="w-4 h-4 rounded accent-[#4880FF]"
+                      />
+                    </td>
+                  )}
                   <td className="py-3.5 px-4 font-bold text-[#202224]">
                     {u.fullName}
                   </td>
@@ -448,35 +529,43 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     {u.status === "ACTIVE" ? (
-                      <span className="inline-block px-3 py-1 rounded-md bg-[#CCF0EB] text-[#00B69B] text-xs font-bold">
+                      <span className="inline-block px-3 py-1 rounded-md bg-[#CCFBF1] text-[#0F766E] text-xs font-bold">
                         Hoạt động
                       </span>
+                    ) : u.status === "INITIAL" ? (
+                      <span className="inline-block px-3 py-1 rounded-md bg-[#FEF3C7] text-[#B45309] text-xs font-bold">
+                        Khởi tạo
+                      </span>
                     ) : (
-                      <span className="inline-block px-3 py-1 rounded-md bg-[#FCD7D4] text-[#EF3826] text-xs font-bold">
+                      <span className="inline-block px-3 py-1 rounded-md bg-[#FEE2E2] text-[#B91C1C] text-xs font-bold">
                         Tạm dừng
                       </span>
                     )}
                   </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(u)}
-                        className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
-                        title="Chỉnh sửa"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(u.id, u.fullName)}
-                        className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#EF3826]"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {canEdit && (
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(u)}
+                          className="p-2 hover:bg-[#4880FF]/10 text-[#202224] hover:text-[#4880FF]"
+                          title="Chỉnh sửa"
+                          aria-label={`Chỉnh sửa ${u.fullName}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(u.id, u.fullName)}
+                          className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#B91C1C]"
+                          title="Xóa"
+                          aria-label={`Xóa ${u.fullName}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -516,16 +605,32 @@ export default function AdminUsersPage() {
 
       {/* Create / Edit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[14px] border border-[#E0E0E0] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-xl">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="user-modal-title"
+          onClick={() => {
+            if (!saving) setModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-[14px] border border-[#E0E0E0] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-xl"
+          >
             <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-3">
-              <h2 className="text-xl font-bold text-[#202224]">
+              <h2
+                id="user-modal-title"
+                className="text-xl font-bold text-[#202224]"
+              >
                 {editingId ? "Chỉnh sửa người dùng" : "Tạo mới người dùng"}
               </h2>
               <button
                 type="button"
+                disabled={saving}
+                aria-label="Đóng"
                 onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-[#F5F6FA]"
+                className="p-1.5 rounded-lg hover:bg-[#F5F6FA] disabled:opacity-40"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -540,10 +645,14 @@ export default function AdminUsersPage() {
             <form onSubmit={handleSaveUser} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#606060] mb-1.5">
+                  <label
+                    htmlFor="user-modal-fullname"
+                    className="block text-sm font-semibold text-[#606060] mb-1.5"
+                  >
                     Họ tên <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="user-modal-fullname"
                     type="text"
                     required
                     value={formFullName}
@@ -552,10 +661,14 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#606060] mb-1.5">
+                  <label
+                    htmlFor="user-modal-email"
+                    className="block text-sm font-semibold text-[#606060] mb-1.5"
+                  >
                     Email <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="user-modal-email"
                     type="email"
                     required
                     value={formEmail}
@@ -564,10 +677,14 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#606060] mb-1.5">
+                  <label
+                    htmlFor="user-modal-phone"
+                    className="block text-sm font-semibold text-[#606060] mb-1.5"
+                  >
                     Số điện thoại
                   </label>
                   <input
+                    id="user-modal-phone"
                     type="text"
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
@@ -575,29 +692,38 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#606060] mb-1.5">
+                  <label
+                    htmlFor="user-modal-status"
+                    className="block text-sm font-semibold text-[#606060] mb-1.5"
+                  >
                     Trạng thái
                   </label>
                   <select
+                    id="user-modal-status"
                     value={formStatus}
                     onChange={(e) =>
                       setFormStatus(
-                        e.target.value === "INACTIVE" ? "INACTIVE" : "ACTIVE"
+                        e.target.value as "INITIAL" | "ACTIVE" | "INACTIVE"
                       )
                     }
                     className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
                   >
                     <option value="ACTIVE">Hoạt động</option>
+                    <option value="INITIAL">Khởi tạo</option>
                     <option value="INACTIVE">Tạm dừng</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-[#606060] mb-1.5">
+                <label
+                  htmlFor="user-modal-address"
+                  className="block text-sm font-semibold text-[#606060] mb-1.5"
+                >
                   Địa chỉ
                 </label>
                 <input
+                  id="user-modal-address"
                   type="text"
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
@@ -614,8 +740,9 @@ export default function AdminUsersPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
+                  disabled={saving}
                   onClick={() => setModalOpen(false)}
-                  className="h-11 px-5 rounded-xl border border-[#D5D5D5] text-sm font-semibold hover:bg-[#F5F6FA]"
+                  className="h-11 px-5 rounded-xl border border-[#D5D5D5] text-sm font-semibold hover:bg-[#F5F6FA] disabled:opacity-40"
                 >
                   Hủy
                 </button>

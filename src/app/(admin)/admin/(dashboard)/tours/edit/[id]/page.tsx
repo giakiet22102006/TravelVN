@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentAdmin, hasAdminPermission } from "@/lib/auth";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 import { TourForm, TourScheduleItem } from "@/components/admin/TourForm";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,18 @@ export default async function AdminTourEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const admin = await getCurrentAdmin();
+  if (!admin) redirect("/admin/account/login");
+  if (!hasAdminPermission(admin, "tour_edit")) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền chỉnh sửa tour"
+        backHref="/admin/tours"
+        backLabel="Quay lại danh sách tour"
+      />
+    );
+  }
+
   const { id } = await params;
   const item = await prisma.tour.findFirst({
     where: { id, deleted: false },

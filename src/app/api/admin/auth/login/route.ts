@@ -3,10 +3,16 @@ import { prisma } from "@/lib/prisma";
 import {
   ADMIN_TOKEN_COOKIE,
   buildCookieOptions,
+  computePasswordSig,
   isHttpsRequest,
   signAdminToken,
   verifyPassword,
 } from "@/lib/auth";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +20,19 @@ export async function POST(req: NextRequest) {
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const rememberPassword = Boolean(body.rememberPassword);
+
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(
+      `admin-login:${ip}:${email || "unknown"}`,
+      10,
+      5 * 60 * 1000
+    );
+    if (!rl.allowed) {
+      return rateLimitExceededResponse(
+        rl.retryAfterSec,
+        "Bạn đăng nhập sai quá nhiều lần, vui lòng thử lại sau ít phút."
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json(
@@ -57,11 +76,13 @@ export async function POST(req: NextRequest) {
     }
 
     const maxAgeSeconds = rememberPassword ? 30 * 24 * 60 * 60 : 24 * 60 * 60;
+    const pwdSig = await computePasswordSig(account.password);
     const token = await signAdminToken(
       {
         sub: account.id,
         email: account.email,
         roleId: account.roleId,
+        pwdSig,
       },
       rememberPassword ? "30d" : "1d"
     );

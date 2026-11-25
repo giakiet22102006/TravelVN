@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
-import { CLIENT_TOKEN_COOKIE, verifyClientToken } from "./jwt";
+import {
+  CLIENT_TOKEN_COOKIE,
+  computePasswordSig,
+  verifyClientToken,
+} from "./jwt";
 
 export const CLIENT_USER_SELECT = {
   id: true,
@@ -48,6 +52,13 @@ export async function getCurrentUser(): Promise<ClientUserPublic | null> {
     });
 
     if (!user) return null;
+
+    if (
+      payload.pwdSig &&
+      payload.pwdSig !== (await computePasswordSig(user.password))
+    ) {
+      return null;
+    }
 
     const { password, ...rest } = user;
     return {

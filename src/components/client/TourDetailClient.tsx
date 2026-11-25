@@ -164,7 +164,7 @@ export function TourDetailClient({
       return;
     }
 
-    addItem({
+    const added = addItem({
       tourId: tour.id,
       slug: tour.slug,
       code: tour.code,
@@ -182,6 +182,14 @@ export function TourDetailClient({
       quantityChild: qtyChild,
       quantityBaby: qtyBaby,
     });
+
+    if (!added) {
+      setBookingFeedback({
+        type: "error",
+        text: "Số chỗ còn lại của tour này đã được chọn hết trong giỏ hàng.",
+      });
+      return;
+    }
 
     if (redirectToCart) {
       router.push("/cart");
@@ -455,7 +463,8 @@ export function TourDetailClient({
                 <li>Hủy trong vòng <strong>48 giờ</strong> trước khởi hành: Không hoàn phí cọc (trừ trường hợp bất khả kháng).</li>
               </ul>
               <p className="pt-1 text-[12px] text-[#667479]">
-                Xem đầy đủ tại{" "}
+                Khách hàng vui lòng thông báo sớm tối thiểu <strong>7 ngày</strong> (tour trong nước) và{" "}
+                <strong>14 ngày</strong> (tour nước ngoài) để được hỗ trợ giữ chỗ / đổi lịch thuận lợi nhất. Xem đầy đủ tại{" "}
                 <Link href="/terms" className="text-[#4502C7] font-semibold hover:underline">
                   Điều khoản dịch vụ &amp; Chính sách đặt tour
                 </Link>
@@ -570,7 +579,7 @@ export function TourDetailClient({
                 id="detail-departure-location"
                 value={departureLocation}
                 onChange={(e) => setDepartureLocation(e.target.value)}
-                className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[13px] font-medium text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[13px] font-medium text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               >
                 {locationsList.map((loc) => (
                   <option key={loc} value={loc}>
@@ -641,19 +650,19 @@ export function TourDetailClient({
                 return (
                 <div
                   key={tier.label}
-                  className="flex items-center justify-between gap-2 text-[13px]"
+                  className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 text-[13px]"
                 >
-                  <div>
+                  <div className="min-w-[82px]">
                     <span className="font-medium text-[#25282B]">
                       {tier.label}
                     </span>
-                    <span className="ml-1.5 text-[11px] text-[#667479]">
+                    <span className="block sm:inline sm:ml-1.5 text-[11px] text-[#667479]">
                       (Còn {tier.stock})
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2.5 sm:gap-3">
-                    <div className="flex items-center border border-[#CCD1D2] rounded-[8px] overflow-hidden">
+                  <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
+                    <div className="flex items-center border border-[#CCD1D2] rounded-[8px] overflow-hidden shrink-0">
                       <button
                         type="button"
                         aria-label={`Giảm số lượng ${tier.name}`}
@@ -670,9 +679,9 @@ export function TourDetailClient({
                           setQtyHint(null);
                           tier.setQty(Math.max(tier.minQty, tier.qty - 1));
                         }}
-                        className={`w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                        className={`w-9 h-9 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center transition-colors ${
                           atMin
-                            ? "text-[#99A2A5] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
+                            ? "text-[#667085] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
                             : "hover:bg-[#F6F6F6] text-[#25282B]"
                         }`}
                       >
@@ -707,7 +716,7 @@ export function TourDetailClient({
                           setQtyHint(null);
                           tier.setQty(Math.floor(raw));
                         }}
-                        className="w-10 h-10 sm:h-9 text-center text-[13px] font-bold border-x border-[#CCD1D2] focus:outline-none"
+                        className="w-9 h-9 sm:w-10 sm:h-9 text-center text-[13px] font-bold border-x border-[#CCD1D2] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#4502C7]/40"
                       />
                       <button
                         type="button"
@@ -723,9 +732,9 @@ export function TourDetailClient({
                           setQtyHint(null);
                           tier.setQty(Math.min(tier.stock, tier.qty + 1));
                         }}
-                        className={`w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
+                        className={`w-9 h-9 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center transition-colors ${
                           atMax
-                            ? "text-[#99A2A5] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
+                            ? "text-[#667085] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
                             : "hover:bg-[#F6F6F6] text-[#25282B]"
                         }`}
                       >
@@ -733,9 +742,9 @@ export function TourDetailClient({
                       </button>
                     </div>
 
-                    <div className="min-w-[98px] text-right font-semibold text-[#4502C7]">
+                    <div className="min-w-[90px] sm:min-w-[104px] text-right font-semibold text-[#4502C7] tabular-nums shrink-0">
                       {tier.oldPrice > tier.unitPrice && (
-                        <div className="text-[11px] font-normal text-[#99A2A5] line-through leading-none mb-0.5">
+                        <div className="text-[11px] font-normal text-[#667085] line-through leading-none mb-0.5">
                           {tier.oldPrice.toLocaleString("vi-VN")}đ
                         </div>
                       )}

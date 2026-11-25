@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentAdmin, hashPassword, verifyPassword } from "@/lib/auth";
+import {
+  ADMIN_TOKEN_COOKIE,
+  buildCookieOptions,
+  computePasswordSig,
+  getCurrentAdmin,
+  hashPassword,
+  isHttpsRequest,
+  signAdminToken,
+  verifyPassword,
+} from "@/lib/auth";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -61,7 +70,21 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ message: "Đổi mật khẩu thành công!" });
+    const pwdSig = await computePasswordSig(hashedPassword);
+    const token = await signAdminToken({
+      sub: admin.id,
+      email: admin.email,
+      roleId: admin.roleId,
+      pwdSig,
+    });
+
+    const response = NextResponse.json({ message: "Đổi mật khẩu thành công!" });
+    response.cookies.set(
+      ADMIN_TOKEN_COOKIE,
+      token,
+      buildCookieOptions(7 * 24 * 60 * 60, isHttpsRequest(req))
+    );
+    return response;
   } catch (error) {
     console.error("PUT /api/admin/profile/change-password error:", error);
     return NextResponse.json(

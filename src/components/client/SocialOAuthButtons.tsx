@@ -68,6 +68,23 @@ export function SocialOAuthButtons({
     }
   }, [initialSandboxProvider]);
 
+  useEffect(() => {
+    if (!showSandboxModal) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        setShowSandboxModal(false);
+        setError("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showSandboxModal, submitting]);
+
   /**
    * Direct single-hop navigation to `/api/client/auth/oauth/google` avoids a redundant JSON
    * preflight fetch before hitting Google's OAuth consent endpoint. When OAuth keys are unset
@@ -150,7 +167,15 @@ export function SocialOAuthButtons({
 
       {/* Local fallback chooser modal only shown when GOOGLE_CLIENT_ID/SECRET are unconfigured */}
       {showSandboxModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !submitting) {
+              setShowSandboxModal(false);
+              setError("");
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -243,7 +268,7 @@ export function SocialOAuthButtons({
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   placeholder="Họ và tên (vd: Lê Quang Hải)"
-                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
                 <input
                   type="email"
@@ -251,7 +276,7 @@ export function SocialOAuthButtons({
                   value={customEmail}
                   onChange={(e) => setCustomEmail(e.target.value)}
                   placeholder="Email Google"
-                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7]"
+                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
                 />
                 <button
                   type="submit"

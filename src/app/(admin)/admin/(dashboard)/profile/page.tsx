@@ -21,10 +21,17 @@ export default function AdminProfilePage() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    let active = true;
     fetch("/api/admin/profile")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.item) {
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (active) {
+            setError(data.message || "Không thể tải thông tin cá nhân");
+          }
+          return;
+        }
+        if (active && data.item) {
           setFullName(data.item.fullName || "");
           setEmail(data.item.email || "");
           setPhone(data.item.phone || "");
@@ -33,7 +40,15 @@ export default function AdminProfilePage() {
           setAvatar(data.item.avatar || "");
         }
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (active) setError("Không thể kết nối máy chủ");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

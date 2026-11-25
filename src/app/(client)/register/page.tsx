@@ -1,15 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Lock, Mail, Phone, User } from "lucide-react";
 import { useClientMeta } from "@/components/client/ClientLayoutShell";
 import { SocialOAuthButtons } from "@/components/client/SocialOAuthButtons";
 
-export default function ClientRegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setCurrentUser } = useClientMeta();
+
+  const nextParam = searchParams.get("next");
+  const safeNext =
+    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : null;
+  const redirectTo = safeNext || "/account/orders";
+  const loginHref = safeNext
+    ? `/login?next=${encodeURIComponent(safeNext)}`
+    : "/login";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,7 +64,7 @@ export default function ClientRegisterPage() {
         return;
       }
       setCurrentUser(data.user);
-      router.push("/account/orders");
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError("Không thể kết nối máy chủ");
@@ -93,7 +104,7 @@ export default function ClientRegisterPage() {
               Họ và tên <span className="text-[#DA0808]">*</span>
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <User className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-fullName"
                 type="text"
@@ -101,7 +112,7 @@ export default function ClientRegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nguyễn Văn An"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -114,7 +125,7 @@ export default function ClientRegisterPage() {
               Email <span className="text-[#DA0808]">*</span>
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-email"
                 type="email"
@@ -123,7 +134,7 @@ export default function ClientRegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tenban@gmail.com"
                 autoComplete="email"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -136,14 +147,14 @@ export default function ClientRegisterPage() {
               Số điện thoại
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Phone className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="0912345678"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -156,7 +167,7 @@ export default function ClientRegisterPage() {
               Mật khẩu <span className="text-[#DA0808]">*</span>
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-password"
                 type="password"
@@ -165,7 +176,7 @@ export default function ClientRegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Ít nhất 6 ký tự"
                 autoComplete="new-password"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7]"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           </div>
@@ -181,19 +192,33 @@ export default function ClientRegisterPage() {
         </form>
 
         <div className="mt-5">
-          <SocialOAuthButtons redirectTo="/account/orders" />
+          <SocialOAuthButtons redirectTo={redirectTo} />
         </div>
 
         <p className="text-center text-[13px] text-[#667479] mt-6">
           Đã có tài khoản?{" "}
           <Link
-            href="/login"
-            className="text-[#4502C7] font-bold hover:underline"
+            href={loginHref}
+            className="text-[#4502C7] font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
           >
             Đăng nhập ngay
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function ClientRegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-[480px] mx-auto px-4 py-14">
+          <div className="h-[480px] rounded-[16px] bg-white animate-pulse" />
+        </div>
+      }
+    >
+      <RegisterFormContent />
+    </Suspense>
   );
 }

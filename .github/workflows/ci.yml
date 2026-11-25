@@ -26,11 +26,16 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Security dependency audit
+        # Advisory high findings exist in transitive postcss (next@15.5.x -> upgrade requires breaking next@16)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
       - name: TypeScript typecheck
         run: npx tsc --noEmit
 
       - name: Production Next.js build
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/travelvn
-          JWT_SECRET: ci-build-placeholder-secret
+          JWT_SECRET: ci-build-placeholder-secret-at-least-32-chars
         run: npm run build

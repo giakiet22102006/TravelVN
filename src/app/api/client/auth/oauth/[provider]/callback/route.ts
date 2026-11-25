@@ -44,12 +44,14 @@ async function fetchGoogleProfile(code: string, redirectUri: string) {
   const profile = (await profileRes.json()) as {
     sub?: string;
     email?: string;
+    email_verified?: boolean;
     name?: string;
     picture?: string;
   };
   return {
     providerId: profile.sub || "",
     email: profile.email || "",
+    email_verified: Boolean(profile.email_verified),
     fullName: profile.name || profile.email?.split("@")[0] || "Khách Google",
     avatar: profile.picture || null,
   };
@@ -99,6 +101,12 @@ export async function GET(
     const redirectUri = `${origin}/api/client/auth/oauth/google/callback`;
     const profile = await fetchGoogleProfile(code, redirectUri);
 
+    if (profile.email_verified !== true) {
+      return NextResponse.redirect(
+        new URL("/login?error=unverified_email", origin)
+      );
+    }
+
     const upserted = await upsertOAuthUser({
       email: profile.email,
       fullName: profile.fullName,
@@ -108,11 +116,12 @@ export async function GET(
     });
 
     if (!upserted.user) {
+      const errorKey =
+        upserted.errorCode === "account_locked"
+          ? "account_locked"
+          : encodeURIComponent(upserted.error || "oauth_failed");
       return NextResponse.redirect(
-        new URL(
-          `/login?error=${encodeURIComponent(upserted.error || "oauth_failed")}`,
-          origin
-        )
+        new URL(`/login?error=${errorKey}`, origin)
       );
     }
 
@@ -122,7 +131,12 @@ export async function GET(
       "",
       buildCookieOptions(0, isHttpsRequest(req))
     );
-    return await attachClientSessionCookie(response, upserted.user, req);
+    return await attachClientSessionCookie(
+      response,
+      upserted.user,
+      req,
+      upserted.passwordHash
+    );
   } catch (error) {
     console.error("Google OAuth callback error:", error);
     return NextResponse.redirect(new URL("/login?error=oauth_failed", origin));

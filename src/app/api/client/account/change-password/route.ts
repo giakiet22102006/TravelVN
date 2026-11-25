@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/client-auth";
+import { attachClientSessionCookie } from "@/lib/oauth";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -55,11 +56,18 @@ export async function PUT(req: NextRequest) {
       data: { password: passwordHash },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: record.password
         ? "Đổi mật khẩu thành công!"
         : "Thiết lập mật khẩu đăng nhập thành công!",
     });
+
+    return await attachClientSessionCookie(
+      response,
+      { ...currentUser, hasPassword: true },
+      req,
+      passwordHash
+    );
   } catch (error) {
     console.error("PUT /api/client/account/change-password error:", error);
     return NextResponse.json(

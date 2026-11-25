@@ -6,12 +6,15 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   RotateCcw,
   Search,
   Trash2,
 } from "lucide-react";
 import { formatCurrencyVND, formatDateTimeVN } from "@/lib/format";
 import { ConfirmModal } from "@/components/admin/ConfirmModal";
+import { useAdminPermissions } from "@/components/admin/AdminShell";
+import { AdminForbiddenCard } from "@/components/admin/AdminForbiddenCard";
 
 interface TrashTourRow {
   id: string;
@@ -30,6 +33,9 @@ interface TrashTourRow {
 }
 
 export default function AdminToursTrashPage() {
+  const { hasPermission } = useAdminPermissions();
+  const canTrash = hasPermission("tour_trash");
+
   const [items, setItems] = useState<TrashTourRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -39,7 +45,10 @@ export default function AdminToursTrashPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [confirmState, setConfirmState] = useState<
@@ -57,6 +66,7 @@ export default function AdminToursTrashPage() {
 
   const fetchTrash = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         deleted: "true",
@@ -66,20 +76,50 @@ export default function AdminToursTrashPage() {
       if (debouncedSearch) params.set("search", debouncedSearch);
 
       const res = await fetch(`/api/admin/tours?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
-        setTotal(data.total || 0);
-        setSelectedIds([]);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
       }
+      if (!res.ok) {
+        setError(data.message || "Không thể tải danh sách thùng rác");
+        return;
+      }
+      const nextItems = data.items || [];
+      const nextTotal = data.total || 0;
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / limit));
+      if (nextItems.length === 0 && nextTotal > 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setItems(nextItems);
+      setTotal(nextTotal);
+      setSelectedIds([]);
+    } catch {
+      setError("Không thể kết nối máy chủ");
     } finally {
       setLoading(false);
     }
   }, [page, debouncedSearch]);
 
   useEffect(() => {
+    if (!canTrash) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
     fetchTrash();
-  }, [fetchTrash]);
+  }, [canTrash, fetchTrash]);
+
+  if (forbidden) {
+    return (
+      <AdminForbiddenCard
+        title="Bạn không có quyền truy cập Thùng rác tour"
+        backHref="/admin/tours"
+        backLabel="Quay lại quản lý tour"
+      />
+    );
+  }
 
   function toggleAll(checked: boolean) {
     setSelectedIds(checked ? items.map((it) => it.id) : []);
@@ -92,16 +132,24 @@ export default function AdminToursTrashPage() {
   }
 
   async function handleRestore(id: string, name: string) {
+    if (restoringId) return;
     setError("");
-    const res = await fetch(`/api/admin/tours/${id}/restore`, {
-      method: "POST",
-    });
-    const data = await res.json();
-    if (res.ok) {
+    setRestoringId(id);
+    try {
+      const res = await fetch(`/api/admin/tours/${id}/restore`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Lỗi khôi phục tour");
+        return;
+      }
       setNotice(`Đã khôi phục "${name}"`);
       fetchTrash();
-    } else {
-      setError(data.message || "Lỗi khôi phục");
+    } catch {
+      setError("Không thể kết nối máy chủ");
+    } finally {
+      setRestoringId(null);
     }
   }
 
@@ -111,23 +159,28 @@ export default function AdminToursTrashPage() {
 
   async function executeBulk(action: string) {
     setError("");
-    const res = await fetch("/api/admin/tours/bulk", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, ids: selectedIds }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message || "Không thể thực hiện thao tác hàng loạt");
-      return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/tours/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids: selectedIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || "Không thể thực hiện thao tác hàng loạt");
+        return;
+      }
+      setNotice(data.message);
+      setBulkAction("");
+      fetchTrash();
+    } finally {
+      setBulkLoading(false);
     }
-    setNotice(data.message);
-    setBulkAction("");
-    fetchTrash();
   }
 
   async function handleBulkApply() {
-    if (!bulkAction || selectedIds.length === 0) return;
+    if (!bulkAction || selectedIds.length === 0 || bulkLoading) return;
     if (bulkAction === "PERMANENT_DELETE") {
       setConfirmState({ kind: "bulk", count: selectedIds.length });
       return;
@@ -148,7 +201,7 @@ export default function AdminToursTrashPage() {
         const res = await fetch(`/api/admin/tours/${confirmState.id}/permanent`, {
           method: "DELETE",
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.message || "Không thể xóa vĩnh viễn tour");
           return;
@@ -216,6 +269,7 @@ export default function AdminToursTrashPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center bg-white rounded-[14px] border border-[#E0E0E0] overflow-hidden">
             <select
+              aria-label="Hành động hàng loạt"
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
               className="h-11 px-4 text-sm font-semibold bg-white focus:outline-none"
@@ -227,15 +281,15 @@ export default function AdminToursTrashPage() {
             <button
               type="button"
               onClick={handleBulkApply}
-              disabled={!bulkAction || selectedIds.length === 0}
-              className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#EA0234] hover:bg-red-50 disabled:opacity-40"
+              disabled={!bulkAction || selectedIds.length === 0 || bulkLoading}
+              className="h-11 px-4 border-l border-[#E0E0E0] text-sm font-bold text-[#B91C1C] hover:bg-red-50 disabled:opacity-40"
             >
-              Áp dụng
+              {bulkLoading ? "Đang xử lý..." : "Áp dụng"}
             </button>
           </div>
 
           <div className="relative">
-            <Search className="w-4 h-4 text-[#99A2A5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#667479] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
@@ -255,6 +309,7 @@ export default function AdminToursTrashPage() {
               <th className="py-4 px-4 w-12">
                 <input
                   type="checkbox"
+                  aria-label="Chọn tất cả tour trong thùng rác"
                   checked={
                     items.length > 0 && selectedIds.length === items.length
                   }
@@ -290,6 +345,7 @@ export default function AdminToursTrashPage() {
                   <td className="py-3.5 px-4">
                     <input
                       type="checkbox"
+                      aria-label={`Chọn tour ${item.name}`}
                       checked={selectedIds.includes(item.id)}
                       onChange={() => toggleOne(item.id)}
                       className="w-4 h-4 rounded accent-[#4880FF]"
@@ -313,7 +369,7 @@ export default function AdminToursTrashPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-[11px] text-[#99A2A5]">
+                        <span className="text-[11px] text-[#667479]">
                           No img
                         </span>
                       )}
@@ -344,19 +400,26 @@ export default function AdminToursTrashPage() {
                     <div className="inline-flex items-center rounded-lg border border-[#D5D5D5] bg-[#FAFBFD] overflow-hidden">
                       <button
                         type="button"
+                        disabled={restoringId === item.id}
                         onClick={() => handleRestore(item.id, item.name)}
-                        className="p-2 hover:bg-emerald-50 text-[#00B69B]"
+                        className="p-2 hover:bg-emerald-50 text-[#0F766E] disabled:opacity-50"
                         title="Khôi phục"
+                        aria-label={`Khôi phục ${item.name}`}
                       >
-                        <RotateCcw className="w-4 h-4" />
+                        {restoringId === item.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={() =>
                           handlePermanentDelete(item.id, item.name)
                         }
-                        className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#EF3826]"
+                        className="p-2 border-l border-[#D5D5D5] hover:bg-red-50 text-[#B91C1C]"
                         title="Xóa vĩnh viễn"
+                        aria-label={`Xóa vĩnh viễn ${item.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

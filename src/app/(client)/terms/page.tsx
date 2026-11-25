@@ -51,16 +51,34 @@ export default function TermsPage() {
             </p>
           </section>
 
-          <section className="space-y-1.5">
+          <section className="space-y-2">
             <h2 className="text-[16px] font-bold text-[#25282B]">
               3. Điều kiện hoàn, hủy và đổi lịch khởi hành
             </h2>
             <p>
               Yêu cầu thay đổi ngày khởi hành hoặc hủy tour cần được thông báo
-              trước ngày khởi hành tối thiểu 7 ngày đối với tour trong nước và
-              14 ngày đối với tour nước ngoài để được hỗ trợ hoàn giữ chỗ theo
-              quy định từng hành trình.
+              trước ngày khởi hành tối thiểu <strong>7 ngày</strong> đối với
+              tour trong nước và <strong>14 ngày</strong> đối với tour nước
+              ngoài để được hỗ trợ giữ chỗ và đổi lịch thuận lợi nhất:
             </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                Hủy trước ngày khởi hành từ <strong>15 ngày</strong> trở lên:
+                Hoàn 100% tiền cọc (hoặc hỗ trợ đổi ngày khởi hành miễn phí).
+              </li>
+              <li>
+                Hủy trước từ <strong>7 đến 14 ngày</strong>: Phí hủy 30% tổng
+                giá trị tour.
+              </li>
+              <li>
+                Hủy trước từ <strong>3 đến 6 ngày</strong>: Phí hủy 50% tổng giá
+                trị tour.
+              </li>
+              <li>
+                Hủy trong vòng <strong>48 giờ</strong> trước khởi hành: Không
+                hoàn phí cọc (trừ trường hợp bất khả kháng theo quy định).
+              </li>
+            </ul>
           </section>
         </div>
       </div>

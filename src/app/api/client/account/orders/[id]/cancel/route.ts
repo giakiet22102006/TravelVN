@@ -28,11 +28,7 @@ export async function PATCH(
       );
     }
 
-    const isOwner =
-      order.userId === currentUser.id ||
-      (!order.userId &&
-        Boolean(currentUser.phone) &&
-        order.phone === currentUser.phone);
+    const isOwner = order.userId === currentUser.id;
 
     if (!isOwner) {
       return NextResponse.json(

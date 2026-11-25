@@ -150,7 +150,9 @@ export function ChatMarkdown({
       i < lines.length &&
       lines[i].trim() !== "" &&
       !/^[-*•]\s+/.test(lines[i].trim()) &&
-      !/^\d+\.\s+/.test(lines[i].trim())
+      !/^\d+\.\s+/.test(lines[i].trim()) &&
+      !/^#{1,4}\s+/.test(lines[i].trim()) &&
+      !/^(-{3,}|\*{3,})$/.test(lines[i].trim())
     ) {
       paraLines.push(lines[i].trim());
       i++;

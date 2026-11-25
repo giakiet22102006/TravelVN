@@ -56,6 +56,35 @@ function formatDateTyping(raw: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
+function getTodayVN(): {
+  year: number;
+  month: number;
+  day: number;
+  iso: string;
+} {
+  try {
+    const iso = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const [y, m, d] = iso.split("-").map(Number);
+    if (y && m && d) {
+      return { year: y, month: m - 1, day: d, iso };
+    }
+  } catch {
+    // Fallback to local clock if Intl timeZone is unavailable
+  }
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth(),
+    day: now.getDate(),
+    iso: toIsoDate(now.getFullYear(), now.getMonth(), now.getDate()),
+  };
+}
+
 export function DatePickerInput({
   value,
   onChange,
@@ -66,8 +95,11 @@ export function DatePickerInput({
 }: DatePickerInputProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
   const setOpen = (next: boolean) => {
-    if (onOpenChange) onOpenChange(next);
+    if (onOpenChangeRef.current) onOpenChangeRef.current(next);
     if (controlledOpen === undefined) setInternalOpen(next);
   };
 
@@ -80,11 +112,15 @@ export function DatePickerInput({
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
       ) {
-        setOpen(false);
+        if (onOpenChangeRef.current) onOpenChangeRef.current(false);
+        if (controlledOpen === undefined) setInternalOpen(false);
       }
     }
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        if (onOpenChangeRef.current) onOpenChangeRef.current(false);
+        if (controlledOpen === undefined) setInternalOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleOutside);
     window.addEventListener("keydown", handleKey);
@@ -92,25 +128,28 @@ export function DatePickerInput({
       document.removeEventListener("mousedown", handleOutside);
       window.removeEventListener("keydown", handleKey);
     };
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  const today = useMemo(() => {
-    const now = new Date();
-    return {
-      year: now.getFullYear(),
-      month: now.getMonth(),
-      day: now.getDate(),
-      iso: toIsoDate(now.getFullYear(), now.getMonth(), now.getDate()),
-    };
+  const initialVnDate = useMemo(() => getTodayVN(), []);
+  const [today, setToday] = useState<{
+    year: number;
+    month: number;
+    day: number;
+    iso: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setToday(getTodayVN());
   }, []);
 
   const [textValue, setTextValue] = useState<string>(() => isoToDisplay(value));
   const [prevValue, setPrevValue] = useState<string>(value);
   const [viewYear, setViewYear] = useState<number>(() =>
-    value ? Number(value.slice(0, 4)) : today.year
+    value ? Number(value.slice(0, 4)) : initialVnDate.year
   );
   const [viewMonth, setViewMonth] = useState<number>(() =>
-    value ? Number(value.slice(5, 7)) - 1 : today.month
+    value ? Number(value.slice(5, 7)) - 1 : initialVnDate.month
   );
 
   // Sync external value changes into display text & calendar month
@@ -271,7 +310,7 @@ export function DatePickerInput({
             placeholder="dd/mm/yyyy"
             maxLength={10}
             aria-label="Ngày khởi hành"
-            className="w-full bg-transparent text-[13px] font-medium placeholder:text-[#99A2A5] focus:outline-none"
+            className="w-full bg-transparent text-[13px] font-medium placeholder:text-[#667085] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 rounded"
           />
         </div>
         {(textValue || value) && (
@@ -293,18 +332,17 @@ export function DatePickerInput({
 
       {open && (
         <div
-          className={`absolute top-[calc(100%+8px)] w-full min-w-[290px] sm:w-[310px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-4 z-40 text-[#25282B] ${
-            isCompact ? "left-0" : "left-0"
+          className={`absolute top-[calc(100%+8px)] w-[min(290px,calc(100vw-2rem))] max-w-full sm:w-[300px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-3 sm:p-4 z-50 text-[#25282B] ${
+            isCompact ? "left-0 lg:max-w-none" : "left-0 sm:max-w-none"
           }`}
         >
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"
-              tabIndex={-1}
               onClick={handlePrevMonth}
               aria-label="Tháng trước"
-              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -315,10 +353,9 @@ export function DatePickerInput({
 
             <button
               type="button"
-              tabIndex={-1}
               onClick={handleNextMonth}
               aria-label="Tháng sau"
-              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -340,21 +377,22 @@ export function DatePickerInput({
           <div className="grid grid-cols-7 gap-1 text-center">
             {calendarCells.map((cell) => {
               const isSelected = value === cell.iso;
-              const isToday = today.iso === cell.iso;
+              const isToday = today?.iso === cell.iso;
               return (
                 <button
                   key={cell.iso}
                   type="button"
-                  tabIndex={-1}
                   onClick={() => handleSelectIso(cell.iso)}
-                  className={`h-8 rounded-[8px] text-[13px] font-medium transition-colors ${
+                  aria-label={`Chọn ngày ${isoToDisplay(cell.iso)}`}
+                  aria-pressed={isSelected}
+                  className={`h-8 rounded-[8px] text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
                     isSelected
                       ? "bg-[#4502C7] text-white font-bold shadow-sm"
                       : isToday
                         ? "bg-[#F3EEFF] text-[#4502C7] font-bold ring-1 ring-[#4502C7]/40"
                         : cell.inCurrentMonth
                           ? "text-[#25282B] hover:bg-[#F3EEFF] hover:text-[#4502C7]"
-                          : "text-[#B5BDC0] hover:bg-[#F6F6F6]"
+                          : "text-[#667085] hover:bg-[#F6F6F6]"
                   }`}
                 >
                   {cell.day}
@@ -367,7 +405,6 @@ export function DatePickerInput({
           <div className="mt-3 pt-2.5 border-t border-[#ECECEC] flex items-center justify-between text-[12px]">
             <button
               type="button"
-              tabIndex={-1}
               onClick={() => {
                 setTextValue("");
                 onChange("");
@@ -379,8 +416,7 @@ export function DatePickerInput({
             </button>
             <button
               type="button"
-              tabIndex={-1}
-              onClick={() => handleSelectIso(today.iso)}
+              onClick={() => handleSelectIso((today ?? getTodayVN()).iso)}
               className="font-semibold text-[#4502C7] hover:underline"
             >
               Hôm nay

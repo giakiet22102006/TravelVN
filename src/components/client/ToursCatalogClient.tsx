@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -127,6 +128,8 @@ export function ToursCatalogClient({
     Math.max(1, initialResult.totalPages)
   );
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const lastFetchedKeyRef = useRef(initialQueryKey);
 
   useEffect(() => {
@@ -170,15 +173,19 @@ export function ToursCatalogClient({
     apiParams.set("limit", "9");
 
     const nextKey = apiParams.toString();
-    if (nextKey === lastFetchedKeyRef.current) {
+    if (nextKey === lastFetchedKeyRef.current && retryNonce === 0) {
       return;
     }
 
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
 
     fetch(`/api/client/tours?${nextKey}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to fetch tours");
+        return res.json();
+      })
       .then((data) => {
         if (cancelled) return;
         lastFetchedKeyRef.current = nextKey;
@@ -190,8 +197,9 @@ export function ToursCatalogClient({
       })
       .catch(() => {
         if (!cancelled) {
-          setTours([]);
-          setTotal(0);
+          setFetchError(
+            "Không thể tải danh sách tour lúc này. Vui lòng kiểm tra kết nối mạng và thử lại."
+          );
         }
       })
       .finally(() => {
@@ -213,6 +221,7 @@ export function ToursCatalogClient({
     urlDeal,
     urlSort,
     urlPage,
+    retryNonce,
   ]);
 
   const navigateWithParams = useCallback(
@@ -300,7 +309,7 @@ export function ToursCatalogClient({
           id={`${idPrefix}-category`}
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
         >
           <option value="">-- Tất cả danh mục --</option>
           {categories.map((c) => (
@@ -322,7 +331,7 @@ export function ToursCatalogClient({
           id={`${idPrefix}-departure-location`}
           value={departureLocation}
           onChange={(e) => setDepartureLocation(e.target.value)}
-          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
         >
           <option value="">-- Chọn điểm đi --</option>
           {DEPARTURE_LOCATIONS.map((loc) => (
@@ -346,7 +355,7 @@ export function ToursCatalogClient({
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
           placeholder="-- Nhập điểm đến --"
-          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] placeholder:text-[#99A2A5] focus:outline-none focus:border-[#4502C7]"
+          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] placeholder:text-[#667085] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
         />
       </div>
 
@@ -388,7 +397,7 @@ export function ToursCatalogClient({
                 onChange={(e) =>
                   row.setter(Math.max(0, Number(e.target.value) || 0))
                 }
-                className="w-[74px] h-[34px] px-2 rounded-[6px] border border-[#CCD1D2] bg-white text-center font-semibold text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+                className="w-[74px] h-[34px] px-2 rounded-[6px] border border-[#CCD1D2] bg-white text-center font-semibold text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
               />
             </div>
           ))}
@@ -406,7 +415,7 @@ export function ToursCatalogClient({
           id={`${idPrefix}-price`}
           value={priceRange}
           onChange={(e) => setPriceRange(e.target.value)}
-          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7]"
+          className="w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
         >
           {PRICE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -636,6 +645,24 @@ export function ToursCatalogClient({
                   </div>
                 ))}
               </div>
+            ) : fetchError ? (
+              <div className="bg-white rounded-[12px] border border-red-200 p-10 text-center shadow-sm">
+                <AlertCircle className="w-10 h-10 mx-auto text-[#DA0808] mb-3" />
+                <p className="text-[16px] font-bold text-[#25282B]">
+                  Đã có sự cố tải dữ liệu
+                </p>
+                <p className="text-[13px] text-[#667479] mt-1.5">
+                  {fetchError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setRetryNonce((n) => n + 1)}
+                  className="mt-5 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-[8px] bg-[#4502C7] text-white text-[14px] font-semibold hover:bg-[#36019e] transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Thử lại</span>
+                </button>
+              </div>
             ) : tours.length === 0 ? (
               <div className="bg-white rounded-[12px] border border-[#ECECEC] p-12 text-center shadow-sm">
                 <p className="text-[16px] font-bold text-[#25282B]">
@@ -662,13 +689,13 @@ export function ToursCatalogClient({
             )}
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {!fetchError && totalPages > 1 && (
               <div className="mt-8 flex items-center justify-center gap-2">
                 <button
                   type="button"
                   aria-label="Trang trước"
-                  disabled={urlPage <= 1}
-                  onClick={() => navigateWithParams({ page: urlPage - 1 })}
+                  disabled={effectivePage <= 1}
+                  onClick={() => navigateWithParams({ page: effectivePage - 1 })}
                   className="w-9 h-9 rounded-[8px] border border-[#CCD1D2] bg-white flex items-center justify-center text-[#25282B] disabled:opacity-40 hover:border-[#4502C7] hover:text-[#4502C7]"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -682,7 +709,7 @@ export function ToursCatalogClient({
                       type="button"
                       onClick={() => navigateWithParams({ page: p })}
                       className={`w-9 h-9 rounded-[8px] text-[14px] font-semibold border transition-colors ${
-                        p === urlPage
+                        p === effectivePage
                           ? "bg-[#4502C7] border-[#4502C7] text-white"
                           : "bg-white border-[#CCD1D2] text-[#25282B] hover:border-[#4502C7]"
                       }`}
@@ -695,8 +722,8 @@ export function ToursCatalogClient({
                 <button
                   type="button"
                   aria-label="Trang sau"
-                  disabled={urlPage >= totalPages}
-                  onClick={() => navigateWithParams({ page: urlPage + 1 })}
+                  disabled={effectivePage >= totalPages}
+                  onClick={() => navigateWithParams({ page: effectivePage + 1 })}
                   className="w-9 h-9 rounded-[8px] border border-[#CCD1D2] bg-white flex items-center justify-center text-[#25282B] disabled:opacity-40 hover:border-[#4502C7] hover:text-[#4502C7]"
                 >
                   <ChevronRight className="w-4 h-4" />

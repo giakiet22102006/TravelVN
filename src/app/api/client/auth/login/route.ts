@@ -4,12 +4,30 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth";
 import { CLIENT_USER_SELECT } from "@/lib/client-auth";
 import { attachClientSessionCookie } from "@/lib/oauth";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
+
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(
+      `client-login:${ip}:${email || "unknown"}`,
+      10,
+      5 * 60 * 1000
+    );
+    if (!rl.allowed) {
+      return rateLimitExceededResponse(
+        rl.retryAfterSec,
+        "Bạn đăng nhập sai quá nhiều lần, vui lòng thử lại sau ít phút."
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json(
@@ -60,13 +78,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { password: _pw, ...publicFields } = account;
+    const { password: passwordHash, ...publicFields } = account;
     const user = { ...publicFields, hasPassword: true };
     const response = NextResponse.json({
       message: "Đăng nhập thành công!",
       user,
     });
-    return await attachClientSessionCookie(response, user, req);
+    return await attachClientSessionCookie(response, user, req, passwordHash);
   } catch (error) {
     console.error("POST /api/client/auth/login error:", error);
     return NextResponse.json(

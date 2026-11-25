@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, requireAdmin } from "@/lib/auth";
+import { hashPassword, isSuperAdmin, requireAdmin } from "@/lib/auth";
 import { ADMIN_ACCOUNT_PUBLIC_SELECT } from "@/lib/permissions";
 
 export async function GET(
@@ -47,7 +47,7 @@ export async function PUT(
     const { id } = await params;
     const existing = await prisma.adminAccount.findFirst({
       where: { id, deleted: false },
-      select: { id: true },
+      select: { id: true, roleId: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -57,6 +57,19 @@ export async function PUT(
     }
 
     const body = await req.json();
+    const targetRoleId = body.roleId ? String(body.roleId).trim() : null;
+    if (
+      !isSuperAdmin(admin) &&
+      (existing.roleId === "role-admin" || targetRoleId === "role-admin")
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Chỉ Super Admin mới được phép chỉnh sửa hoặc gán quyền Quản trị viên hệ thống",
+        },
+        { status: 403 }
+      );
+    }
     const fullName = String(body.fullName || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
     const rawPassword = String(body.password || "");
@@ -107,7 +120,7 @@ export async function PUT(
       positionCompany: body.positionCompany
         ? String(body.positionCompany).trim()
         : null,
-      roleId: body.roleId || null,
+      roleId: targetRoleId,
       avatar: body.avatar ? String(body.avatar).trim() : null,
       status,
       updatedById: admin.id,
@@ -155,12 +168,22 @@ export async function DELETE(
 
     const existing = await prisma.adminAccount.findFirst({
       where: { id, deleted: false },
-      select: { id: true },
+      select: { id: true, roleId: true },
     });
     if (!existing) {
       return NextResponse.json(
         { message: "Không tìm thấy tài khoản quản trị" },
         { status: 404 }
+      );
+    }
+
+    if (!isSuperAdmin(admin) && existing.roleId === "role-admin") {
+      return NextResponse.json(
+        {
+          message:
+            "Chỉ Super Admin mới được phép xóa tài khoản Quản trị viên hệ thống",
+        },
+        { status: 403 }
       );
     }
 

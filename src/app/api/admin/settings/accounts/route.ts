@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, requireAdmin } from "@/lib/auth";
+import { hashPassword, isSuperAdmin, requireAdmin } from "@/lib/auth";
 import { buildDateRangeFilter } from "@/lib/admin-api";
 import { ADMIN_ACCOUNT_PUBLIC_SELECT } from "@/lib/permissions";
 
@@ -107,6 +107,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const targetRoleId = body.roleId ? String(body.roleId).trim() : null;
+    if (targetRoleId === "role-admin" && !isSuperAdmin(admin)) {
+      return NextResponse.json(
+        {
+          message:
+            "Chỉ Super Admin mới được phép gán nhóm quyền Quản trị viên hệ thống",
+        },
+        { status: 403 }
+      );
+    }
+
     const status: RecordStatus = Object.values(RecordStatus).includes(body.status)
       ? (body.status as RecordStatus)
       : RecordStatus.ACTIVE;
@@ -119,7 +130,7 @@ export async function POST(req: NextRequest) {
       positionCompany: body.positionCompany
         ? String(body.positionCompany).trim()
         : null,
-      roleId: body.roleId || null,
+      roleId: targetRoleId,
       avatar: body.avatar ? String(body.avatar).trim() : null,
       status,
       password: hashedPassword,
@@ -171,6 +182,25 @@ export async function PATCH(req: NextRequest) {
         { message: "Vui lòng chọn ít nhất một tài khoản" },
         { status: 400 }
       );
+    }
+
+    if (!isSuperAdmin(admin)) {
+      const protectedCount = await prisma.adminAccount.count({
+        where: {
+          id: { in: ids },
+          roleId: "role-admin",
+          deleted: false,
+        },
+      });
+      if (protectedCount > 0) {
+        return NextResponse.json(
+          {
+            message:
+              "Chỉ Super Admin mới được phép thao tác trên tài khoản Quản trị viên hệ thống",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     if (action === "ACTIVE" || action === "INACTIVE" || action === "INITIAL") {

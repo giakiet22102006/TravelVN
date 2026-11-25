@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import {
+  extractPermissionStrings,
+  isSuperAdmin,
+  requireAdmin,
+} from "@/lib/auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 
 const VALID_PERMISSIONS = new Set(ALL_PERMISSION_KEYS);
@@ -92,11 +96,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const requestedPermissions = sanitizePermissions(body.permissions);
+    if (!isSuperAdmin(admin)) {
+      const callerPerms = new Set(
+        extractPermissionStrings(admin.role?.permissions)
+      );
+      const unauthorized = requestedPermissions.filter(
+        (key) => !callerPerms.has(key)
+      );
+      if (unauthorized.length > 0) {
+        return NextResponse.json(
+          {
+            message:
+              "Bạn không thể cấp quyền mà tài khoản của bạn không sở hữu",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const item = await prisma.role.create({
       data: {
         name,
         description: body.description ? String(body.description).trim() : null,
-        permissions: sanitizePermissions(body.permissions),
+        permissions: requestedPermissions,
         createdById: admin.id,
         updatedById: admin.id,
       },

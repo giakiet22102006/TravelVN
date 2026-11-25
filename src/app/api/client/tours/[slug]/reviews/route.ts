@@ -64,7 +64,15 @@ export async function GET(
     }
 
     const { searchParams } = req.nextUrl;
-    const ratingParam = Number(searchParams.get("rating") || 0);
+    const ratingRaw = searchParams.get("rating") || "";
+    const validRatings = Array.from(
+      new Set(
+        ratingRaw
+          .split(",")
+          .map((part) => Number(part.trim()))
+          .filter((n) => Number.isInteger(n) && n >= 1 && n <= 5)
+      )
+    );
     const verifiedOnly = searchParams.get("verified") === "true";
     const page = Math.max(1, Number(searchParams.get("page") || 1));
     const limit = Math.min(30, Math.max(1, Number(searchParams.get("limit") || 10)));
@@ -73,7 +81,11 @@ export async function GET(
       tourId: tour.id,
       deleted: false,
       status: RecordStatus.ACTIVE,
-      ...(ratingParam >= 1 && ratingParam <= 5 ? { rating: ratingParam } : {}),
+      ...(validRatings.length === 1
+        ? { rating: validRatings[0] }
+        : validRatings.length > 1
+          ? { rating: { in: validRatings } }
+          : {}),
       ...(verifiedOnly ? { isVerifiedBooking: true } : {}),
     };
 
