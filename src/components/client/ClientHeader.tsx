@@ -128,11 +128,11 @@ export function ClientHeader({
 
   return (
     <header className="sticky top-0 z-40 w-full font-lexend-deca">
-      {/* Top Bar - Brand Purple #4502C7 */}
-      <div className="bg-[#4502C7] text-white text-[12px] py-2">
+      {/* Top Bar - Deep Emerald */}
+      <div className="bg-client-primary text-white text-[12px] py-2">
         <div className="max-w-[1184px] mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
               <Phone className="w-3.5 h-3.5 shrink-0" />
               <span>{websiteInfo.phone || "1900 6868"}</span>
             </span>
@@ -179,19 +179,19 @@ export function ClientHeader({
               </button>
 
               {accountMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[220px] bg-white text-[#25282B] rounded-[12px] shadow-xl border border-[#ECECEC] py-1.5 z-50">
-                  <div className="px-4 py-2 border-b border-[#ECECEC]">
+                <div className="absolute right-0 top-full mt-2 w-[220px] bg-white text-ink rounded-[12px] shadow-[0_14px_34px_rgba(22,34,41,0.14)] border border-border-subtle py-1.5 z-50">
+                  <div className="px-4 py-2 border-b border-border-subtle">
                     <p className="text-[13px] font-bold truncate">
                       {currentUser.fullName}
                     </p>
-                    <p className="text-[11px] text-[#667479] truncate">
+                    <p className="text-[11px] text-ink-muted truncate">
                       {currentUser.email}
                     </p>
                   </div>
                   <Link
                     href="/account/orders"
                     onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-[#4502C7]/5 hover:text-[#4502C7] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
                   >
                     <ClipboardList className="w-4 h-4" />
                     <span>Đơn hàng của tôi</span>
@@ -199,7 +199,7 @@ export function ClientHeader({
                   <Link
                     href="/account"
                     onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-[#4502C7]/5 hover:text-[#4502C7] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
                   >
                     <User className="w-4 h-4" />
                     <span>Tài khoản cá nhân</span>
@@ -207,7 +207,7 @@ export function ClientHeader({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-[#DA0808] hover:bg-red-50 border-t border-[#ECECEC] transition-colors"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] text-status-danger hover:bg-status-danger-bg border-t border-border-subtle transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Đăng xuất</span>
@@ -236,14 +236,14 @@ export function ClientHeader({
       </div>
 
       {/* Main Navigation Bar */}
-      <div className="bg-white border-b border-[#ECECEC] shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <div className="bg-white border-b border-border-subtle shadow-[0_2px_10px_rgba(22,34,41,0.04)]">
         <div className="max-w-[1184px] mx-auto px-4 h-[68px] flex items-center justify-between gap-4">
           {/* Mobile Menu Trigger */}
           <button
             type="button"
             aria-label="Mở menu điều hướng"
             onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden w-11 h-11 -ml-2 rounded-lg flex items-center justify-center text-[#25282B] hover:text-[#4502C7] hover:bg-[#4502C7]/5 transition-colors"
+            className="lg:hidden w-11 h-11 -ml-2 rounded-lg flex items-center justify-center text-ink hover:text-client-primary hover:bg-client-soft transition-colors"
           >
             <Menu className="w-6 h-6" />
           </button>
@@ -263,10 +263,10 @@ export function ClientHeader({
               />
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-[#4502C7] text-white font-extrabold text-[14px] tracking-tight flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-lg bg-client-primary text-white font-extrabold text-[14px] tracking-tight flex items-center justify-center shadow-sm">
                   VN
                 </div>
-                <span className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-[#4502C7]">
+                <span className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-client-primary">
                   {websiteInfo.websiteName || "VN.TRAVEL"}
                 </span>
               </div>
@@ -276,12 +276,12 @@ export function ClientHeader({
           {/* Desktop Navigation */}
           <nav
             ref={desktopNavRef}
-            className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-[#25282B]"
+            className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-ink"
           >
             <Link
               href="/"
-              className={`py-2 transition-colors hover:text-[#4502C7] ${
-                pathname === "/" ? "text-[#4502C7] font-semibold" : ""
+              className={`py-2 transition-colors hover:text-client-primary ${
+                pathname === "/" ? "text-client-primary font-semibold" : ""
               }`}
             >
               Trang Chủ
@@ -294,7 +294,7 @@ export function ClientHeader({
                   <Link
                     href={`/tours?category=${encodeURIComponent(cat.slug)}`}
                     onClick={() => setOpenDesktopCategory(null)}
-                    className="inline-flex items-center text-[#25282B] hover:text-[#4502C7] transition-colors"
+                    className="inline-flex items-center text-ink hover:text-client-primary transition-colors"
                   >
                     <span>{cat.name}</span>
                   </Link>
@@ -306,7 +306,7 @@ export function ClientHeader({
                       onClick={() =>
                         setOpenDesktopCategory(isCatOpen ? null : cat.id)
                       }
-                      className="p-1 rounded text-[#25282B] hover:text-[#4502C7] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                      className="p-1 rounded text-ink hover:text-client-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
                     >
                       <ChevronDown
                         className={`w-4 h-4 transition-transform ${
@@ -326,13 +326,13 @@ export function ClientHeader({
                           : "invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
                       }`}
                     >
-                      <div className="bg-white rounded-[10px] shadow-[0_14px_34px_rgba(18,22,29,0.2)] border border-[#DCE0E5] py-2 overflow-hidden">
+                      <div className="bg-white rounded-[10px] shadow-[0_14px_34px_rgba(22,34,41,0.14)] border border-border-subtle py-2 overflow-hidden">
                         {cat.children.map((child) => (
                           <Link
                             key={child.id}
                             href={`/tours?category=${encodeURIComponent(child.slug)}`}
                             onClick={() => setOpenDesktopCategory(null)}
-                            className="block px-4 py-2.5 text-[14px] text-[#25282B] hover:bg-[#4502C7] hover:text-white focus:bg-[#4502C7] focus:text-white transition-colors"
+                            className="block px-4 py-2.5 text-[14px] text-ink hover:bg-client-soft hover:text-client-primary focus:bg-client-soft focus:text-client-primary transition-colors"
                           >
                             {child.name}
                           </Link>
@@ -347,8 +347,8 @@ export function ClientHeader({
             <Link
               href="/tours"
               prefetch={false}
-              className={`py-2 transition-colors hover:text-[#4502C7] ${
-                pathname === "/tours" ? "text-[#4502C7] font-semibold" : ""
+              className={`py-2 transition-colors hover:text-client-primary ${
+                pathname === "/tours" ? "text-client-primary font-semibold" : ""
               }`}
             >
               Tất Cả Tour
@@ -356,10 +356,10 @@ export function ClientHeader({
 
             <Link
               href="/news"
-              className={`py-2 transition-colors hover:text-[#4502C7] ${
+              className={`py-2 transition-colors hover:text-client-primary ${
                 pathname === "/news" || pathname.startsWith("/news/")
-                  ? "text-[#4502C7] font-semibold"
-                  : "text-[#25282B]"
+                  ? "text-client-primary font-semibold"
+                  : "text-ink"
               }`}
             >
               Tin Tức
@@ -367,7 +367,7 @@ export function ClientHeader({
 
             <Link
               href="/#footer-newsletter"
-              className="py-2 text-[#25282B] hover:text-[#4502C7] transition-colors"
+              className="py-2 text-ink hover:text-client-primary transition-colors"
             >
               Liên Hệ
             </Link>
@@ -377,11 +377,11 @@ export function ClientHeader({
           <Link
             href="/cart"
             aria-label="Giỏ hàng"
-            className="relative inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[10px] hover:bg-[#4502C7]/5 text-[#4502C7] transition-colors shrink-0"
+            className="relative inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[10px] hover:bg-client-soft text-client-primary transition-colors shrink-0"
           >
             <ShoppingCart className="w-6 h-6" />
             <span
-              className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#DA0808] text-white text-[11px] font-bold transition-opacity duration-150 ${
+              className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-client-accent text-white text-[11px] font-bold tabular-nums transition-opacity duration-150 ${
                 hydrated ? "opacity-100" : "opacity-0"
               }`}
             >
@@ -399,15 +399,15 @@ export function ClientHeader({
             onClick={() => setMobileMenuOpen(false)}
           />
           <aside className="relative z-10 w-[290px] max-w-[85vw] bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#ECECEC]">
-              <span className="text-[20px] font-extrabold text-[#4502C7]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
+              <span className="text-[20px] font-extrabold text-client-primary">
                 {websiteInfo.websiteName || "VN.TRAVEL"}
               </span>
               <button
                 type="button"
                 aria-label="Đóng menu"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-11 h-11 -mr-2 rounded-lg flex items-center justify-center text-[#667479] hover:text-[#25282B] hover:bg-[#F6F6F6] transition-colors"
+                className="w-11 h-11 -mr-2 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -417,7 +417,11 @@ export function ClientHeader({
               <Link
                 href="/"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                className={`block px-3 py-2.5 rounded-lg hover:bg-client-soft hover:text-client-primary transition-colors ${
+                  pathname === "/"
+                    ? "bg-client-soft text-client-primary font-semibold"
+                    : "text-ink"
+                }`}
               >
                 Trang Chủ
               </Link>
@@ -426,11 +430,11 @@ export function ClientHeader({
                 const isOpen = openMobileCategory === cat.id;
                 return (
                   <div key={cat.id}>
-                    <div className="flex items-center justify-between rounded-lg hover:bg-[#4502C7]/5">
+                    <div className="flex items-center justify-between rounded-lg hover:bg-client-soft transition-colors">
                       <Link
                         href={`/tours?category=${encodeURIComponent(cat.slug)}`}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex-1 px-3 py-2.5 text-[#25282B] hover:text-[#4502C7]"
+                        className="flex-1 px-3 py-2.5 text-ink hover:text-client-primary transition-colors"
                       >
                         {cat.name}
                       </Link>
@@ -446,7 +450,7 @@ export function ClientHeader({
                           onClick={() =>
                             setOpenMobileCategory(isOpen ? null : cat.id)
                           }
-                          className="p-2.5 text-[#667479]"
+                          className="p-2.5 text-ink-muted hover:text-client-primary transition-colors"
                         >
                           <ChevronDown
                             className={`w-4 h-4 transition-transform ${
@@ -457,13 +461,13 @@ export function ClientHeader({
                       )}
                     </div>
                     {isOpen && cat.children.length > 0 && (
-                      <div className="pl-5 space-y-1 mt-1 mb-2 border-l-2 border-[#ECECEC] ml-3">
+                      <div className="pl-5 space-y-1 mt-1 mb-2 border-l-2 border-client-border ml-3">
                         {cat.children.map((child) => (
                           <Link
                             key={child.id}
                             href={`/tours?category=${encodeURIComponent(child.slug)}`}
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-[14px] text-[#667479] hover:text-[#4502C7]"
+                            className="block px-3 py-2 text-[14px] text-ink-muted hover:text-client-primary transition-colors"
                           >
                             {child.name}
                           </Link>
@@ -478,7 +482,11 @@ export function ClientHeader({
                 href="/tours"
                 prefetch={false}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                className={`block px-3 py-2.5 rounded-lg hover:bg-client-soft hover:text-client-primary transition-colors ${
+                  pathname === "/tours"
+                    ? "bg-client-soft text-client-primary font-semibold"
+                    : "text-ink"
+                }`}
               >
                 Tất Cả Tour
               </Link>
@@ -486,10 +494,10 @@ export function ClientHeader({
               <Link
                 href="/news"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2.5 rounded-lg hover:bg-[#4502C7]/5 hover:text-[#4502C7] ${
+                className={`block px-3 py-2.5 rounded-lg hover:bg-client-soft hover:text-client-primary transition-colors ${
                   pathname === "/news" || pathname.startsWith("/news/")
-                    ? "text-[#4502C7] font-semibold bg-[#4502C7]/5"
-                    : "text-[#25282B]"
+                    ? "text-client-primary font-semibold bg-client-soft"
+                    : "text-ink"
                 }`}
               >
                 Tin Tức
@@ -498,7 +506,7 @@ export function ClientHeader({
               <Link
                 href="/#footer-newsletter"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                className="block px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
               >
                 Liên Hệ
               </Link>
@@ -506,21 +514,21 @@ export function ClientHeader({
               <Link
                 href="/cart"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                className="block px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors tabular-nums"
               >
                 Giỏ Hàng ({hydrated ? totalItemCount : 0})
               </Link>
 
-              <div className="pt-3 mt-3 border-t border-[#ECECEC] space-y-1">
+              <div className="pt-3 mt-3 border-t border-border-subtle space-y-1">
                 {currentUser ? (
                   <>
-                    <div className="px-3 py-2 text-[13px] font-bold text-[#4502C7] truncate">
+                    <div className="px-3 py-2 text-[13px] font-bold text-client-primary truncate">
                       {currentUser.fullName}
                     </div>
                     <Link
                       href="/account/orders"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
                     >
                       <ClipboardList className="w-4 h-4" />
                       <span>Đơn hàng của tôi</span>
@@ -528,7 +536,7 @@ export function ClientHeader({
                     <Link
                       href="/account"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
                     >
                       <User className="w-4 h-4" />
                       <span>Tài khoản cá nhân</span>
@@ -536,7 +544,7 @@ export function ClientHeader({
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[#DA0808] hover:bg-red-50 text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-status-danger hover:bg-status-danger-bg transition-colors text-left"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Đăng xuất</span>
@@ -547,7 +555,7 @@ export function ClientHeader({
                     <Link
                       href="/login"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[#4502C7] font-semibold hover:bg-[#4502C7]/5"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-client-primary font-semibold hover:bg-client-soft transition-colors"
                     >
                       <User className="w-4 h-4" />
                       <span>Đăng nhập</span>
@@ -555,7 +563,7 @@ export function ClientHeader({
                     <Link
                       href="/register"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2.5 rounded-lg text-[#25282B] hover:bg-[#4502C7]/5 hover:text-[#4502C7]"
+                      className="block px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
                     >
                       Đăng ký tài khoản
                     </Link>
@@ -564,9 +572,9 @@ export function ClientHeader({
               </div>
             </div>
 
-            <div className="p-4 border-t border-[#ECECEC] bg-[#F6F6F6] text-[12px] text-[#667479] space-y-1.5">
-              <p className="font-semibold text-[#25282B]">Hỗ trợ khách hàng</p>
-              <p>Hotline: {websiteInfo.phone}</p>
+            <div className="p-4 border-t border-border-subtle bg-surface-muted text-[12px] text-ink-muted space-y-1.5">
+              <p className="font-semibold text-ink">Hỗ trợ khách hàng</p>
+              <p className="tabular-nums">Hotline: {websiteInfo.phone}</p>
               <p>Email: {websiteInfo.email}</p>
             </div>
           </aside>

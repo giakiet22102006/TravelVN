@@ -135,17 +135,17 @@ export function SocialOAuthButtons({
   return (
     <div className="space-y-3">
       <div className="relative flex items-center py-1">
-        <div className="flex-1 border-t border-[#ECECEC]" />
-        <span className="px-3 text-[12px] font-medium text-[#667479]">
+        <div className="flex-1 border-t border-subtle" />
+        <span className="px-3 text-[12px] font-medium text-ink-muted">
           Hoặc tiếp tục với
         </span>
-        <div className="flex-1 border-t border-[#ECECEC]" />
+        <div className="flex-1 border-t border-subtle" />
       </div>
 
       {error && !showSandboxModal && (
         <div
           role="alert"
-          className="rounded-lg bg-red-50 border border-red-200 text-[#DA0808] text-[12px] px-3 py-2 font-medium"
+          className="rounded-lg bg-status-danger-bg border border-status-danger-border text-status-danger text-[12px] px-3 py-2 font-medium"
         >
           {error}
         </div>
@@ -155,7 +155,7 @@ export function SocialOAuthButtons({
         type="button"
         disabled={redirecting}
         onClick={handleGoogleLogin}
-        className="w-full h-[46px] px-4 rounded-[10px] border border-[#CCD1D2] bg-white hover:bg-[#F6F6F6] hover:border-[#4502C7]/45 text-[#25282B] text-[14px] font-semibold inline-flex items-center justify-center gap-2.5 transition-colors disabled:opacity-60"
+        className="w-full h-[46px] px-4 rounded-[10px] border border-strong bg-white hover:bg-surface-muted text-ink text-[14px] font-semibold inline-flex items-center justify-center gap-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
       >
         {redirecting ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -180,14 +180,14 @@ export function SocialOAuthButtons({
             role="dialog"
             aria-modal="true"
             aria-labelledby="oauth-sandbox-title"
-            className="w-full max-w-md bg-white rounded-[16px] shadow-2xl border border-[#ECECEC] overflow-hidden"
+            className="w-full max-w-md bg-white rounded-[16px] shadow-2xl border border-subtle overflow-hidden"
           >
-            <div className="px-5 py-4 border-b border-[#ECECEC] flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-subtle flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <GoogleLogo />
                 <h3
                   id="oauth-sandbox-title"
-                  className="text-[16px] font-bold text-[#25282B]"
+                  className="text-[16px] font-bold text-ink"
                 >
                   Đăng nhập bằng Google
                 </h3>
@@ -199,14 +199,14 @@ export function SocialOAuthButtons({
                   setShowSandboxModal(false);
                   setError("");
                 }}
-                className="p-1 text-[#667479] hover:text-[#25282B]"
+                className="p-1 text-ink-muted hover:text-ink rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <p className="text-[12px] text-[#667479] bg-[#F6F6F6] rounded-[8px] px-3 py-2">
+              <p className="text-[12px] text-ink-muted bg-surface-muted rounded-[8px] px-3 py-2">
                 Chế độ OAuth Sandbox (hệ thống tự chuyển sang Google OAuth 2.0
                 chính thức khi cấu hình <code>GOOGLE_CLIENT_ID</code> &amp;{" "}
                 <code>GOOGLE_CLIENT_SECRET</code>). Chọn nhanh một tài khoản
@@ -216,7 +216,7 @@ export function SocialOAuthButtons({
               {error && (
                 <div
                   role="alert"
-                  className="rounded-lg bg-red-50 border border-red-200 text-[#DA0808] text-[12px] px-3 py-2 font-medium"
+                  className="rounded-lg bg-status-danger-bg border border-status-danger-border text-status-danger text-[12px] px-3 py-2 font-medium"
                 >
                   {error}
                 </div>
@@ -229,7 +229,7 @@ export function SocialOAuthButtons({
                     type="button"
                     disabled={submitting}
                     onClick={() => submitSandboxLogin(acc)}
-                    className="w-full flex items-center gap-3 p-3 rounded-[10px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#4502C7]/5 text-left transition-colors disabled:opacity-60"
+                    className="w-full flex items-center gap-3 p-3 rounded-[10px] border border-subtle hover:border-client-border hover:bg-client-soft text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -238,10 +238,10 @@ export function SocialOAuthButtons({
                       className="w-10 h-10 rounded-full object-cover shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-bold text-[#25282B] truncate">
+                      <p className="text-[14px] font-bold text-ink truncate">
                         {acc.fullName}
                       </p>
-                      <p className="text-[12px] text-[#667479] truncate">
+                      <p className="text-[12px] text-ink-muted truncate">
                         {acc.email}
                       </p>
                     </div>
@@ -257,9 +257,9 @@ export function SocialOAuthButtons({
                     email: customEmail,
                   });
                 }}
-                className="pt-3 border-t border-[#ECECEC] space-y-2.5"
+                className="pt-3 border-t border-subtle space-y-2.5"
               >
-                <p className="text-[12px] font-semibold text-[#25282B]">
+                <p className="text-[12px] font-semibold text-ink">
                   Hoặc nhập tài khoản Google khác:
                 </p>
                 <input
@@ -268,7 +268,7 @@ export function SocialOAuthButtons({
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   placeholder="Họ và tên (vd: Lê Quang Hải)"
-                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                  className="w-full h-[38px] px-3 rounded-[8px] border border-strong text-[13px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
                 />
                 <input
                   type="email"
@@ -276,12 +276,12 @@ export function SocialOAuthButtons({
                   value={customEmail}
                   onChange={(e) => setCustomEmail(e.target.value)}
                   placeholder="Email Google"
-                  className="w-full h-[38px] px-3 rounded-[8px] border border-[#CCD1D2] text-[13px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                  className="w-full h-[38px] px-3 rounded-[8px] border border-strong text-[13px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
                 />
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-[40px] rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[13px] font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="w-full h-[40px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   Tiếp tục

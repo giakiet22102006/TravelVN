@@ -53,7 +53,7 @@ function renderInlineText(text: string): React.ReactNode {
       return (
         <code
           key={idx}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-[#F3EEFF] text-[#4502C7] font-bold text-[0.9em]"
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-client-soft text-client-primary font-bold text-[0.9em]"
         >
           {part.slice(1, -1)}
         </code>
@@ -73,7 +73,7 @@ function renderArticleBlocks(content: string) {
     blocks.push(
       <ul
         key={`ul-${keyPrefix}`}
-        className="my-4 space-y-2 pl-5 list-disc text-[15px] sm:text-[16px] text-[#2D3136] leading-relaxed"
+        className="my-4 space-y-2 pl-5 list-disc text-[15px] sm:text-[16px] text-ink leading-relaxed"
       >
         {bulletBuffer.map((item, idx) => (
           <li key={idx}>{renderInlineText(item)}</li>
@@ -95,7 +95,7 @@ function renderArticleBlocks(content: string) {
       blocks.push(
         <h2
           key={`h2-${idx}`}
-          className="mt-7 mb-3 text-[20px] sm:text-[22px] font-bold text-[#4502C7] leading-snug"
+          className="mt-7 mb-3 text-[20px] sm:text-[22px] font-bold text-ink leading-snug"
         >
           {line.slice(3).trim()}
         </h2>
@@ -112,7 +112,7 @@ function renderArticleBlocks(content: string) {
     blocks.push(
       <p
         key={`p-${idx}`}
-        className="my-3.5 text-[15px] sm:text-[16px] text-[#2D3136] leading-[1.8]"
+        className="my-3.5 text-[15px] sm:text-[16px] text-ink leading-[1.8]"
       >
         {renderInlineText(line)}
       </p>
@@ -145,28 +145,28 @@ export default async function NewsDetailPage({
       {/* Breadcrumb */}
       <nav
         aria-label="Breadcrumb"
-        className="flex flex-wrap items-center gap-2 text-[13px] text-[#667479] mb-5"
+        className="flex flex-wrap items-center gap-2 text-[13px] text-ink-muted mb-5"
       >
-        <Link href="/" className="hover:text-[#4502C7]">
+        <Link href="/" className="hover:text-client-primary transition-colors">
           Trang chủ
         </Link>
         <span>&gt;</span>
-        <Link href="/news" className="hover:text-[#4502C7]">
+        <Link href="/news" className="hover:text-client-primary transition-colors">
           Tin tức
         </Link>
         <span>&gt;</span>
-        <span className="text-[#4502C7] font-semibold line-clamp-1">
+        <span className="text-client-primary font-semibold line-clamp-1">
           {article.title}
         </span>
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Main Article Content */}
-        <article className="lg:col-span-8 bg-white rounded-[16px] border border-[#ECECEC] p-5 sm:p-8 shadow-sm">
-          <div className="flex flex-wrap items-center gap-3 text-[12px] sm:text-[13px] text-[#667479]">
+        <article className="lg:col-span-8 bg-white rounded-[16px] border border-border-subtle p-5 sm:p-8 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3 text-[12px] sm:text-[13px] text-ink-muted tabular-nums">
             <Link
               href={`/news?category=${encodeURIComponent(article.category)}`}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#F3EEFF] text-[#4502C7] font-bold hover:bg-[#4502C7] hover:text-white transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-client-soft text-client-primary font-bold hover:bg-client-primary hover:text-white transition-colors"
             >
               <Tag className="w-3.5 h-3.5" />
               <span>{article.category}</span>
@@ -185,16 +185,16 @@ export default async function NewsDetailPage({
             </span>
           </div>
 
-          <h1 className="mt-4 text-[24px] sm:text-[32px] font-bold text-[#25282B] leading-tight">
+          <h1 className="mt-4 text-[24px] sm:text-[32px] font-bold text-ink leading-tight">
             {article.title}
           </h1>
 
           {article.createdBy?.fullName && (
-            <p className="mt-2.5 text-[13px] text-[#667479] inline-flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-[#4502C7]" />
+            <p className="mt-2.5 text-[13px] text-ink-muted inline-flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-client-primary" />
               <span>
                 Biên tập bởi{" "}
-                <strong className="text-[#25282B]">
+                <strong className="text-ink">
                   {article.createdBy.fullName}
                 </strong>{" "}
                 — VN.TRAVEL Editorial
@@ -203,12 +203,12 @@ export default async function NewsDetailPage({
           )}
 
           {/* Lead Excerpt */}
-          <p className="mt-5 p-4 rounded-[12px] bg-[#F8F7FC] border-l-4 border-[#4502C7] text-[15px] text-[#25282B] font-medium leading-relaxed">
+          <p className="mt-5 p-4 rounded-[12px] bg-surface-page border-l-4 border-client-primary text-[15px] text-ink font-medium leading-relaxed">
             {article.excerpt}
           </p>
 
           {/* Cover Image */}
-          <div className="relative aspect-[16/9] w-full rounded-[12px] overflow-hidden my-6 bg-[#F3F4F6]">
+          <div className="relative aspect-[16/9] w-full rounded-[12px] overflow-hidden my-6 bg-surface-muted">
             <SmartImage
               src={article.avatar || FALLBACK_IMAGE}
               alt={article.title}
@@ -224,10 +224,10 @@ export default async function NewsDetailPage({
           <div className="prose-content">{renderArticleBlocks(article.content)}</div>
 
           {/* Footer CTA inside Article */}
-          <div className="mt-8 pt-6 border-t border-[#ECECEC] flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-8 pt-6 border-t border-border-subtle flex flex-wrap items-center justify-between gap-3">
             <Link
               href="/news"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-[8px] border border-[#CCD1D2] hover:border-[#4502C7] text-[#25282B] hover:text-[#4502C7] text-[14px] font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-[8px] border border-border-strong hover:border-client-primary text-ink hover:text-client-primary text-[14px] font-semibold transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Quay lại trang Tin Tức</span>
@@ -238,7 +238,7 @@ export default async function NewsDetailPage({
                 href={`/tours?destination=${encodeURIComponent(
                   article.relatedDestination
                 )}`}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[44px] rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[14px] font-semibold transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 min-h-[44px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[14px] font-semibold transition-colors shadow-sm"
               >
                 <Compass className="w-4 h-4" />
                 <span>Xem Tour {article.relatedDestination}</span>
@@ -250,8 +250,8 @@ export default async function NewsDetailPage({
         {/* Right Sidebar: Related News & Quick Tour CTA */}
         <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-[116px]">
           {relatedNews.length > 0 && (
-            <div className="bg-white rounded-[16px] border border-[#ECECEC] p-5 shadow-sm">
-              <h2 className="text-[18px] font-bold text-[#4502C7] mb-4">
+            <div className="bg-white rounded-[16px] border border-border-subtle p-5 shadow-sm">
+              <h2 className="text-[18px] font-bold text-ink mb-4">
                 Bài Viết Liên Quan
               </h2>
               <div className="space-y-4">
@@ -259,9 +259,9 @@ export default async function NewsDetailPage({
                   <Link
                     key={item.id}
                     href={`/news/${item.slug}`}
-                    className="group flex items-start gap-3 pb-4 last:pb-0 border-b last:border-b-0 border-[#F1F3F5]"
+                    className="group flex items-start gap-3 pb-4 last:pb-0 border-b last:border-b-0 border-border-subtle"
                   >
-                    <div className="relative w-[92px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-[#F3F4F6]">
+                    <div className="relative w-[92px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-surface-muted">
                       <SmartImage
                         src={item.avatar || FALLBACK_IMAGE}
                         alt={item.title}
@@ -272,13 +272,13 @@ export default async function NewsDetailPage({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[11px] font-semibold text-[#4502C7]">
+                      <span className="text-[11px] font-semibold text-client-primary">
                         {item.category}
                       </span>
-                      <h3 className="text-[13.5px] font-bold text-[#25282B] group-hover:text-[#4502C7] line-clamp-2 leading-snug mt-0.5">
+                      <h3 className="text-[13.5px] font-bold text-ink group-hover:text-client-primary transition-colors line-clamp-2 leading-snug mt-0.5">
                         {item.title}
                       </h3>
-                      <span className="text-[11px] text-[#667479] block mt-1">
+                      <span className="text-[11px] text-ink-muted block mt-1 tabular-nums">
                         {formatDateVN(item.publishedAt)}
                       </span>
                     </div>
@@ -288,17 +288,17 @@ export default async function NewsDetailPage({
             </div>
           )}
 
-          <div className="rounded-[16px] bg-gradient-to-br from-[#4502C7] to-[#6B28EB] p-6 text-white shadow-md">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-[#FFD600]">
+          <div className="rounded-[16px] bg-client-deep border border-white/10 p-6 text-white shadow-md">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-client-sun">
               ƯU ĐÃI VN.TRAVEL
             </p>
             <h3 className="text-[20px] font-bold mt-1.5 leading-snug">
               Sẵn sàng lên lịch cho chuyến đi tiếp theo?
             </h3>
             <p className="text-[13px] text-white/90 mt-2 leading-relaxed">
-              Dùng ngay mã <strong className="text-[#FFD600]">GIAM10</strong>{" "}
+              Dùng ngay mã <strong className="text-client-sun">GIAM10</strong>{" "}
               (giảm 10% tối đa 1.000.000đ) hoặc{" "}
-              <strong className="text-[#FFD600]">TOUR2026</strong> khi đặt tour
+              <strong className="text-client-sun">TOUR2026</strong> khi đặt tour
               trọn gói tại VN.TRAVEL.
             </p>
             <Link
@@ -309,7 +309,7 @@ export default async function NewsDetailPage({
                     )}`
                   : "/tours"
               }
-              className="mt-4 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] rounded-[10px] bg-white text-[#4502C7] hover:bg-[#FFD600] hover:text-[#1E103C] font-bold text-[14px] transition-colors"
+              className="mt-4 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] rounded-[10px] bg-white text-client-primary hover:bg-client-sun hover:text-client-deep font-bold text-[14px] transition-colors"
             >
               <span>
                 {article.relatedDestination
@@ -326,7 +326,7 @@ export default async function NewsDetailPage({
       {relatedTours.length > 0 && (
         <section className="mt-12">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <h2 className="text-[22px] sm:text-[26px] font-bold text-[#4502C7]">
+            <h2 className="text-[22px] sm:text-[26px] font-bold text-ink">
               {article.relatedDestination
                 ? `Tour Gợi Ý Dành Cho Bạn (${article.relatedDestination})`
                 : "Tour Nổi Bật Dành Cho Bạn"}
@@ -339,7 +339,7 @@ export default async function NewsDetailPage({
                     )}`
                   : "/tours"
               }
-              className="text-[14px] font-semibold text-[#4502C7] hover:underline inline-flex items-center gap-1"
+              className="text-[14px] font-semibold text-client-primary hover:underline inline-flex items-center gap-1"
             >
               <span>Xem thêm tour</span>
               <ArrowRight className="w-4 h-4" />

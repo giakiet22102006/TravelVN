@@ -44,7 +44,7 @@ export default async function NewsPage({
     <Suspense
       fallback={
         <div className="max-w-[1184px] mx-auto px-4 py-12">
-          <div className="h-[360px] rounded-[16px] bg-white animate-pulse" />
+          <div className="h-[360px] rounded-[16px] bg-white border border-border-subtle animate-pulse" />
         </div>
       }
     >

@@ -48,9 +48,9 @@ export function TourCard({ tour }: { tour: TourCardData }) {
   return (
     <Link
       href={`/tours/${tour.slug}`}
-      className="group bg-white rounded-[12px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_10px_24px_rgba(69,2,199,0.14)] border border-[#ECECEC] overflow-hidden flex flex-col transition-all duration-200 font-lexend-deca"
+      className="group bg-white rounded-[12px] shadow-[0_2px_10px_rgba(22,34,41,0.06)] hover:shadow-[0_10px_24px_rgba(22,34,41,0.11)] border border-border-subtle hover:border-client-border overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-200 font-lexend-deca"
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#F6F6F6]">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-surface-muted">
         <SmartImage
           src={tour.avatar}
           alt={tour.name}
@@ -60,43 +60,43 @@ export function TourCard({ tour }: { tour: TourCardData }) {
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
         {discount > 0 && (
-          <div className="absolute left-0 bottom-0 bg-[#DA0808] text-white text-[11px] font-bold px-3 py-1.5 rounded-tr-[10px] inline-flex items-center gap-1 shadow-sm">
-            <Zap className="w-3.5 h-3.5 fill-yellow-300 text-yellow-300" />
+          <div className="absolute left-0 bottom-0 bg-client-accent text-white text-[11px] font-bold px-3 py-1.5 rounded-tr-[10px] inline-flex items-center gap-1 shadow-sm tabular-nums">
+            <Zap className="w-3.5 h-3.5 fill-client-sun text-client-sun" />
             <span>Giảm -{discount}%</span>
           </div>
         )}
       </div>
 
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col">
-        <h3 className="text-[14px] sm:text-[15px] font-bold text-[#25282B] group-hover:text-[#4502C7] transition-colors line-clamp-2 min-h-[42px] leading-snug">
+        <h3 className="text-[14px] sm:text-[15px] font-bold text-ink group-hover:text-client-primary transition-colors line-clamp-2 min-h-[42px] leading-snug">
           {tour.name}
         </h3>
 
-        <div className="mt-2.5 flex flex-wrap items-baseline gap-2.5">
+        <div className="mt-2.5 flex flex-wrap items-baseline gap-2.5 tabular-nums">
           {discount > 0 && (
-            <span className="text-[13px] font-medium text-[#667479] line-through">
+            <span className="text-[13px] font-medium text-ink-muted line-through tabular-nums">
               {formatCurrencyVND(tour.priceAdult)}
             </span>
           )}
-          <span className="text-[16px] font-bold text-[#DA0808]">
+          <span className="text-[16px] font-bold text-client-accent tabular-nums">
             {formatCurrencyVND(displayPrice)}
           </span>
         </div>
 
-        <div className="mt-2.5 space-y-1 text-[12px] text-[#667479]">
+        <div className="mt-2.5 space-y-1 text-[12px] text-ink-muted">
           <p className="truncate">
             Mã Tour:{" "}
-            <span className="font-semibold text-[#25282B]">{tour.code}</span>
+            <span className="font-semibold text-ink tabular-nums">{tour.code}</span>
           </p>
           <p className="truncate">
             Ngày Khởi Hành:{" "}
-            <span className="font-semibold text-[#25282B]">
+            <span className="font-semibold text-ink tabular-nums">
               {formatDateVN(tour.departureDate)}
             </span>
           </p>
           <p className="truncate">
             Thời Gian:{" "}
-            <span className="font-semibold text-[#25282B]">
+            <span className="font-semibold text-ink">
               {tour.time || "Liên hệ"}
             </span>
           </p>
@@ -116,13 +116,13 @@ export function TourCard({ tour }: { tour: TourCardData }) {
                         key={i}
                         className={`w-3.5 h-3.5 ${
                           i < filledStars
-                            ? "fill-[#FFB800] text-[#FFB800]"
-                            : "text-[#D4D8DD]"
+                            ? "fill-client-star text-client-star"
+                            : "text-border-strong"
                         }`}
                       />
                     ))}
                   </div>
-                  <span className="text-[11px] text-[#667479] font-medium">
+                  <span className="text-[11px] text-ink-muted font-medium tabular-nums">
                     {count > 0
                       ? `${avg.toFixed(1)} (${count})`
                       : "Tour mới"}
@@ -132,9 +132,9 @@ export function TourCard({ tour }: { tour: TourCardData }) {
             })()}
           </div>
 
-          <div className="flex items-center gap-1.5 text-[11px] text-[#667479]">
+          <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
             <span>Số chỗ còn:</span>
-            <span className="inline-flex items-center justify-center min-w-[26px] h-[24px] px-1.5 rounded-[5px] bg-[#DA0808] text-white text-[12px] font-bold">
+            <span className="inline-flex items-center justify-center min-w-[26px] h-[24px] px-1.5 rounded-[5px] bg-client-accent text-white text-[12px] font-bold tabular-nums">
               {tour.stockAdult}
             </span>
           </div>

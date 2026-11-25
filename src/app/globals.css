@@ -3,11 +3,94 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Direction B: Coastal Breeze & Warm Sand (Biển Nắng & Cát Trắng) */
+    --brand-primary: #1E6078;
+    --brand-primary-rgb: 30 96 120;
+
+    --brand-primary-hover: #164A5D;
+    --brand-primary-hover-rgb: 22 74 93;
+
+    --brand-deep: #133847;
+    --brand-deep-rgb: 19 56 71;
+
+    --brand-soft: #EAF2F5;
+    --brand-soft-rgb: 234 242 245;
+
+    --brand-border: #C4D9E2;
+    --brand-border-rgb: 196 217 226;
+
+    --brand-accent: #BA4B2D;
+    --brand-accent-rgb: 186 75 45;
+
+    --brand-accent-hover: #9B3C22;
+    --brand-accent-hover-rgb: 155 60 34;
+
+    --brand-sun: #F4C762;
+    --brand-sun-rgb: 244 199 98;
+
+    --surface-page: #F8F7F3;
+    --surface-page-rgb: 248 247 243;
+
+    --surface-muted: #EFECE5;
+    --surface-muted-rgb: 239 236 229;
+
+    --border-subtle: #E2E0D8;
+    --border-subtle-rgb: 226 224 216;
+
+    --border-strong: #C9C6BC;
+    --border-strong-rgb: 201 198 188;
+
+    --text-primary: #162229;
+    --text-primary-rgb: 22 34 41;
+
+    --text-secondary: #53626B;
+    --text-secondary-rgb: 83 98 107;
+
+    /* Status Semantic Tokens (WCAG AA >= 4.5:1 verified) */
+    --status-success: #2F7D5B;
+    --status-success-rgb: 47 125 91;
+    --status-success-bg: #EEF7F2;
+    --status-success-bg-rgb: 238 247 242;
+    --status-success-border: #C5E2D3;
+    --status-success-border-rgb: 197 226 211;
+
+    --status-warn: #B45309;
+    --status-warn-rgb: 180 83 9;
+    --status-warn-bg: #FEF3C7;
+    --status-warn-bg-rgb: 254 243 199;
+    --status-warn-border: #F5D48A;
+    --status-warn-border-rgb: 245 212 138;
+
+    --status-danger: #B91C1C;
+    --status-danger-rgb: 185 28 28;
+    --status-danger-bg: #FEE2E2;
+    --status-danger-bg-rgb: 254 226 226;
+    --status-danger-border: #F5B8B8;
+    --status-danger-border-rgb: 245 184 184;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   body {
     @apply antialiased;
   }
 
   select {
     line-height: 1.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

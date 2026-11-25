@@ -151,7 +151,7 @@ export function HomePageClient({
   return (
     <>
       {/* SECTION 1: Hero Banner & Smart Search */}
-      <section className="relative z-20 bg-[#1E103C] text-white">
+      <section className="relative z-20 bg-client-deep text-white">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <SmartImage
             src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85"
@@ -162,29 +162,29 @@ export function HomePageClient({
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-[#1E103C]/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/45" />
         </div>
 
         <div className="relative max-w-[1184px] mx-auto px-4 py-14 sm:py-20 lg:py-24">
           <div className="max-w-[920px] mx-auto text-center">
-            <h1 className="text-[24px] sm:text-[34px] lg:text-[40px] font-bold leading-tight tracking-tight drop-shadow-sm">
+            <h1 className="text-[24px] sm:text-[34px] lg:text-[40px] font-bold leading-tight tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
               <span className="lg:whitespace-nowrap">
                 Du lịch Châu Á - Khám phá Mỹ, Úc, Âu
               </span>
               <br />
-              <span className="text-[#FFD600]">Đi nơi đâu bạn muốn</span>
+              <span className="text-client-sun">Đi nơi đâu bạn muốn</span>
             </h1>
-            <p className="mt-4 text-[14px] sm:text-[16px] text-white font-medium drop-shadow-sm max-w-[640px] mx-auto leading-relaxed">
+            <p className="mt-4 text-[14px] sm:text-[16px] text-white/95 font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)] max-w-[640px] mx-auto leading-relaxed">
               Trải nghiệm hành trình trọn gói chuẩn 5 sao cùng VN.TRAVEL — lịch
               khởi hành linh hoạt mỗi ngày với hàng trăm ưu đãi giờ chót hấp
               dẫn.
             </p>
           </div>
 
-          {/* Search Card */}
+          {/* Search Card (Sunlit Frosted Linen) */}
           <div
             ref={searchWrapperRef}
-            className="mt-8 sm:mt-10 max-w-[980px] mx-auto bg-black/55 backdrop-blur-md rounded-[14px] p-4 sm:p-5 border border-white/15 shadow-2xl"
+            className="mt-8 sm:mt-10 max-w-[980px] mx-auto bg-white/95 backdrop-blur-md rounded-[16px] p-3 sm:p-4 border border-white/80 shadow-[0_18px_44px_rgba(31,38,33,0.18)]"
           >
             <form
               onSubmit={handleSearchSubmit}
@@ -192,8 +192,8 @@ export function HomePageClient({
             >
               {/* Input 1: Bạn muốn đi đâu? */}
               <div className="md:col-span-4 relative">
-                <div className="bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B] focus-within:ring-2 focus-within:ring-[#FFD600] transition-shadow">
-                  <MapPin className="w-5 h-5 text-[#4502C7] shrink-0" />
+                <div className="bg-surface-page hover:bg-white border border-border-subtle rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-ink focus-within:bg-white focus-within:border-client-primary focus-within:ring-2 focus-within:ring-client-primary/20 transition-colors">
+                  <MapPin className="w-5 h-5 text-client-primary shrink-0" />
                   <input
                     type="text"
                     value={destination}
@@ -211,14 +211,14 @@ export function HomePageClient({
                     }}
                     placeholder="Bạn muốn đi đâu?"
                     aria-label="Bạn muốn đi đâu"
-                    className="w-full bg-transparent text-[14px] font-medium placeholder:text-[#667479] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD600] rounded"
+                    className="w-full bg-transparent text-[14px] font-medium placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/30 rounded"
                   />
                 </div>
 
                 {showDestinationPopup && (
-                  <div className="absolute left-0 top-[62px] w-full sm:w-[420px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-4 z-30 text-[#25282B]">
-                    <div className="flex items-center gap-1.5 text-[14px] font-bold text-[#4502C7] mb-3">
-                      <Flame className="w-4 h-4 text-[#DA0808]" />
+                  <div className="absolute left-0 top-[62px] w-full sm:w-[420px] bg-white rounded-[12px] shadow-2xl border border-border-subtle p-4 z-30 text-ink">
+                    <div className="flex items-center gap-1.5 text-[14px] font-bold text-ink mb-3">
+                      <Flame className="w-4 h-4 text-client-accent" />
                       <span>Địa Điểm Hot</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -230,7 +230,7 @@ export function HomePageClient({
                             setDestination(place);
                             setShowDestinationPopup(false);
                           }}
-                          className="text-left px-3 py-2 rounded-[8px] bg-[#F6F6F6] hover:bg-[#4502C7] hover:text-white text-[13px] font-medium transition-colors"
+                          className="text-left px-3 py-2 rounded-[8px] bg-surface-muted hover:bg-client-primary hover:text-white text-[13px] font-medium transition-colors"
                         >
                           {place}
                         </button>
@@ -238,8 +238,8 @@ export function HomePageClient({
                     </div>
 
                     {liveSuggestions.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-[#ECECEC]">
-                        <p className="text-[12px] font-semibold text-[#667479] mb-2">
+                      <div className="mt-4 pt-3 border-t border-border-subtle">
+                        <p className="text-[12px] font-semibold text-ink-muted mb-2">
                           Gợi ý tour phù hợp
                         </p>
                         <div className="space-y-2">
@@ -248,9 +248,9 @@ export function HomePageClient({
                               key={t.id}
                               href={`/tours/${t.slug}`}
                               onClick={() => setShowDestinationPopup(false)}
-                              className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-[#F6F6F6] transition-colors"
+                              className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-surface-page transition-colors"
                             >
-                              <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-[#F6F6F6]">
+                              <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-surface-muted">
                                 <SmartImage
                                   src={t.avatar}
                                   alt={t.name}
@@ -261,10 +261,10 @@ export function HomePageClient({
                                 />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-semibold truncate">
+                                <p className="text-[13px] font-semibold text-ink truncate">
                                   {t.name}
                                 </p>
-                                <p className="text-[12px] text-[#DA0808] font-bold">
+                                <p className="text-[12px] text-client-accent font-bold tabular-nums">
                                   {t.priceNewAdult.toLocaleString("vi-VN")}đ
                                 </p>
                               </div>
@@ -304,24 +304,24 @@ export function HomePageClient({
                   onKeyDown={(e) => {
                     if (e.key === "Escape") setShowQuantityPopup(false);
                   }}
-                  className="w-full bg-white rounded-[10px] h-[54px] px-3 flex items-center justify-between gap-2 text-[#25282B] text-left focus:outline-none focus:ring-2 focus:ring-[#FFD600] transition-shadow"
+                  className="w-full bg-surface-page hover:bg-white border border-border-subtle rounded-[10px] h-[54px] px-3 flex items-center justify-between gap-2 text-ink text-left focus:outline-none focus:bg-white focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/20 transition-colors"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Users className="w-5 h-5 text-[#4502C7] shrink-0" />
+                    <Users className="w-5 h-5 text-client-primary shrink-0" />
                     <div className="min-w-0">
-                      <span className="block text-[10px] text-[#667479] leading-none mb-0.5">
+                      <span className="block text-[10px] text-ink-muted leading-none mb-0.5">
                         Số lượng
                       </span>
-                      <span className="block text-[13px] font-medium whitespace-nowrap">
+                      <span className="block text-[13px] font-medium whitespace-nowrap tabular-nums">
                         {adultCount + childCount + babyCount} Khách
                       </span>
                     </div>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-[#667479] shrink-0" />
+                  <ChevronDown className="w-4 h-4 text-ink-muted shrink-0" />
                 </button>
 
                 {showQuantityPopup && (
-                  <div className="absolute right-0 top-[62px] w-[260px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-4 z-30 text-[#25282B] space-y-3">
+                  <div className="absolute right-0 top-[62px] w-[260px] bg-white rounded-[12px] shadow-2xl border border-border-subtle p-4 z-30 text-ink space-y-3">
                     {[
                       {
                         label: "Người lớn",
@@ -353,7 +353,7 @@ export function HomePageClient({
                           <div className="text-[13px] font-semibold">
                             {row.label}
                           </div>
-                          <div className="text-[11px] text-[#667479]">
+                          <div className="text-[11px] text-ink-muted">
                             {row.sub}
                           </div>
                         </div>
@@ -364,18 +364,18 @@ export function HomePageClient({
                             onClick={() =>
                               row.setVal(Math.max(row.min, row.val - 1))
                             }
-                            className="w-7 h-7 rounded border border-[#CCD1D2] flex items-center justify-center hover:border-[#4502C7] hover:text-[#4502C7]"
+                            className="w-7 h-7 rounded border border-border-strong flex items-center justify-center hover:border-client-primary hover:text-client-primary transition-colors"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="w-5 text-center text-[13px] font-bold">
+                          <span className="w-5 text-center text-[13px] font-bold tabular-nums">
                             {row.val}
                           </span>
                           <button
                             type="button"
                             aria-label={`Tăng ${row.label}`}
                             onClick={() => row.setVal(row.val + 1)}
-                            className="w-7 h-7 rounded border border-[#CCD1D2] flex items-center justify-center hover:border-[#4502C7] hover:text-[#4502C7]"
+                            className="w-7 h-7 rounded border border-border-strong flex items-center justify-center hover:border-client-primary hover:text-client-primary transition-colors"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -390,7 +390,7 @@ export function HomePageClient({
               <div className="md:col-span-2">
                 <button
                   type="submit"
-                  className="w-full h-[54px] rounded-[10px] bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors shadow-lg"
+                  className="w-full h-[54px] rounded-[10px] bg-client-primary hover:bg-client-primary-hover text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors shadow-sm"
                 >
                   <Search className="w-4 h-4" />
                   <span>Tìm Kiếm</span>
@@ -401,23 +401,23 @@ export function HomePageClient({
         </div>
       </section>
 
-      {/* SECTION 2: Last-Minute Deal Box (#4502C7) */}
+      {/* SECTION 2: Last-Minute Deal Box (Misty Sage Woodland Surface) */}
       <section className="max-w-[1184px] mx-auto px-4 mt-10">
-        <div className="bg-[#4502C7] rounded-[16px] p-5 sm:p-8 shadow-lg">
+        <div className="bg-client-soft border border-client-border rounded-[20px] p-5 sm:p-8 shadow-[0_4px_20px_rgba(31,38,33,0.04)]">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-3 text-white text-center lg:text-left">
-              <p className="text-[18px] sm:text-[22px] font-extrabold uppercase tracking-wide text-[#FFD600]">
-                ƯU ĐÃI 2026
-              </p>
-              <h2 className="text-[26px] sm:text-[30px] font-extrabold uppercase leading-tight mt-1">
-                TOUR GIỜ CHÓT
+            <div className="lg:col-span-3 text-ink text-center lg:text-left">
+              <span className="inline-block px-3 py-1 rounded-full bg-client-primary/10 text-client-primary text-[12px] font-bold tracking-wide">
+                Ưu đãi 2026
+              </span>
+              <h2 className="text-[26px] sm:text-[30px] font-extrabold leading-tight mt-2.5 text-ink">
+                Tour Giờ Chót
               </h2>
-              <p className="mt-2.5 text-[13px] text-white/85 leading-relaxed">
-                Săn ngay deal hot giảm sốc mỗi ngày với số lượng chỗ ưu đãi có
+              <p className="mt-2 text-[13px] text-ink-muted leading-relaxed">
+                Săn ngay hành trình giá tốt mỗi ngày với số lượng chỗ ưu đãi có
                 hạn.
               </p>
 
-              <p className="mt-5 text-[13px] font-semibold uppercase tracking-wider text-white/90">
+              <p className="mt-5 text-[12px] font-semibold text-ink-muted">
                 Kết thúc sau
               </p>
               <div className="mt-2 flex items-center justify-center lg:justify-start gap-2">
@@ -429,12 +429,12 @@ export function HomePageClient({
                 ].map((box) => (
                   <div
                     key={box.label}
-                    className="bg-white text-[#4502C7] rounded-[10px] w-[54px] py-2 text-center shadow"
+                    className="bg-white border border-client-border text-client-primary rounded-[10px] w-[54px] py-2 text-center shadow-sm tabular-nums"
                   >
-                    <div className="text-[20px] font-extrabold leading-none">
+                    <div className="text-[20px] font-extrabold leading-none tabular-nums">
                       {box.val}
                     </div>
-                    <div className="text-[10px] font-semibold text-[#667479] mt-1">
+                    <div className="text-[10px] font-semibold text-ink-muted mt-1">
                       {box.label}
                     </div>
                   </div>
@@ -442,10 +442,10 @@ export function HomePageClient({
               </div>
 
               <div className="mt-6">
-                <span className="block text-[12px] font-semibold uppercase tracking-widest text-white/80">
-                  GIẢM ĐẾN
+                <span className="block text-[12px] font-medium text-ink-muted">
+                  Tiết kiệm đến
                 </span>
-                <span className="text-[26px] font-extrabold text-[#FFD600]">
+                <span className="text-[26px] font-extrabold text-client-accent tabular-nums">
                   990.000đ+
                 </span>
               </div>
@@ -464,7 +464,7 @@ export function HomePageClient({
 
       {/* SECTION 3: Khuyến Mại Bùng Nổ - Đánh Tan Nóng Bức */}
       <section className="max-w-[1184px] mx-auto px-4 mt-14">
-        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
+        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-ink mb-7">
           Khuyến Mại Bùng Nổ - Đánh Tan Nóng Bức
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -506,7 +506,7 @@ export function HomePageClient({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#DA0808] text-[10px] font-bold tracking-wider mb-1.5">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-client-accent text-white text-[10px] font-bold tracking-wider mb-1.5">
                   {banner.badge}
                 </span>
                 <h3 className="text-[18px] font-bold">{banner.title}</h3>
@@ -519,7 +519,7 @@ export function HomePageClient({
 
       {/* SECTION 4: Tour Trong Nước */}
       <section className="max-w-[1184px] mx-auto px-4 mt-14">
-        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
+        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-ink mb-7">
           Tour Trong Nước
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -530,7 +530,7 @@ export function HomePageClient({
         <div className="mt-8 text-center">
           <Link
             href="/tours?category=tour-trong-nuoc"
-            className="inline-flex items-center justify-center px-7 py-2.5 rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7] hover:text-white font-semibold text-[15px] transition-colors"
+            className="inline-flex items-center justify-center px-7 py-2.5 rounded-[8px] border border-client-primary text-client-primary hover:bg-client-primary hover:text-white font-semibold text-[15px] transition-colors"
           >
             Xem tất cả
           </Link>
@@ -542,7 +542,7 @@ export function HomePageClient({
         <Link
           href="/tours"
           prefetch={false}
-          className="relative block h-[180px] sm:h-[220px] rounded-[16px] overflow-hidden shadow-md group"
+          className="relative block h-[180px] sm:h-[220px] rounded-[16px] overflow-hidden shadow-md group bg-client-deep"
         >
           <SmartImage
             src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1280&q=82"
@@ -552,9 +552,9 @@ export function HomePageClient({
             sizes="100vw"
             className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4502C7]/85 via-[#4502C7]/45 to-transparent flex items-center p-6 sm:p-10">
+          <div className="absolute inset-0 bg-gradient-to-r from-client-deep/90 via-client-deep/55 to-transparent flex items-center p-6 sm:p-10">
             <div className="max-w-[520px] text-white">
-              <p className="text-[12px] uppercase tracking-widest font-bold text-[#FFD600]">
+              <p className="text-[12px] uppercase tracking-widest font-bold text-client-sun">
                 VN.TRAVEL EXCLUSIVE
               </p>
               <h3 className="text-[22px] sm:text-[28px] font-bold mt-1 leading-snug">
@@ -567,7 +567,7 @@ export function HomePageClient({
 
       {/* SECTION 5: Tour Nước Ngoài */}
       <section className="max-w-[1184px] mx-auto px-4 mt-14">
-        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
+        <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-ink mb-7">
           Tour Nước Ngoài
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -578,7 +578,7 @@ export function HomePageClient({
         <div className="mt-8 text-center">
           <Link
             href="/tours?category=tour-nuoc-ngoai"
-            className="inline-flex items-center justify-center px-7 py-2.5 rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7] hover:text-white font-semibold text-[15px] transition-colors"
+            className="inline-flex items-center justify-center px-7 py-2.5 rounded-[8px] border border-client-primary text-client-primary hover:bg-client-primary hover:text-white font-semibold text-[15px] transition-colors"
           >
             Xem tất cả
           </Link>
@@ -597,7 +597,7 @@ export function HomePageClient({
             id="news-section"
             className="max-w-[1184px] mx-auto px-4 mt-14"
           >
-            <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-[#4502C7] mb-7">
+            <h2 className="text-center text-[24px] sm:text-[32px] font-bold text-ink mb-7">
               Tin Tức Mới
             </h2>
 
@@ -606,9 +606,9 @@ export function HomePageClient({
               <Link
                 key={featuredArticle.id}
                 href={`/news/${featuredArticle.slug}`}
-                className="lg:col-span-5 group bg-white rounded-[16px] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#ECECEC] flex flex-col"
+                className="lg:col-span-5 group bg-white rounded-[16px] overflow-hidden shadow-[0_2px_10px_rgba(22,34,41,0.06)] hover:shadow-[0_10px_24px_rgba(22,34,41,0.11)] border border-border-subtle hover:border-client-border transition-[border-color,box-shadow] duration-200 flex flex-col"
               >
-                <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#F3F4F6]">
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-surface-muted">
                   <SmartImage
                     src={featuredArticle.avatar || NEWS_FALLBACK_IMAGE}
                     alt={featuredArticle.title}
@@ -617,18 +617,18 @@ export function HomePageClient({
                     sizes="(max-width: 1024px) 100vw, 480px"
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#4502C7] text-white text-[11px] font-bold shadow-sm">
+                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-client-primary text-white text-[11px] font-bold shadow-sm">
                     {featuredArticle.category}
                   </span>
                 </div>
                 <div className="p-5 flex-1 flex flex-col">
-                  <span className="text-[12px] text-[#667479] font-medium">
+                  <span className="text-[12px] text-ink-muted font-medium tabular-nums">
                     {formatDateVN(featuredArticle.publishedAt)}
                   </span>
-                  <h3 className="mt-1.5 text-[18px] sm:text-[20px] font-bold text-[#4502C7] group-hover:underline leading-snug">
+                  <h3 className="mt-1.5 text-[18px] sm:text-[20px] font-bold text-ink group-hover:text-client-primary transition-colors leading-snug">
                     {featuredArticle.title}
                   </h3>
-                  <p className="mt-2.5 text-[13px] text-[#667479] leading-relaxed line-clamp-4">
+                  <p className="mt-2.5 text-[13px] text-ink-muted leading-relaxed line-clamp-4">
                     {featuredArticle.excerpt}
                   </p>
                 </div>
@@ -640,7 +640,7 @@ export function HomePageClient({
                   <Link
                     key={article.id}
                     href={`/news/${article.slug}`}
-                    className="group relative h-[210px] sm:h-[225px] rounded-[16px] overflow-hidden shadow-md block bg-[#1E103C]"
+                    className="group relative h-[210px] sm:h-[225px] rounded-[16px] overflow-hidden shadow-md block bg-client-deep"
                   >
                     <SmartImage
                       src={article.avatar || NEWS_FALLBACK_IMAGE}
@@ -651,10 +651,10 @@ export function HomePageClient({
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent flex flex-col justify-end p-4 text-white">
-                      <span className="text-[11px] text-white/90">
+                      <span className="text-[11px] text-white/90 tabular-nums">
                         {formatDateVN(article.publishedAt)} · {article.category}
                       </span>
-                      <h3 className="mt-1 text-[14px] sm:text-[15px] font-bold leading-snug line-clamp-2 group-hover:text-[#FFD600] transition-colors">
+                      <h3 className="mt-1 text-[14px] sm:text-[15px] font-bold leading-snug line-clamp-2 group-hover:text-client-sun transition-colors">
                         {article.title}
                       </h3>
                     </div>
@@ -666,7 +666,7 @@ export function HomePageClient({
             <div className="mt-8 text-center">
               <Link
                 href="/news"
-                className="inline-flex items-center justify-center px-7 py-2.5 min-h-[44px] rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7] hover:text-white font-semibold text-[15px] transition-colors"
+                className="inline-flex items-center justify-center px-7 py-2.5 min-h-[44px] rounded-[8px] border border-client-primary text-client-primary hover:bg-client-primary hover:text-white font-semibold text-[15px] transition-colors"
               >
                 Xem tất cả tin tức
               </Link>

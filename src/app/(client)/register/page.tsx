@@ -75,12 +75,12 @@ function RegisterFormContent() {
 
   return (
     <div className="max-w-[480px] mx-auto px-4 py-10 sm:py-14">
-      <div className="bg-white rounded-[16px] border border-[#ECECEC] p-6 sm:p-8 shadow-md">
+      <div className="bg-white rounded-[16px] border border-subtle p-6 sm:p-8 shadow-md">
         <div className="text-center mb-6">
-          <h1 className="text-[24px] font-bold text-[#4502C7]">
+          <h1 className="text-[24px] font-bold text-ink">
             Tạo Tài Khoản Khách Hàng
           </h1>
-          <p className="text-[13px] text-[#667479] mt-1.5">
+          <p className="text-[13px] text-ink-muted mt-1.5">
             Đặt tour nhanh hơn và lưu toàn bộ lịch sử chuyến đi của bạn tại
             VN.TRAVEL.
           </p>
@@ -90,7 +90,7 @@ function RegisterFormContent() {
           {error && (
             <div
               role="alert"
-              className="rounded-lg bg-red-50 border border-red-200 text-[#DA0808] text-[13px] px-4 py-3 font-medium"
+              className="rounded-lg bg-status-danger-bg border border-status-danger-border text-status-danger text-[13px] px-4 py-3 font-medium"
             >
               {error}
             </div>
@@ -99,12 +99,12 @@ function RegisterFormContent() {
           <div>
             <label
               htmlFor="register-fullName"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
-              Họ và tên <span className="text-[#DA0808]">*</span>
+              Họ và tên <span className="text-status-danger">*</span>
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <User className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-fullName"
                 type="text"
@@ -112,7 +112,7 @@ function RegisterFormContent() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nguyễn Văn An"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -120,12 +120,12 @@ function RegisterFormContent() {
           <div>
             <label
               htmlFor="register-email"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
-              Email <span className="text-[#DA0808]">*</span>
+              Email <span className="text-status-danger">*</span>
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-email"
                 type="email"
@@ -134,7 +134,7 @@ function RegisterFormContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tenban@gmail.com"
                 autoComplete="email"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -142,19 +142,19 @@ function RegisterFormContent() {
           <div>
             <label
               htmlFor="register-phone"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
               Số điện thoại
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Phone className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="0912345678"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink tabular-nums placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -162,12 +162,12 @@ function RegisterFormContent() {
           <div>
             <label
               htmlFor="register-password"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
-              Mật khẩu <span className="text-[#DA0808]">*</span>
+              Mật khẩu <span className="text-status-danger">*</span>
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="register-password"
                 type="password"
@@ -176,7 +176,7 @@ function RegisterFormContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Ít nhất 6 ký tự"
                 autoComplete="new-password"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ function RegisterFormContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-[46px] rounded-[10px] bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+            className="w-full h-[46px] rounded-[10px] bg-client-primary hover:bg-client-primary-hover text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Đăng Ký Tài Khoản
@@ -195,11 +195,11 @@ function RegisterFormContent() {
           <SocialOAuthButtons redirectTo={redirectTo} />
         </div>
 
-        <p className="text-center text-[13px] text-[#667479] mt-6">
+        <p className="text-center text-[13px] text-ink-muted mt-6">
           Đã có tài khoản?{" "}
           <Link
             href={loginHref}
-            className="text-[#4502C7] font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
+            className="text-client-primary font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
           >
             Đăng nhập ngay
           </Link>
@@ -214,7 +214,7 @@ export default function ClientRegisterPage() {
     <Suspense
       fallback={
         <div className="max-w-[480px] mx-auto px-4 py-14">
-          <div className="h-[480px] rounded-[16px] bg-white animate-pulse" />
+          <div className="h-[480px] rounded-[16px] bg-surface-muted border border-subtle animate-pulse" />
         </div>
       }
     >

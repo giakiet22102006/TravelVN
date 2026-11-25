@@ -54,7 +54,7 @@ export function SmartImage({
         style={!fill && width && height ? { width, height } : undefined}
         className={`${
           fill ? "absolute inset-0" : ""
-        } flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#F4EEFF] via-[#EFEAFD] to-[#E5DDFB] text-[#4502C7] select-none ${className}`}
+        } flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-client-soft via-surface-muted to-client-border/60 text-client-primary select-none ${className}`}
       >
         <Compass className="w-6 h-6 opacity-75" />
         <span className="text-[10px] font-bold tracking-wider uppercase opacity-80">

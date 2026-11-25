@@ -66,12 +66,12 @@ function LoginFormContent() {
 
   return (
     <div className="max-w-[460px] mx-auto px-4 py-10 sm:py-14">
-      <div className="bg-white rounded-[16px] border border-[#ECECEC] p-6 sm:p-8 shadow-md">
+      <div className="bg-white rounded-[16px] border border-subtle p-6 sm:p-8 shadow-md">
         <div className="text-center mb-6">
-          <h1 className="text-[24px] font-bold text-[#4502C7]">
+          <h1 className="text-[24px] font-bold text-ink">
             Đăng Nhập Tài Khoản
           </h1>
-          <p className="text-[13px] text-[#667479] mt-1.5">
+          <p className="text-[13px] text-ink-muted mt-1.5">
             Theo dõi lịch trình, quản lý đơn đặt tour và nhận ưu đãi thành viên
             VN.TRAVEL.
           </p>
@@ -81,7 +81,7 @@ function LoginFormContent() {
           {error && (
             <div
               role="alert"
-              className="rounded-lg bg-red-50 border border-red-200 text-[#DA0808] text-[13px] px-4 py-3 font-medium"
+              className="rounded-lg bg-status-danger-bg border border-status-danger-border text-status-danger text-[13px] px-4 py-3 font-medium"
             >
               {error}
             </div>
@@ -90,12 +90,12 @@ function LoginFormContent() {
           <div>
             <label
               htmlFor="login-email"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
               Email
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="login-email"
                 type="email"
@@ -104,7 +104,7 @@ function LoginFormContent() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tenban@gmail.com"
                 autoComplete="email"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -112,12 +112,12 @@ function LoginFormContent() {
           <div>
             <label
               htmlFor="login-password"
-              className="block text-[13px] font-semibold text-[#25282B] mb-1.5"
+              className="block text-[13px] font-semibold text-ink mb-1.5"
             >
               Mật khẩu
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-[#667085] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Lock className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 id="login-password"
                 type="password"
@@ -126,7 +126,7 @@ function LoginFormContent() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
-                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                className="w-full h-[44px] pl-10 pr-3.5 rounded-[10px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
               />
             </div>
           </div>
@@ -134,7 +134,7 @@ function LoginFormContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-[46px] rounded-[10px] bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+            className="w-full h-[46px] rounded-[10px] bg-client-primary hover:bg-client-primary-hover text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 disabled:opacity-60"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Đăng Nhập
@@ -148,11 +148,11 @@ function LoginFormContent() {
           />
         </div>
 
-        <p className="text-center text-[13px] text-[#667479] mt-4">
+        <p className="text-center text-[13px] text-ink-muted mt-4">
           Bạn chưa có tài khoản?{" "}
           <Link
             href={registerHref}
-            className="text-[#4502C7] font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
+            className="text-client-primary font-bold hover:underline inline-flex items-center min-h-[44px] px-1.5"
           >
             Đăng ký ngay
           </Link>
@@ -167,7 +167,7 @@ export default function ClientLoginPage() {
     <Suspense
       fallback={
         <div className="max-w-[460px] mx-auto px-4 py-14">
-          <div className="h-[420px] rounded-[16px] bg-white animate-pulse" />
+          <div className="h-[420px] rounded-[16px] bg-surface-muted border border-subtle animate-pulse" />
         </div>
       }
     >

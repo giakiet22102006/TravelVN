@@ -50,7 +50,7 @@ const SENTIMENT_BADGE: Record<
 > = {
   POSITIVE: {
     label: "Tích cực",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-status-success-bg text-status-success border-status-success-border",
   },
   NEUTRAL: {
     label: "Trung lập",
@@ -58,7 +58,7 @@ const SENTIMENT_BADGE: Record<
   },
   NEGATIVE: {
     label: "Cần cải thiện",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-status-warn-bg text-status-warn border-status-warn-border",
   },
 };
 
@@ -234,20 +234,20 @@ export function TourReviewsSection({
   return (
     <section
       id="tour-reviews"
-      className="mt-10 bg-white rounded-[14px] p-5 sm:p-7 border border-[#ECECEC] shadow-sm font-lexend-deca"
+      className="mt-10 bg-white rounded-[14px] p-5 sm:p-7 border border-border-subtle shadow-sm font-lexend-deca"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h2 className="text-[22px] sm:text-[24px] font-bold text-[#4502C7] flex items-center gap-2">
-            <MessageSquare className="w-6 h-6" />
+          <h2 className="text-[22px] sm:text-[24px] font-bold text-ink flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-client-primary" />
             <span>Đánh Giá &amp; Bình Luận Khách Hàng</span>
           </h2>
-          <p className="text-[13px] text-[#667479] mt-1">
+          <p className="text-[13px] text-ink-muted mt-1">
             Phản hồi thực tế về hành trình {tourName}
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#4502C7]/10 text-[#4502C7] text-[12px] font-semibold">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-client-soft border border-client-border text-client-primary text-[12px] font-semibold">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Tích hợp AI Tóm tắt &amp; Kiểm duyệt</span>
         </div>
@@ -256,13 +256,13 @@ export function TourReviewsSection({
       {/* Top Grid: Overall Score + AI Review Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7">
         {/* Rating Overview */}
-        <div className="lg:col-span-5 rounded-[12px] bg-[#F8F7FC] border border-[#E7E0F8] p-5">
-          <div className="flex items-center gap-4 pb-4 border-b border-[#E7E0F8]">
+        <div className="lg:col-span-5 rounded-[12px] bg-surface-page border border-border-subtle p-5">
+          <div className="flex items-center gap-4 pb-4 border-b border-border-subtle">
             <div className="text-center min-w-[92px]">
-              <div className="text-[32px] font-extrabold text-[#4502C7] leading-none">
+              <div className="text-[32px] font-extrabold text-client-primary leading-none tabular-nums">
                 {stats.reviewCount > 0 ? stats.ratingAvg.toFixed(1) : "—"}
               </div>
-              <div className="text-[12px] text-[#667479] mt-1">
+              <div className="text-[12px] text-ink-muted mt-1">
                 {stats.reviewCount > 0 ? "trên 5 sao" : "Chưa có điểm"}
               </div>
             </div>
@@ -274,18 +274,18 @@ export function TourReviewsSection({
                     key={i}
                     className={`w-4 h-4 ${
                       stats.reviewCount > 0 && i < Math.round(stats.ratingAvg)
-                        ? "fill-[#FFB800] text-[#FFB800]"
-                        : "text-[#D4D8DD]"
+                        ? "fill-client-star text-client-star"
+                        : "text-border-strong"
                     }`}
                   />
                 ))}
               </div>
-              <p className="text-[13px] font-semibold text-[#25282B] mt-1">
+              <p className="text-[13px] font-semibold text-ink mt-1 tabular-nums">
                 {stats.reviewCount > 0
                   ? `${stats.reviewCount} đánh giá thực tế`
                   : "Chưa có đánh giá nào"}
               </p>
-              <p className="text-[12px] text-[#667479]">
+              <p className="text-[12px] text-ink-muted">
                 Khách đã đặt tour được gắn huy hiệu xác thực
               </p>
             </div>
@@ -301,21 +301,21 @@ export function TourReviewsSection({
                 onClick={() =>
                   applyFilter(ratingFilter === starStr ? "" : starStr, verifiedOnly)
                 }
-                className={`w-full flex items-center gap-2.5 text-[12px] py-0.5 rounded hover:bg-white/70 transition-colors ${
-                  ratingFilter === starStr ? "font-bold text-[#4502C7]" : "text-[#4F4F4F]"
+                className={`w-full flex items-center gap-2.5 text-[12px] py-0.5 rounded hover:bg-white/70 transition-colors tabular-nums ${
+                  ratingFilter === starStr ? "font-bold text-client-primary" : "text-ink-muted"
                 }`}
               >
                 <span className="w-11 text-left inline-flex items-center gap-1">
                   {row.star}
-                  <Star className="w-3 h-3 fill-[#FFB800] text-[#FFB800]" />
+                  <Star className="w-3 h-3 fill-client-star text-client-star" />
                 </span>
-                <div className="flex-1 h-2 bg-[#E6E8EC] rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-surface-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#FFB800] rounded-full transition-all duration-300"
+                    className="h-full bg-client-star rounded-full transition-[width] duration-300"
                     style={{ width: `${row.pct}%` }}
                   />
                 </div>
-                <span className="w-8 text-right font-semibold">{row.count}</span>
+                <span className="w-8 text-right font-semibold tabular-nums">{row.count}</span>
               </button>
               );
             })}
@@ -323,17 +323,17 @@ export function TourReviewsSection({
         </div>
 
         {/* AI Review Summary Card */}
-        <div className="lg:col-span-7 rounded-[12px] bg-gradient-to-br from-[#F4EEFF] via-white to-[#F2F7FF] border border-[#DED2FA] p-5 flex flex-col justify-between">
+        <div className="lg:col-span-7 rounded-[12px] bg-gradient-to-br from-client-soft via-white to-surface-page border border-client-border p-5 flex flex-col justify-between">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="inline-flex items-center gap-2 text-[#4502C7] font-bold text-[15px]">
-                <span className="w-7 h-7 rounded-lg bg-[#4502C7] text-white inline-flex items-center justify-center">
+              <div className="inline-flex items-center gap-2 text-ink font-bold text-[15px]">
+                <span className="w-7 h-7 rounded-lg bg-client-primary text-white inline-flex items-center justify-center">
                   <Sparkles className="w-4 h-4" />
                 </span>
                 <span>AI Tóm Tắt Đánh Giá Khách Hàng</span>
               </div>
               {aiSummary && (
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white border border-[#DED2FA] text-[#5D5FEF]">
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white border border-client-border text-client-primary">
                   {aiSummary.source === "gemini"
                     ? "Gemini AI"
                     : "Smart NLP Summary"}
@@ -343,18 +343,18 @@ export function TourReviewsSection({
 
             {aiSummary ? (
               <div className="space-y-3">
-                <p className="text-[13px] sm:text-[14px] text-[#25282B] leading-relaxed font-medium">
+                <p className="text-[13px] sm:text-[14px] text-ink leading-relaxed font-medium">
                   {aiSummary.overview}
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {aiSummary.pros.length > 0 && (
-                    <div className="rounded-[10px] bg-emerald-50/75 border border-emerald-200 p-3">
-                      <p className="text-[12px] font-bold text-emerald-800 inline-flex items-center gap-1.5 mb-1.5">
+                    <div className="rounded-[10px] bg-status-success-bg/80 border border-status-success-border p-3">
+                      <p className="text-[12px] font-bold text-status-success inline-flex items-center gap-1.5 mb-1.5">
                         <ThumbsUp className="w-3.5 h-3.5" />
                         <span>Ưu điểm nổi bật</span>
                       </p>
-                      <ul className="space-y-1 text-[12px] text-emerald-900 list-disc pl-4">
+                      <ul className="space-y-1 text-[12px] text-status-success list-disc pl-4">
                         {aiSummary.pros.map((pro, idx) => (
                           <li key={idx}>{pro}</li>
                         ))}
@@ -363,12 +363,12 @@ export function TourReviewsSection({
                   )}
 
                   {aiSummary.cons.length > 0 && (
-                    <div className="rounded-[10px] bg-amber-50/80 border border-amber-200 p-3">
-                      <p className="text-[12px] font-bold text-amber-800 inline-flex items-center gap-1.5 mb-1.5">
+                    <div className="rounded-[10px] bg-status-warn-bg/80 border border-status-warn-border p-3">
+                      <p className="text-[12px] font-bold text-status-warn inline-flex items-center gap-1.5 mb-1.5">
                         <ThumbsDown className="w-3.5 h-3.5" />
                         <span>Điểm cần lưu ý</span>
                       </p>
-                      <ul className="space-y-1 text-[12px] text-amber-900 list-disc pl-4">
+                      <ul className="space-y-1 text-[12px] text-status-warn list-disc pl-4">
                         {aiSummary.cons.map((con, idx) => (
                           <li key={idx}>{con}</li>
                         ))}
@@ -378,17 +378,17 @@ export function TourReviewsSection({
                 </div>
 
                 {aiSummary.tips && (
-                  <div className="rounded-[8px] bg-white/90 border border-[#E5E0F6] px-3 py-2 text-[12px] text-[#4F4F4F] flex items-start gap-1.5">
-                    <Lightbulb className="w-4 h-4 shrink-0 text-[#4502C7] mt-0.5" />
+                  <div className="rounded-[8px] bg-white/90 border border-client-border px-3 py-2 text-[12px] text-ink-muted flex items-start gap-1.5">
+                    <Lightbulb className="w-4 h-4 shrink-0 text-client-primary mt-0.5" />
                     <div>
-                      <span className="font-bold text-[#4502C7]">Mẹo từ AI: </span>
+                      <span className="font-bold text-client-primary">Mẹo từ AI: </span>
                       {aiSummary.tips}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-[13px] text-[#667479] leading-relaxed">
+              <p className="text-[13px] text-ink-muted leading-relaxed">
                 Tour này chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ trải
                 nghiệm để hệ thống AI tổng hợp góc nhìn khách quan cho những du
                 khách tiếp theo!
@@ -399,31 +399,31 @@ export function TourReviewsSection({
       </div>
 
       {/* Write a Review Form */}
-      <div className="rounded-[12px] border border-[#E5E7EB] bg-[#FAFAFC] p-4 sm:p-5 mb-7">
+      <div className="rounded-[12px] border border-border-subtle bg-surface-page p-4 sm:p-5 mb-7">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="text-[16px] font-bold text-[#25282B]">
+          <h3 className="text-[16px] font-bold text-ink">
             Viết đánh giá &amp; bình luận của bạn
           </h3>
-          <span className="text-[12px] text-[#5D5FEF] inline-flex items-center gap-1 font-medium">
+          <span className="text-[12px] text-client-primary inline-flex items-center gap-1 font-medium">
             <ShieldCheck className="w-4 h-4" />
             <span>AI kiểm duyệt văn minh • Hiển thị ngay</span>
           </span>
         </div>
 
         {!currentUser ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] bg-white border border-[#E5E7EB] p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-[10px] bg-white border border-border-subtle p-4">
             <div>
-              <p className="text-[14px] font-semibold text-[#25282B]">
+              <p className="text-[14px] font-semibold text-ink">
                 Đăng nhập để chia sẻ cảm nhận về tour
               </p>
-              <p className="text-[12px] text-[#667479] mt-0.5">
+              <p className="text-[12px] text-ink-muted mt-0.5">
                 Hỗ trợ đăng nhập nhanh 1 chạm bằng Google hoặc tài khoản khách
                 hàng VN.TRAVEL.
               </p>
             </div>
             <Link
               href={`/login?next=${encodeURIComponent(`/tours/${tourSlug}#tour-reviews`)}`}
-              className="shrink-0 h-[40px] px-5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[13px] font-semibold inline-flex items-center justify-center transition-colors"
+              className="shrink-0 h-[40px] px-5 rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold inline-flex items-center justify-center transition-colors"
             >
               Đăng nhập ngay
             </Link>
@@ -432,7 +432,7 @@ export function TourReviewsSection({
           <form onSubmit={handleSubmitReview} className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-[#4F4F4F]">
+                <span className="text-[13px] font-semibold text-ink-muted">
                   Chọn mức hài lòng:
                 </span>
                 <div className="flex items-center gap-1">
@@ -449,20 +449,20 @@ export function TourReviewsSection({
                       <Star
                         className={`w-6 h-6 ${
                           star <= activeStars
-                            ? "fill-[#FFB800] text-[#FFB800]"
-                            : "text-[#D4D8DD]"
+                            ? "fill-client-star text-client-star"
+                            : "text-border-strong"
                         }`}
                       />
                     </button>
                   ))}
                 </div>
-                <span className="text-[13px] font-bold text-[#4502C7]">
+                <span className="text-[13px] font-bold text-client-primary">
                   {RATING_LABELS[activeStars]}
                 </span>
               </div>
 
               {isVerifiedBooking && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-status-success-bg border border-status-success-border text-status-success text-[12px] font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Bạn đã đặt tour này (Huy hiệu xác thực)</span>
                 </span>
@@ -475,15 +475,15 @@ export function TourReviewsSection({
               onChange={(e) => setCommentInput(e.target.value)}
               placeholder="Chia sẻ trải nghiệm về lịch trình, hướng dẫn viên, khách sạn, bữa ăn... (tối thiểu 10 ký tự)"
               maxLength={1500}
-              className="w-full rounded-[10px] border border-[#CCD1D2] bg-white px-3.5 py-2.5 text-[14px] text-[#25282B] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+              className="w-full rounded-[10px] border border-border-strong bg-white px-3.5 py-2.5 text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/30"
             />
 
             {feedback && (
               <div
                 className={`rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium flex items-start gap-2 ${
                   feedback.type === "success"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : "bg-red-50 text-red-700 border border-red-200"
+                    ? "bg-status-success-bg text-status-success border border-status-success-border"
+                    : "bg-status-danger-bg text-status-danger border border-status-danger-border"
                 }`}
               >
                 {feedback.type === "success" ? (
@@ -496,16 +496,16 @@ export function TourReviewsSection({
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[12px] text-[#667479]">
+              <span className="text-[12px] text-ink-muted">
                 Đang bình luận với tên:{" "}
-                <strong className="text-[#25282B]">
+                <strong className="text-ink">
                   {currentUser.fullName}
                 </strong>
               </span>
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-[40px] px-5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] disabled:opacity-60 text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors"
+                className="h-[40px] px-5 rounded-[8px] bg-client-primary hover:bg-client-primary-hover disabled:opacity-60 text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors"
               >
                 {submitting ? (
                   <>
@@ -539,10 +539,10 @@ export function TourReviewsSection({
               key={pill.label}
               type="button"
               onClick={() => applyFilter(pill.rating, false)}
-              className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border transition-colors ${
+              className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border tabular-nums transition-colors ${
                 active
-                  ? "bg-[#4502C7] text-white border-[#4502C7]"
-                  : "bg-white text-[#4F4F4F] border-[#DDE1E6] hover:border-[#4502C7]"
+                  ? "bg-client-primary text-white border-client-primary"
+                  : "bg-white text-ink-muted border-border-strong hover:border-client-primary hover:text-client-primary"
               }`}
             >
               {pill.label}
@@ -555,8 +555,8 @@ export function TourReviewsSection({
           onClick={() => applyFilter("", !verifiedOnly)}
           className={`h-[34px] px-3.5 rounded-full text-[12px] font-semibold border inline-flex items-center gap-1.5 transition-colors ${
             verifiedOnly
-              ? "bg-emerald-600 text-white border-emerald-600"
-              : "bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+              ? "bg-client-primary text-white border-client-primary"
+              : "bg-white text-client-primary border-client-border hover:bg-client-soft"
           }`}
         >
           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -566,12 +566,12 @@ export function TourReviewsSection({
 
       {/* Reviews Feed */}
       {loadingList ? (
-        <div className="py-10 text-center text-[13px] text-[#667479] inline-flex items-center justify-center gap-2 w-full">
-          <Loader2 className="w-4 h-4 animate-spin text-[#4502C7]" />
+        <div className="py-10 text-center text-[13px] text-ink-muted inline-flex items-center justify-center gap-2 w-full">
+          <Loader2 className="w-4 h-4 animate-spin text-client-primary" />
           <span>Đang tải danh sách đánh giá...</span>
         </div>
       ) : reviews.length === 0 ? (
-        <div className="py-10 text-center rounded-[10px] border border-dashed border-[#DDE1E6] text-[13px] text-[#667479]">
+        <div className="py-10 text-center rounded-[10px] border border-dashed border-border-strong text-[13px] text-ink-muted">
           Không có đánh giá nào khớp bộ lọc hiện tại.
         </div>
       ) : (
@@ -583,11 +583,11 @@ export function TourReviewsSection({
             return (
               <article
                 key={rev.id}
-                className="rounded-[12px] border border-[#ECECEC] bg-white p-4 sm:p-5"
+                className="rounded-[12px] border border-border-subtle bg-white p-4 sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-[#4502C7]/12 text-[#4502C7] font-bold flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-client-soft text-client-primary font-bold flex items-center justify-center shrink-0">
                       {rev.user.avatar && !failedAvatars[rev.id] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -604,30 +604,30 @@ export function TourReviewsSection({
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[14px] font-bold text-[#25282B]">
+                        <span className="text-[14px] font-bold text-ink">
                           {rev.user.fullName}
                         </span>
                         {rev.isVerifiedBooking && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-success-bg border border-status-success-border text-status-success text-[11px] font-semibold">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Đã trải nghiệm tour</span>
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <div className="flex items-center text-[#FFB800]">
+                        <div className="flex items-center text-client-star">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
                               className={`w-3.5 h-3.5 ${
                                 i < rev.rating
-                                  ? "fill-[#FFB800]"
-                                  : "text-[#D4D8DD]"
+                                  ? "fill-client-star"
+                                  : "text-border-strong"
                               }`}
                             />
                           ))}
                         </div>
-                        <span className="text-[11px] text-[#667479]">
+                        <span className="text-[11px] text-ink-muted tabular-nums">
                           {formatDateVN(rev.createdAt)}
                         </span>
                       </div>
@@ -641,23 +641,23 @@ export function TourReviewsSection({
                   </span>
                 </div>
 
-                <p className="mt-3 text-[14px] text-[#33363A] leading-relaxed whitespace-pre-line">
+                <p className="mt-3 text-[14px] text-ink leading-relaxed whitespace-pre-line">
                   {rev.comment}
                 </p>
 
                 {rev.adminReply && (
-                  <div className="mt-3 ml-2 sm:ml-6 rounded-[10px] bg-[#F5F2FF] border border-[#E2D8FA] p-3.5">
+                  <div className="mt-3 ml-2 sm:ml-6 rounded-[10px] bg-client-soft/70 border border-client-border p-3.5">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[12px] font-bold text-[#4502C7]">
+                      <span className="text-[12px] font-bold text-client-primary">
                         Phản hồi từ VN.TRAVEL
                       </span>
                       {rev.repliedAt && (
-                        <span className="text-[11px] text-[#667479]">
+                        <span className="text-[11px] text-ink-muted tabular-nums">
                           {formatDateVN(rev.repliedAt)}
                         </span>
                       )}
                     </div>
-                    <p className="text-[13px] text-[#33363A] leading-relaxed whitespace-pre-line">
+                    <p className="text-[13px] text-ink leading-relaxed whitespace-pre-line">
                       {rev.adminReply}
                     </p>
                   </div>

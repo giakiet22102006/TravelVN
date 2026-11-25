@@ -69,7 +69,7 @@ export default async function ToursPage({
     <Suspense
       fallback={
         <div className="max-w-[1184px] mx-auto px-4 py-12">
-          <div className="h-[220px] rounded-[12px] bg-white animate-pulse mb-6" />
+          <div className="h-[220px] rounded-[12px] bg-white border border-border-subtle animate-pulse mb-6" />
         </div>
       }
     >

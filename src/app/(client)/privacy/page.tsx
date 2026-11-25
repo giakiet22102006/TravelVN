@@ -8,28 +8,28 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <div className="max-w-[920px] mx-auto px-4 py-8 sm:py-12">
-      <div className="bg-white rounded-[16px] border border-[#ECECEC] p-6 sm:p-10 shadow-sm space-y-6">
-        <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#ECECEC]">
+      <div className="bg-white rounded-[16px] border border-subtle p-6 sm:p-10 shadow-sm space-y-6">
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-subtle">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-[#4502C7]/10 text-[#4502C7] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-[10px] bg-client-soft text-client-primary flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h1 className="text-[22px] sm:text-[26px] font-bold text-[#4502C7]">
+            <h1 className="text-[22px] sm:text-[26px] font-bold text-ink">
               Chính Sách Bảo Mật
             </h1>
           </div>
           <Link
             href="/tours"
-            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#4502C7] hover:underline"
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-client-primary hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Xem Tour</span>
           </Link>
         </div>
 
-        <div className="space-y-4 text-[14px] text-[#4F4F4F] leading-relaxed">
+        <div className="space-y-4 text-[14px] text-ink-muted leading-relaxed">
           <section className="space-y-1.5">
-            <h2 className="text-[16px] font-bold text-[#25282B]">
+            <h2 className="text-[16px] font-bold text-ink">
               1. Mục đích thu thập thông tin
             </h2>
             <p>
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
           </section>
 
           <section className="space-y-1.5">
-            <h2 className="text-[16px] font-bold text-[#25282B]">
+            <h2 className="text-[16px] font-bold text-ink">
               2. Phạm vi lưu trữ và bảo vệ dữ liệu
             </h2>
             <p>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
           </section>
 
           <section className="space-y-1.5">
-            <h2 className="text-[16px] font-bold text-[#25282B]">
+            <h2 className="text-[16px] font-bold text-ink">
               3. Quyền kiểm tra và chỉnh sửa thông tin
             </h2>
             <p>

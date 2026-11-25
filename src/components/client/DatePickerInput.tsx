@@ -279,18 +279,18 @@ export function DatePickerInput({
         onClick={() => setOpen(true)}
         className={
           isCompact
-            ? "w-full h-[40px] px-3 rounded-[8px] border border-[#CCD1D2] bg-white flex items-center gap-2 text-[#25282B] cursor-pointer focus-within:border-[#4502C7] focus-within:ring-2 focus-within:ring-[#4502C7]/20 transition-shadow"
-            : "bg-white rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-[#25282B] cursor-pointer focus-within:ring-2 focus-within:ring-[#FFD600] transition-shadow"
+            ? "w-full h-[40px] px-3 rounded-[8px] border border-border-strong bg-white flex items-center gap-2 text-ink cursor-pointer focus-within:border-client-primary focus-within:ring-2 focus-within:ring-client-primary/20 transition-shadow"
+            : "bg-surface-page hover:bg-white border border-border-subtle rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-ink cursor-pointer focus-within:bg-white focus-within:border-client-primary focus-within:ring-2 focus-within:ring-client-primary/20 transition-colors"
         }
       >
         <Calendar
           className={`${
             isCompact ? "w-4 h-4" : "w-5 h-5"
-          } text-[#4502C7] shrink-0`}
+          } text-client-primary shrink-0`}
         />
         <div className="flex-1 min-w-0">
           {!isCompact && (
-            <span className="block text-[10px] text-[#667479] leading-none mb-0.5">
+            <span className="block text-[10px] text-ink-muted leading-none mb-0.5">
               Lịch khởi hành
             </span>
           )}
@@ -310,7 +310,11 @@ export function DatePickerInput({
             placeholder="dd/mm/yyyy"
             maxLength={10}
             aria-label="Ngày khởi hành"
-            className="w-full bg-transparent text-[13px] font-medium placeholder:text-[#667085] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 rounded"
+            className={`w-full bg-transparent text-[13px] font-medium tabular-nums placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 rounded ${
+              isCompact
+                ? "focus-visible:ring-client-primary/30"
+                : "focus-visible:ring-client-sun"
+            }`}
           />
         </div>
         {(textValue || value) && (
@@ -323,7 +327,7 @@ export function DatePickerInput({
               setTextValue("");
               onChange("");
             }}
-            className="w-6 h-6 rounded-full text-[#667479] hover:bg-[#F3EEFF] hover:text-[#4502C7] flex items-center justify-center shrink-0 transition-colors"
+            className="w-6 h-6 rounded-full text-ink-muted hover:bg-client-soft hover:text-client-primary flex items-center justify-center shrink-0 transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -332,7 +336,7 @@ export function DatePickerInput({
 
       {open && (
         <div
-          className={`absolute top-[calc(100%+8px)] w-[min(290px,calc(100vw-2rem))] max-w-full sm:w-[300px] bg-white rounded-[12px] shadow-2xl border border-[#ECECEC] p-3 sm:p-4 z-50 text-[#25282B] ${
+          className={`absolute top-[calc(100%+8px)] w-[min(290px,calc(100vw-2rem))] max-w-full sm:w-[300px] bg-white rounded-[12px] shadow-2xl border border-border-subtle p-3 sm:p-4 z-50 text-ink ${
             isCompact ? "left-0 lg:max-w-none" : "left-0 sm:max-w-none"
           }`}
         >
@@ -342,12 +346,12 @@ export function DatePickerInput({
               type="button"
               onClick={handlePrevMonth}
               aria-label="Tháng trước"
-              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+              className="w-8 h-8 rounded-[8px] border border-border-subtle hover:border-client-primary hover:bg-client-soft text-client-primary flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/30"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <span className="text-[14px] font-bold text-[#25282B]">
+            <span className="text-[14px] font-bold text-ink tabular-nums">
               Tháng {viewMonth + 1}, {viewYear}
             </span>
 
@@ -355,7 +359,7 @@ export function DatePickerInput({
               type="button"
               onClick={handleNextMonth}
               aria-label="Tháng sau"
-              className="w-8 h-8 rounded-[8px] border border-[#ECECEC] hover:border-[#4502C7] hover:bg-[#F3EEFF] text-[#4502C7] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+              className="w-8 h-8 rounded-[8px] border border-border-subtle hover:border-client-primary hover:bg-client-soft text-client-primary flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/30"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -366,7 +370,7 @@ export function DatePickerInput({
             {WEEKDAYS.map((wd) => (
               <span
                 key={wd}
-                className="text-[11px] font-semibold text-[#667479] py-1"
+                className="text-[11px] font-semibold text-ink-muted py-1"
               >
                 {wd}
               </span>
@@ -385,14 +389,14 @@ export function DatePickerInput({
                   onClick={() => handleSelectIso(cell.iso)}
                   aria-label={`Chọn ngày ${isoToDisplay(cell.iso)}`}
                   aria-pressed={isSelected}
-                  className={`h-8 rounded-[8px] text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
+                  className={`h-8 rounded-[8px] text-[13px] font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/30 ${
                     isSelected
-                      ? "bg-[#4502C7] text-white font-bold shadow-sm"
+                      ? "bg-client-primary text-white font-bold shadow-sm"
                       : isToday
-                        ? "bg-[#F3EEFF] text-[#4502C7] font-bold ring-1 ring-[#4502C7]/40"
+                        ? "bg-client-soft text-client-primary font-bold ring-1 ring-client-border"
                         : cell.inCurrentMonth
-                          ? "text-[#25282B] hover:bg-[#F3EEFF] hover:text-[#4502C7]"
-                          : "text-[#667085] hover:bg-[#F6F6F6]"
+                          ? "text-ink hover:bg-client-soft hover:text-client-primary"
+                          : "text-ink-muted/70 hover:bg-surface-page"
                   }`}
                 >
                   {cell.day}
@@ -402,7 +406,7 @@ export function DatePickerInput({
           </div>
 
           {/* Quick Actions */}
-          <div className="mt-3 pt-2.5 border-t border-[#ECECEC] flex items-center justify-between text-[12px]">
+          <div className="mt-3 pt-2.5 border-t border-border-subtle flex items-center justify-between text-[12px]">
             <button
               type="button"
               onClick={() => {
@@ -410,14 +414,14 @@ export function DatePickerInput({
                 onChange("");
                 setOpen(false);
               }}
-              className="font-medium text-[#667479] hover:text-[#DA0808] transition-colors"
+              className="font-medium text-ink-muted hover:text-client-accent transition-colors"
             >
               Xóa ngày
             </button>
             <button
               type="button"
               onClick={() => handleSelectIso((today ?? getTodayVN()).iso)}
-              className="font-semibold text-[#4502C7] hover:underline"
+              className="font-semibold text-client-primary hover:underline"
             >
               Hôm nay
             </button>

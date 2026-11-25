@@ -330,49 +330,51 @@ export default function CartPage() {
   if (createdOrder) {
     return (
       <div className="max-w-[880px] mx-auto px-4 py-10">
-        <div className="bg-white rounded-[16px] border border-[#ECECEC] p-6 sm:p-8 shadow-md">
-          <div className="flex flex-col items-center text-center pb-6 border-b border-[#ECECEC]">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+        <div className="bg-white rounded-[16px] border border-subtle p-6 sm:p-8 shadow-md">
+          <div className="flex flex-col items-center text-center pb-6 border-b border-subtle">
+            <div className="w-16 h-16 rounded-full bg-client-soft text-client-primary flex items-center justify-center mb-4">
               <CheckCircle2 className="w-9 h-9" />
             </div>
-            <h1 className="text-[24px] sm:text-[28px] font-bold text-[#4502C7]">
+            <h1 className="text-[24px] sm:text-[28px] font-bold text-ink">
               Đặt Tour Thành Công!
             </h1>
-            <p className="text-[14px] text-[#667479] mt-1.5">
+            <p className="text-[14px] text-ink-muted mt-1.5">
               Cảm ơn bạn đã tin tưởng VN.TRAVEL. Nhân viên tư vấn sẽ liên hệ xác
               nhận trong ít phút.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4502C7]/10 text-[#4502C7] text-[15px] font-bold">
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-client-soft border border-client-border text-client-primary text-[15px] font-bold tabular-nums">
               <span>Mã đơn hàng:</span>
               <span>{createdOrder.code}</span>
             </div>
           </div>
 
-          <div className="py-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[14px] border-b border-[#ECECEC]">
+          <div className="py-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[14px] border-b border-subtle">
             <div>
-              <span className="text-[#667479]">Khách hàng:</span>{" "}
-              <strong className="text-[#25282B]">{createdOrder.fullName}</strong>
+              <span className="text-ink-muted">Khách hàng:</span>{" "}
+              <strong className="text-ink">{createdOrder.fullName}</strong>
             </div>
             <div>
-              <span className="text-[#667479]">Số điện thoại:</span>{" "}
-              <strong className="text-[#25282B]">{createdOrder.phone}</strong>
+              <span className="text-ink-muted">Số điện thoại:</span>{" "}
+              <strong className="text-ink tabular-nums">
+                {createdOrder.phone}
+              </strong>
             </div>
             <div>
-              <span className="text-[#667479]">Phương thức thanh toán:</span>{" "}
-              <strong className="text-[#25282B]">
+              <span className="text-ink-muted">Phương thức thanh toán:</span>{" "}
+              <strong className="text-ink">
                 {PAYMENT_METHOD_LABELS[createdOrder.paymentMethod]}
               </strong>
             </div>
             <div>
-              <span className="text-[#667479]">Tổng thanh toán:</span>{" "}
-              <strong className="text-[#DA0808] text-[16px]">
+              <span className="text-ink-muted">Tổng thanh toán:</span>{" "}
+              <strong className="text-client-accent text-[16px] tabular-nums">
                 {formatCurrencyVND(createdOrder.total)}
               </strong>
             </div>
             {createdOrder.note && (
               <div className="sm:col-span-2">
-                <span className="text-[#667479]">Ghi chú:</span>{" "}
-                <span className="text-[#25282B]">{createdOrder.note}</span>
+                <span className="text-ink-muted">Ghi chú:</span>{" "}
+                <span className="text-ink">{createdOrder.note}</span>
               </div>
             )}
           </div>
@@ -385,21 +387,21 @@ export default function CartPage() {
           )}
 
           <div className="mt-6 space-y-2.5">
-            <p className="text-[14px] font-bold text-[#25282B]">
+            <p className="text-[14px] font-bold text-ink tabular-nums">
               Danh sách tour đã đặt ({createdOrder.items.length})
             </p>
             {createdOrder.items.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#F6F6F6] rounded-[10px] p-3.5 text-[13px]"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-surface-page border border-subtle rounded-[10px] p-3.5 text-[13px]"
               >
                 <div>
-                  <p className="font-bold text-[#25282B]">{item.name}</p>
-                  <p className="text-[#667479]">
-                    Khởi Hành Tại: <strong>{item.departureLocation}</strong>
+                  <p className="font-bold text-ink">{item.name}</p>
+                  <p className="text-ink-muted">
+                    Khởi Hành Tại: <strong className="text-ink">{item.departureLocation}</strong>
                   </p>
                 </div>
-                <div className="text-[#4502C7] font-semibold">
+                <div className="text-client-primary font-semibold tabular-nums">
                   NL: {item.quantityAdult} | TE: {item.quantityChild} | EB:{" "}
                   {item.quantityBaby}
                 </div>
@@ -411,27 +413,27 @@ export default function CartPage() {
             {currentUser ? (
               <Link
                 href="/account/orders"
-                className="px-6 py-2.5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[14px]"
+                className="px-6 py-2.5 rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white font-semibold text-[14px] transition-colors"
               >
                 Quản lý đơn hàng của tôi
               </Link>
             ) : (
               <Link
                 href="/login?next=/account/orders"
-                className="px-6 py-2.5 rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white font-semibold text-[14px]"
+                className="px-6 py-2.5 rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white font-semibold text-[14px] transition-colors"
               >
                 Đăng nhập để theo dõi đơn
               </Link>
             )}
             <Link
               href="/tours"
-              className="px-6 py-2.5 rounded-[8px] border border-[#4502C7] text-[#4502C7] hover:bg-[#4502C7]/5 font-semibold text-[14px]"
+              className="px-6 py-2.5 rounded-[8px] border border-client-primary text-client-primary hover:bg-client-soft font-semibold text-[14px] transition-colors"
             >
               Tiếp tục khám phá Tour
             </Link>
             <Link
               href="/"
-              className="px-6 py-2.5 rounded-[8px] border border-[#CCD1D2] hover:border-[#4502C7] text-[#25282B] font-semibold text-[14px]"
+              className="px-6 py-2.5 rounded-[8px] border border-strong hover:border-client-primary hover:text-client-primary text-ink font-semibold text-[14px] transition-colors"
             >
               Về Trang Chủ
             </Link>
@@ -446,14 +448,14 @@ export default function CartPage() {
   return (
     <div className="max-w-[960px] mx-auto px-4 py-6 sm:py-10 space-y-6">
       {/* Cart Container */}
-      <section className="bg-white rounded-[16px] border border-[#ECECEC] p-5 sm:p-7 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#ECECEC]">
-          <h1 className="text-[20px] sm:text-[24px] font-bold text-[#4502C7]">
+      <section className="bg-white rounded-[16px] border border-subtle p-5 sm:p-7 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-subtle">
+          <h1 className="text-[20px] sm:text-[24px] font-bold text-ink">
             Giỏ Hàng
           </h1>
           <Link
             href="/tours"
-            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[#4502C7] hover:underline"
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-client-primary hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quay lại mua hàng</span>
@@ -461,21 +463,21 @@ export default function CartPage() {
         </div>
 
         {!hydrated ? (
-          <div className="py-12 text-center text-[14px] text-[#667479]">
+          <div className="py-12 text-center text-[14px] text-ink-muted">
             Đang tải giỏ hàng...
           </div>
         ) : items.length === 0 ? (
           <div className="py-12 text-center">
-            <ShoppingBag className="w-12 h-12 mx-auto text-[#667085] mb-3" />
-            <p className="text-[16px] font-bold text-[#25282B]">
+            <ShoppingBag className="w-12 h-12 mx-auto text-ink-muted mb-3" />
+            <p className="text-[16px] font-bold text-ink">
               Giỏ hàng của bạn đang trống
             </p>
-            <p className="text-[13px] text-[#667479] mt-1">
+            <p className="text-[13px] text-ink-muted mt-1">
               Hãy chọn ngay một hành trình du lịch hấp dẫn để bắt đầu đặt tour!
             </p>
             <Link
               href="/tours"
-              className="mt-5 inline-flex items-center justify-center px-6 py-2.5 rounded-[8px] bg-[#4502C7] text-white text-[14px] font-semibold hover:bg-[#36019e]"
+              className="mt-5 inline-flex items-center justify-center px-6 py-2.5 rounded-[8px] bg-client-primary text-white text-[14px] font-semibold hover:bg-client-primary-hover transition-colors"
             >
               Khám Phá Tour Ngay
             </Link>
@@ -485,10 +487,10 @@ export default function CartPage() {
             {syncNotices.length > 0 && (
               <div
                 role="status"
-                className="mt-4 rounded-[12px] bg-amber-50 border border-amber-200 p-3.5 text-[12.5px] text-amber-900 flex items-start justify-between gap-3"
+                className="mt-4 rounded-[12px] bg-status-warn-bg border border-status-warn-border p-3.5 text-[12.5px] text-status-warn flex items-start justify-between gap-3"
               >
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-700" />
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-status-warn" />
                   <ul className="space-y-1">
                     {syncNotices.map((notice, idx) => (
                       <li key={idx}>{notice}</li>
@@ -499,7 +501,7 @@ export default function CartPage() {
                   type="button"
                   aria-label="Đóng thông báo cập nhật giỏ hàng"
                   onClick={() => setSyncNotices([])}
-                  className="p-1 text-amber-700 hover:text-amber-950 rounded shrink-0"
+                  className="p-1 text-status-warn hover:text-ink rounded shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -507,25 +509,27 @@ export default function CartPage() {
             )}
 
             {/* Select All Bar */}
-            <div className="py-3 flex items-center justify-between border-b border-[#ECECEC] text-[13px]">
-              <label className="inline-flex items-center gap-2 cursor-pointer select-none font-medium text-[#25282B]">
+            <div className="py-3 flex items-center justify-between border-b border-subtle text-[13px] tabular-nums">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none font-medium text-ink">
                 <input
                   type="checkbox"
                   checked={allChecked}
                   disabled={selectableItems.length === 0}
                   onChange={(e) => toggleAll(e.target.checked)}
-                  className="w-4 h-4 accent-[#4502C7] rounded"
+                  className="w-4 h-4 accent-client-primary rounded"
                 />
                 <span>Chọn tất cả ({items.length} tour)</span>
               </label>
-              <span className="text-[#667479]">
+              <span className="text-ink-muted">
                 Đã chọn:{" "}
-                <strong className="text-[#4502C7]">{checkedItems.length}</strong>
+                <strong className="text-client-primary">
+                  {checkedItems.length}
+                </strong>
               </span>
             </div>
 
             {/* Cart Items List */}
-            <div className="divide-y divide-[#ECECEC]">
+            <div className="divide-y divide-subtle">
               {items.map((item) => {
                 const isInactive = item.active === false;
                 const usedBySameTour = items.reduce(
@@ -550,14 +554,14 @@ export default function CartPage() {
                   {/* Left: Checkbox + Remove + Thumbnail + Info */}
                   <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
                     <div className="flex flex-col items-center gap-1.5 shrink-0 -ml-2">
-                      <label className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-[#F6F6F6] cursor-pointer">
+                      <label className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-muted transition-colors cursor-pointer">
                         <input
                           type="checkbox"
                           checked={item.checked && !isInactive}
                           disabled={isInactive}
                           onChange={() => toggleCheck(item.cartKey)}
                           aria-label={`Chọn tour ${item.name}`}
-                          className="w-4 h-4 accent-[#4502C7] rounded cursor-pointer disabled:cursor-not-allowed"
+                          className="w-4 h-4 accent-client-primary rounded cursor-pointer disabled:cursor-not-allowed"
                         />
                       </label>
                       <button
@@ -565,7 +569,7 @@ export default function CartPage() {
                         onClick={() => removeItem(item.cartKey)}
                         title="Xóa khỏi giỏ"
                         aria-label={`Xóa ${item.name}`}
-                        className="w-11 h-11 flex items-center justify-center rounded-lg text-[#667085] hover:text-[#DA0808] hover:bg-red-50 transition-colors"
+                        className="w-11 h-11 flex items-center justify-center rounded-lg text-ink-muted hover:text-status-danger hover:bg-status-danger-bg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -573,7 +577,7 @@ export default function CartPage() {
 
                     <Link
                       href={`/tours/${item.slug}`}
-                      className="relative w-[108px] sm:w-[136px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-[#ECECEC]"
+                      className="relative w-[108px] sm:w-[136px] aspect-[16/10] rounded-[8px] overflow-hidden shrink-0 bg-surface-muted"
                     >
                       <SmartImage
                         src={item.avatar}
@@ -589,28 +593,30 @@ export default function CartPage() {
                     <div className="min-w-0 flex-1 space-y-1">
                       <Link
                         href={`/tours/${item.slug}`}
-                        className="text-[15px] font-bold text-[#25282B] hover:text-[#4502C7] line-clamp-2 leading-snug"
+                        className="text-[15px] font-bold text-ink hover:text-client-primary transition-colors line-clamp-2 leading-snug"
                       >
                         {item.name}
                       </Link>
                       {isInactive && (
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-[#DA0808] text-[11px] font-semibold">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-status-danger-bg border border-status-danger-border text-status-danger text-[11px] font-semibold">
                           Tour tạm ngừng nhận đặt
                         </span>
                       )}
-                      <p className="text-[12px] text-[#667479]">
+                      <p className="text-[12px] text-ink-muted">
                         Mã Tour:{" "}
-                        <strong className="text-[#25282B]">{item.code}</strong>
+                        <strong className="text-ink tabular-nums">
+                          {item.code}
+                        </strong>
                       </p>
-                      <p className="text-[12px] text-[#667479]">
+                      <p className="text-[12px] text-ink-muted">
                         Ngày Khởi Hành:{" "}
-                        <strong className="text-[#25282B]">
+                        <strong className="text-ink tabular-nums">
                           {formatDateVN(item.departureDate)}
                         </strong>
                       </p>
-                      <p className="text-[12px] text-[#667479]">
+                      <p className="text-[12px] text-ink-muted">
                         Khởi Hành Tại:{" "}
-                        <strong className="text-[#25282B]">
+                        <strong className="text-ink">
                           {item.departureLocation}
                         </strong>
                       </p>
@@ -619,7 +625,7 @@ export default function CartPage() {
 
                   {/* Right: Quantities */}
                   <div className="lg:w-[340px] shrink-0 space-y-2.5 pl-0">
-                    <p className="text-[12px] font-semibold text-[#667479]">
+                    <p className="text-[12px] font-semibold text-ink-muted">
                       Số Lượng Hành Khách
                     </p>
 
@@ -662,11 +668,11 @@ export default function CartPage() {
                         key={row.tier}
                         className="flex flex-wrap items-center justify-between gap-2 text-[13px]"
                       >
-                        <span className="text-[#25282B] w-[78px] shrink-0">
+                        <span className="text-ink w-[78px] shrink-0">
                           {row.label}
                         </span>
 
-                        <div className="flex items-center border border-[#CCD1D2] rounded-[8px] overflow-hidden shrink-0">
+                        <div className="flex items-center border border-strong rounded-[8px] overflow-hidden shrink-0">
                           <button
                             type="button"
                             aria-label={`Giảm số lượng ${row.name}`}
@@ -696,13 +702,13 @@ export default function CartPage() {
                             }}
                             className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
                               atMin
-                                ? "text-[#667085] opacity-50 cursor-not-allowed bg-[#FAFAFA]"
-                                : "hover:bg-[#F6F6F6] text-[#25282B]"
+                                ? "text-ink-muted opacity-50 cursor-not-allowed bg-surface-page"
+                                : "hover:bg-surface-muted text-ink"
                             }`}
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="w-8 text-center text-[13px] font-bold shrink-0">
+                          <span className="w-8 text-center text-[13px] font-bold text-ink tabular-nums shrink-0">
                             {row.qty}
                           </span>
                           <button
@@ -731,17 +737,17 @@ export default function CartPage() {
                             }}
                             className={`w-10 h-10 shrink-0 sm:w-9 sm:h-9 flex items-center justify-center transition-colors ${
                               atMax
-                                ? "text-[#667085] opacity-40 cursor-not-allowed bg-[#FAFAFA]"
-                                : "hover:bg-[#F6F6F6] text-[#25282B]"
+                                ? "text-ink-muted opacity-40 cursor-not-allowed bg-surface-page"
+                                : "hover:bg-surface-muted text-ink"
                             }`}
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="min-w-[92px] text-right font-semibold text-[#4502C7] text-[12px] tabular-nums shrink-0">
+                        <div className="min-w-[92px] text-right font-semibold text-ink-muted text-[12px] tabular-nums shrink-0">
                           {row.qty} x{" "}
-                          <span className="text-[#DA0808]">
+                          <span className="text-client-accent font-bold">
                             {row.price.toLocaleString("vi-VN")}
                           </span>
                         </div>
@@ -752,7 +758,7 @@ export default function CartPage() {
                     {itemQtyHints[item.cartKey] && (
                       <p
                         role="status"
-                        className="text-[11.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-[8px] px-2.5 py-1.5 font-medium"
+                        className="text-[11.5px] text-status-warn bg-status-warn-bg border border-status-warn-border rounded-[8px] px-2.5 py-1.5 font-medium"
                       >
                         {itemQtyHints[item.cartKey]}
                       </p>
@@ -764,11 +770,11 @@ export default function CartPage() {
             </div>
 
             {/* Coupon & Summary Row */}
-            <div className="pt-5 border-t border-[#ECECEC] flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="pt-5 border-t border-subtle flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="md:max-w-[440px] w-full">
                 <form onSubmit={handleApplyCoupon} className="flex gap-2">
                   <div className="relative flex-1 min-w-0">
-                    <Tag className="w-4 h-4 text-[#667085] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Tag className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       aria-label="Mã giảm giá"
@@ -779,7 +785,7 @@ export default function CartPage() {
                           ? `Nhập mã (vd: ${activeCouponList[0].code})`
                           : "Nhập mã giảm giá"
                       }
-                      className={`w-full h-[42px] pl-9 rounded-[8px] border border-[#CCD1D2] text-[13px] uppercase placeholder:normal-case focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
+                      className={`w-full h-[42px] pl-9 rounded-[8px] border border-strong text-[13px] text-ink uppercase placeholder:normal-case placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
                         showClearCouponBtn ? "pr-10" : "pr-3"
                       }`}
                     />
@@ -789,7 +795,7 @@ export default function CartPage() {
                         onClick={clearCoupon}
                         title="Xóa mã giảm giá"
                         aria-label="Xóa mã giảm giá"
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#667479] hover:text-[#DA0808] rounded"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-status-danger transition-colors rounded"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -797,7 +803,7 @@ export default function CartPage() {
                   </div>
                   <button
                     type="submit"
-                    className="px-4 h-[42px] rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] text-white text-[13px] font-semibold whitespace-nowrap transition-colors shrink-0"
+                    className="px-4 h-[42px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover text-white text-[13px] font-semibold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 shrink-0"
                   >
                     Dùng Mã
                   </button>
@@ -805,10 +811,10 @@ export default function CartPage() {
 
                 {couponFeedback && (
                   <p
-                    className={`mt-2 text-[12px] ${
+                    className={`mt-2 text-[12px] font-medium tabular-nums ${
                       couponFeedback.type === "success"
-                        ? "text-emerald-600 font-medium"
-                        : "text-[#DA0808]"
+                        ? "text-client-primary"
+                        : "text-status-danger"
                     }`}
                   >
                     {couponFeedback.text}
@@ -816,22 +822,22 @@ export default function CartPage() {
                 )}
               </div>
 
-              <div className="md:min-w-[300px] space-y-2 text-[14px]">
+              <div className="md:min-w-[300px] space-y-2 text-[14px] tabular-nums">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[#667479]">Tổng tiền:</span>
-                  <span className="font-semibold text-[#25282B]">
+                  <span className="text-ink-muted">Tổng tiền:</span>
+                  <span className="font-semibold text-ink tabular-nums">
                     {formatCurrencyVND(checkedSubTotal)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[#667479]">Giảm:</span>
-                  <span className="font-semibold text-[#DA0808]">
+                  <span className="text-ink-muted">Giảm:</span>
+                  <span className="font-semibold text-client-accent tabular-nums">
                     -{formatCurrencyVND(discount)}
                   </span>
                 </div>
-                <div className="pt-2 border-t border-[#ECECEC] flex items-center justify-between gap-4">
-                  <span className="font-bold text-[#25282B]">Thanh toán:</span>
-                  <span className="text-[22px] font-extrabold text-[#4502C7]">
+                <div className="pt-2 border-t border-subtle flex items-center justify-between gap-4">
+                  <span className="font-bold text-ink">Thanh toán:</span>
+                  <span className="text-[22px] font-extrabold text-client-accent tabular-nums">
                     {formatCurrencyVND(finalTotal)}
                   </span>
                 </div>
@@ -846,11 +852,11 @@ export default function CartPage() {
         <form
           noValidate
           onSubmit={handleCheckoutSubmit}
-          className="bg-white rounded-[16px] border border-[#ECECEC] p-5 sm:p-7 shadow-sm space-y-6"
+          className="bg-white rounded-[16px] border border-subtle p-5 sm:p-7 shadow-sm space-y-6"
         >
           {/* Thông Tin Khách Hàng */}
           <div>
-            <h2 className="text-[18px] sm:text-[20px] font-bold text-[#4502C7] mb-4">
+            <h2 className="text-[18px] sm:text-[20px] font-bold text-ink mb-4">
               Thông Tin Khách Hàng
             </h2>
 
@@ -858,9 +864,9 @@ export default function CartPage() {
               <div>
                 <label
                   htmlFor="checkout-fullName"
-                  className="block text-[13px] font-medium text-[#25282B] mb-1.5"
+                  className="block text-[13px] font-medium text-ink mb-1.5"
                 >
-                  Họ và tên <span className="text-[#DA0808]">*</span>
+                  Họ và tên <span className="text-status-danger">*</span>
                 </label>
                 <input
                   ref={fullNameInputRef}
@@ -877,16 +883,16 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: Nguyễn Minh An"
                   aria-invalid={Boolean(fieldErrors.fullName)}
-                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
                     fieldErrors.fullName
-                      ? "border-[#DA0808] bg-red-50/40"
-                      : "border-[#CCD1D2]"
+                      ? "border-status-danger bg-status-danger-bg/40"
+                      : "border-strong"
                   }`}
                 />
                 {fieldErrors.fullName && (
                   <p
                     role="alert"
-                    className="mt-1.5 text-[12px] text-[#DA0808] font-medium"
+                    className="mt-1.5 text-[12px] text-status-danger font-medium"
                   >
                     {fieldErrors.fullName}
                   </p>
@@ -896,9 +902,9 @@ export default function CartPage() {
               <div>
                 <label
                   htmlFor="checkout-phone"
-                  className="block text-[13px] font-medium text-[#25282B] mb-1.5"
+                  className="block text-[13px] font-medium text-ink mb-1.5"
                 >
-                  Số điện thoại <span className="text-[#DA0808]">*</span>
+                  Số điện thoại <span className="text-status-danger">*</span>
                 </label>
                 <input
                   ref={phoneInputRef}
@@ -915,16 +921,16 @@ export default function CartPage() {
                   }}
                   placeholder="Ví dụ: 0912345678"
                   aria-invalid={Boolean(fieldErrors.phone)}
-                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40 ${
+                  className={`scroll-mt-32 w-full h-[44px] px-3.5 rounded-[8px] border text-[14px] text-ink tabular-nums placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
                     fieldErrors.phone
-                      ? "border-[#DA0808] bg-red-50/40"
-                      : "border-[#CCD1D2]"
+                      ? "border-status-danger bg-status-danger-bg/40"
+                      : "border-strong"
                   }`}
                 />
                 {fieldErrors.phone && (
                   <p
                     role="alert"
-                    className="mt-1.5 text-[12px] text-[#DA0808] font-medium"
+                    className="mt-1.5 text-[12px] text-status-danger font-medium"
                   >
                     {fieldErrors.phone}
                   </p>
@@ -934,7 +940,7 @@ export default function CartPage() {
               <div className="sm:col-span-2">
                 <label
                   htmlFor="checkout-note"
-                  className="block text-[13px] font-medium text-[#25282B] mb-1.5"
+                  className="block text-[13px] font-medium text-ink mb-1.5"
                 >
                   Ghi chú
                 </label>
@@ -944,7 +950,7 @@ export default function CartPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Yêu cầu đặc biệt (phòng view biển, ăn chay, xuất hóa đơn VAT...)"
-                  className="w-full p-3.5 rounded-[8px] border border-[#CCD1D2] text-[14px] focus:outline-none focus:border-[#4502C7] focus-visible:ring-2 focus-visible:ring-[#4502C7]/40"
+                  className="w-full p-3.5 rounded-[8px] border border-strong text-[14px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
                 />
               </div>
             </div>
@@ -952,8 +958,8 @@ export default function CartPage() {
 
           {/* CHỌN phương thức thanh toán */}
           <div>
-            <h2 className="text-[18px] sm:text-[20px] font-bold text-[#4502C7] mb-3.5 flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
+            <h2 className="text-[18px] sm:text-[20px] font-bold text-ink mb-3.5 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-client-primary" />
               <span>Chọn phương thức thanh toán</span>
             </h2>
 
@@ -964,8 +970,8 @@ export default function CartPage() {
                     key={method}
                     className={`flex items-center gap-3 p-3 rounded-[10px] border cursor-pointer transition-colors ${
                       paymentMethod === method
-                        ? "border-[#4502C7] bg-[#4502C7]/5 font-semibold text-[#4502C7]"
-                        : "border-[#ECECEC] hover:border-[#CCD1D2] text-[#25282B]"
+                        ? "border-client-border bg-client-soft font-semibold text-client-primary"
+                        : "border-subtle hover:border-strong text-ink"
                     }`}
                   >
                     <input
@@ -974,7 +980,7 @@ export default function CartPage() {
                       value={method}
                       checked={paymentMethod === method}
                       onChange={() => setPaymentMethod(method)}
-                      className="w-4 h-4 accent-[#4502C7]"
+                      className="w-4 h-4 accent-client-primary"
                     />
                     <span>{PAYMENT_METHOD_LABELS[method]}</span>
                   </label>
@@ -989,7 +995,7 @@ export default function CartPage() {
           {submitError && (
             <div
               role="alert"
-              className="p-3.5 rounded-[8px] bg-red-50 border border-red-200 text-[#DA0808] text-[13px] font-medium"
+              className="p-3.5 rounded-[8px] bg-status-danger-bg border border-status-danger-border text-status-danger text-[13px] font-medium"
             >
               {submitError}
             </div>
@@ -999,7 +1005,7 @@ export default function CartPage() {
             <button
               type="submit"
               disabled={submitting || checkedItems.length === 0}
-              className="w-full sm:w-[320px] h-[48px] rounded-[8px] bg-[#4502C7] hover:bg-[#36019e] disabled:opacity-50 text-white font-bold text-[15px] tracking-wide transition-colors shadow-md"
+              className="w-full sm:w-[320px] h-[48px] rounded-[8px] bg-client-primary hover:bg-client-primary-hover disabled:opacity-50 text-white font-bold text-[15px] tracking-wide transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40"
             >
               {submitting ? "Đang xử lý đơn hàng..." : "Đặt Tour"}
             </button>

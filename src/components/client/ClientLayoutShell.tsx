@@ -253,7 +253,7 @@ export function ClientLayoutShell({
       }}
     >
       <CartProvider>
-        <div className="min-h-screen flex flex-col bg-[#F6F6F6] text-[#25282B] font-lexend-deca">
+        <div className="min-h-screen flex flex-col bg-surface-page text-ink font-lexend-deca">
           <ClientHeader categoryTree={categoryTree} websiteInfo={websiteInfo} />
           <main className="flex-1">{children}</main>
           <ClientFooter websiteInfo={websiteInfo} />

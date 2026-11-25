@@ -21,7 +21,7 @@ function renderInlineMarkdown(text: string, isUser: boolean): React.ReactNode[] 
           className={
             isUser
               ? "font-semibold text-white"
-              : "font-semibold text-[#1E103C]"
+              : "font-semibold text-ink"
           }
         >
           {token.slice(2, -2)}
@@ -34,7 +34,7 @@ function renderInlineMarkdown(text: string, isUser: boolean): React.ReactNode[] 
           className={
             isUser
               ? "px-1 py-0.5 rounded bg-white/20 text-white font-mono text-[12px]"
-              : "px-1.5 py-0.5 rounded bg-[#F4EEFF] text-[#4502C7] font-mono text-[12px] font-medium"
+              : "px-1.5 py-0.5 rounded bg-client-soft text-client-primary border border-client-border/60 font-mono text-[12px] font-medium"
           }
         >
           {token.slice(1, -1)}
@@ -74,7 +74,10 @@ export function ChatMarkdown({
     // Horizontal rule (--- or ***)
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
       blocks.push(
-        <hr key={`hr-${blockKey++}`} className="border-[#E8E6F2] my-1.5" />
+        <hr
+          key={`hr-${blockKey++}`}
+          className={isUser ? "border-white/25 my-1.5" : "border-border-subtle my-1.5"}
+        />
       );
       i++;
       continue;
@@ -89,7 +92,7 @@ export function ChatMarkdown({
           className={
             isUser
               ? "font-bold text-white text-[13.5px] pt-1"
-              : "font-bold text-[#1E103C] text-[13.5px] pt-1"
+              : "font-bold text-client-primary text-[13.5px] pt-1"
           }
         >
           {renderInlineMarkdown(headingMatch[1], isUser)}
