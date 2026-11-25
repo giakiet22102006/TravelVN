@@ -19,11 +19,18 @@ export interface CartItem {
   code: string;
   name: string;
   avatar: string | null;
+  departureId?: string | null;
+  departureCode?: string | null;
+  airline?: string | null;
+  flightOut?: string | null;
+  flightBack?: string | null;
   departureDate: string | null;
   departureLocation: string;
   priceNewAdult: number;
   priceNewChild: number;
   priceNewBaby: number;
+  singleRoomCount?: number;
+  singleRoomSurcharge?: number;
   stockAdult: number;
   stockChild: number;
   stockBaby: number;
@@ -42,6 +49,29 @@ export interface CartValidatedTour {
   priceNewAdult: number;
   priceNewChild: number;
   priceNewBaby: number;
+  singleRoomSurcharge?: number;
+  stockAdult: number;
+  stockChild: number;
+  stockBaby: number;
+  active: boolean;
+}
+
+export interface CartValidatedDeparture {
+  id: string;
+  tourId: string;
+  code: string;
+  slug: string;
+  name: string;
+  avatar: string | null;
+  departureDate: string | null;
+  departureLocation: string;
+  airline: string | null;
+  flightOut: string | null;
+  flightBack: string | null;
+  priceNewAdult: number;
+  priceNewChild: number;
+  priceNewBaby: number;
+  singleRoomSurcharge: number;
   stockAdult: number;
   stockChild: number;
   stockBaby: number;
@@ -66,6 +96,7 @@ interface CartContextValue {
     tier: "adult" | "child" | "baby",
     quantity: number
   ) => void;
+  updateSingleRoomCount: (cartKey: string, count: number) => void;
   toggleCheck: (cartKey: string, checked?: boolean) => void;
   toggleAll: (checked: boolean) => void;
   removeItem: (cartKey: string) => void;
@@ -82,31 +113,50 @@ function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.floor(val)));
 }
 
-export function buildCartKey(tourId: string, departureLocation: string): string {
-  return `${tourId}__${departureLocation.trim() || "Hà Nội"}`;
+export function buildCartKey(
+  tourId: string,
+  departureLocation: string,
+  departureId?: string | null
+): string {
+  return departureId
+    ? `${tourId}__dep:${departureId}`
+    : `${tourId}__${departureLocation.trim() || "Hà Nội"}`;
+}
+
+function getStockBucketKey(item: {
+  tourId: string;
+  departureId?: string | null;
+}): string {
+  return item.departureId ? `dep:${item.departureId}` : `tour:${item.tourId}`;
 }
 
 function reconcileCartItems(
   prev: CartItem[],
-  tourMap: Map<string, CartValidatedTour>
+  tourMap: Map<string, CartValidatedTour>,
+  departureMap: Map<string, CartValidatedDeparture>
 ): { items: CartItem[]; changed: boolean; notices: string[] } {
   const notices: string[] = [];
   const seenNoticeKeys = new Set<string>();
   let changed = false;
 
-  // Track remaining live stock per tourId across multiple departure rows
-  const remainingByTour = new Map<
+  const remainingByBucket = new Map<
     string,
     { adult: number; child: number; baby: number }
   >();
 
   const nextItems = prev.map((item) => {
-    const live = tourMap.get(item.tourId);
+    const depLive = item.departureId
+      ? departureMap.get(item.departureId)
+      : undefined;
+    const tourLive = tourMap.get(item.tourId);
+
+    const live = depLive ?? (item.departureId ? undefined : tourLive);
+
     if (!live || !live.active) {
       if (item.active !== false || item.checked) {
         changed = true;
       }
-      const key = `inactive:${item.tourId}`;
+      const key = `inactive:${getStockBucketKey(item)}`;
       if (!seenNoticeKeys.has(key)) {
         seenNoticeKeys.add(key);
         notices.push(
@@ -123,14 +173,15 @@ function reconcileCartItems(
       };
     }
 
-    let rem = remainingByTour.get(item.tourId);
+    const bucketKey = getStockBucketKey(item);
+    let rem = remainingByBucket.get(bucketKey);
     if (!rem) {
       rem = {
         adult: Math.max(0, live.stockAdult),
         child: Math.max(0, live.stockChild),
         baby: Math.max(0, live.stockBaby),
       };
-      remainingByTour.set(item.tourId, rem);
+      remainingByBucket.set(bucketKey, rem);
     }
 
     const nextAdult = clamp(item.quantityAdult, 0, rem.adult);
@@ -140,19 +191,24 @@ function reconcileCartItems(
     rem.child -= nextChild;
     rem.baby -= nextBaby;
 
+    const liveSurcharge = live.singleRoomSurcharge ?? item.singleRoomSurcharge ?? 0;
+    const nextSingleRoom = clamp(item.singleRoomCount ?? 0, 0, nextAdult);
+
     const priceChanged =
       live.priceNewAdult !== item.priceNewAdult ||
       live.priceNewChild !== item.priceNewChild ||
-      live.priceNewBaby !== item.priceNewBaby;
+      live.priceNewBaby !== item.priceNewBaby ||
+      liveSurcharge !== (item.singleRoomSurcharge ?? 0);
 
     const qtyAdjusted =
       nextAdult !== item.quantityAdult ||
       nextChild !== item.quantityChild ||
-      nextBaby !== item.quantityBaby;
+      nextBaby !== item.quantityBaby ||
+      nextSingleRoom !== (item.singleRoomCount ?? 0);
 
     if (priceChanged) {
       changed = true;
-      const key = `price:${item.tourId}`;
+      const key = `price:${bucketKey}`;
       if (!seenNoticeKeys.has(key)) {
         seenNoticeKeys.add(key);
         notices.push(
@@ -163,7 +219,7 @@ function reconcileCartItems(
 
     if (qtyAdjusted) {
       changed = true;
-      const key = `stock:${item.tourId}`;
+      const key = `stock:${bucketKey}`;
       if (!seenNoticeKeys.has(key)) {
         seenNoticeKeys.add(key);
         notices.push(
@@ -172,6 +228,15 @@ function reconcileCartItems(
       }
     }
 
+    const nextDepartureCode = depLive ? depLive.code : item.departureCode ?? null;
+    const nextAirline = depLive ? depLive.airline : item.airline ?? null;
+    const nextFlightOut = depLive ? depLive.flightOut : item.flightOut ?? null;
+    const nextFlightBack = depLive ? depLive.flightBack : item.flightBack ?? null;
+    const nextDepartureDate = depLive ? depLive.departureDate : item.departureDate;
+    const nextDepartureLocation = depLive
+      ? depLive.departureLocation
+      : item.departureLocation;
+
     const metaChanged =
       live.slug !== item.slug ||
       live.name !== item.name ||
@@ -179,6 +244,12 @@ function reconcileCartItems(
       live.stockAdult !== item.stockAdult ||
       live.stockChild !== item.stockChild ||
       live.stockBaby !== item.stockBaby ||
+      nextDepartureCode !== (item.departureCode ?? null) ||
+      nextAirline !== (item.airline ?? null) ||
+      nextFlightOut !== (item.flightOut ?? null) ||
+      nextFlightBack !== (item.flightBack ?? null) ||
+      nextDepartureDate !== item.departureDate ||
+      nextDepartureLocation !== item.departureLocation ||
       item.active === false;
 
     if (metaChanged) {
@@ -192,9 +263,17 @@ function reconcileCartItems(
       slug: live.slug,
       name: live.name,
       avatar: live.avatar ?? item.avatar,
+      departureCode: nextDepartureCode,
+      airline: nextAirline,
+      flightOut: nextFlightOut,
+      flightBack: nextFlightBack,
+      departureDate: nextDepartureDate,
+      departureLocation: nextDepartureLocation,
       priceNewAdult: live.priceNewAdult,
       priceNewChild: live.priceNewChild,
       priceNewBaby: live.priceNewBaby,
+      singleRoomCount: nextSingleRoom,
+      singleRoomSurcharge: liveSurcharge,
       stockAdult: live.stockAdult,
       stockChild: live.stockChild,
       stockBaby: live.stockBaby,
@@ -253,12 +332,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, hydrated]);
 
   const addItem = useCallback((payload: AddToCartPayload): boolean => {
-    const cartKey = buildCartKey(payload.tourId, payload.departureLocation);
+    const cartKey = buildCartKey(
+      payload.tourId,
+      payload.departureLocation,
+      payload.departureId
+    );
+    const targetBucket = getStockBucketKey(payload);
     const snapshot = itemsRef.current;
     const snapExisting = snapshot.findIndex((i) => i.cartKey === cartKey);
     const snapOtherUsed = snapshot.reduce(
       (acc, item, idx) => {
-        if (item.tourId !== payload.tourId || idx === snapExisting) return acc;
+        if (getStockBucketKey(item) !== targetBucket || idx === snapExisting) {
+          return acc;
+        }
         return {
           adult: acc.adult + item.quantityAdult,
           child: acc.child + item.quantityChild,
@@ -286,7 +372,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const existingIndex = prev.findIndex((i) => i.cartKey === cartKey);
       const otherUsed = prev.reduce(
         (acc, item, idx) => {
-          if (item.tourId !== payload.tourId || idx === existingIndex) return acc;
+          if (getStockBucketKey(item) !== targetBucket || idx === existingIndex) {
+            return acc;
+          }
           return {
             adult: acc.adult + item.quantityAdult,
             child: acc.child + item.quantityChild,
@@ -309,6 +397,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const nextItem: CartItem = {
           ...payload,
           cartKey,
+          singleRoomCount: clamp(payload.singleRoomCount ?? 0, 0, nextAdult),
+          singleRoomSurcharge: payload.singleRoomSurcharge ?? 0,
           quantityAdult: nextAdult,
           quantityChild: nextChild,
           quantityBaby: nextBaby,
@@ -335,8 +425,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           0,
           capBaby
         );
+        const nextSingle = clamp(
+          (item.singleRoomCount ?? 0) + (payload.singleRoomCount ?? 0),
+          0,
+          nextAdult
+        );
         return {
           ...item,
+          departureId: payload.departureId ?? item.departureId,
+          departureCode: payload.departureCode ?? item.departureCode,
+          airline: payload.airline ?? item.airline,
+          flightOut: payload.flightOut ?? item.flightOut,
+          flightBack: payload.flightBack ?? item.flightBack,
+          singleRoomSurcharge:
+            payload.singleRoomSurcharge ?? item.singleRoomSurcharge ?? 0,
+          singleRoomCount: nextSingle,
           stockAdult: payload.stockAdult,
           stockChild: payload.stockChild,
           stockBaby: payload.stockBaby,
@@ -360,8 +463,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems((prev) => {
         const target = prev.find((i) => i.cartKey === cartKey);
         if (!target || target.active === false) return prev;
+        const targetBucket = getStockBucketKey(target);
         const otherUsed = prev.reduce((sum, item) => {
-          if (item.cartKey === cartKey || item.tourId !== target.tourId) {
+          if (item.cartKey === cartKey || getStockBucketKey(item) !== targetBucket) {
             return sum;
           }
           if (tier === "adult") return sum + item.quantityAdult;
@@ -374,7 +478,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           if (tier === "adult") {
             const maxAdult = Math.max(0, item.stockAdult - otherUsed);
             const minAdult = maxAdult > 0 ? 1 : 0;
-            return { ...item, quantityAdult: clamp(quantity, minAdult, maxAdult) };
+            const nextAdult = clamp(quantity, minAdult, maxAdult);
+            return {
+              ...item,
+              quantityAdult: nextAdult,
+              singleRoomCount: clamp(item.singleRoomCount ?? 0, 0, nextAdult),
+            };
           }
           if (tier === "child") {
             const maxChild = Math.max(0, item.stockChild - otherUsed);
@@ -395,6 +504,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  const updateSingleRoomCount = useCallback((cartKey: string, count: number) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.cartKey !== cartKey || item.active === false) return item;
+        return {
+          ...item,
+          singleRoomCount: clamp(count, 0, item.quantityAdult),
+        };
+      })
+    );
+  }, []);
 
   const toggleCheck = useCallback((cartKey: string, checked?: boolean) => {
     setItems((prev) =>
@@ -428,11 +549,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return { changed: false, notices: [] };
     }
     const tourIds = Array.from(new Set(currentItems.map((i) => i.tourId)));
+    const departureIds = Array.from(
+      new Set(
+        currentItems
+          .map((i) => i.departureId)
+          .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      )
+    );
+
     try {
       const res = await fetch("/api/client/cart/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tourIds }),
+        body: JSON.stringify({ tourIds, departureIds }),
       });
       if (!res.ok) {
         return { changed: false, notices: [] };
@@ -447,8 +576,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           tourMap.set(t.id, t);
         }
       }
-      const summary = reconcileCartItems(itemsRef.current, tourMap);
-      setItems((prev) => reconcileCartItems(prev, tourMap).items);
+      const departureMap = new Map<string, CartValidatedDeparture>();
+      if (Array.isArray(data?.departures)) {
+        for (const d of data.departures as CartValidatedDeparture[]) {
+          if (d && typeof d.id === "string") {
+            departureMap.set(d.id, d);
+          }
+        }
+      }
+      const summary = reconcileCartItems(itemsRef.current, tourMap, departureMap);
+      setItems((prev) => reconcileCartItems(prev, tourMap, departureMap).items);
       return { changed: summary.changed, notices: summary.notices };
     } catch {
       return { changed: false, notices: [] };
@@ -460,11 +597,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const checkedSubTotal = useMemo(() => {
     return items.reduce((sum, item) => {
       if (!item.checked || item.active === false) return sum;
+      const singleSurchargeTotal =
+        (item.singleRoomCount || 0) * (item.singleRoomSurcharge || 0);
       return (
         sum +
         item.quantityAdult * item.priceNewAdult +
         item.quantityChild * item.priceNewChild +
-        item.quantityBaby * item.priceNewBaby
+        item.quantityBaby * item.priceNewBaby +
+        singleSurchargeTotal
       );
     }, 0);
   }, [items]);
@@ -475,6 +615,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       addItem,
       updateQuantity,
+      updateSingleRoomCount,
       toggleCheck,
       toggleAll,
       removeItem,
@@ -488,6 +629,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       addItem,
       updateQuantity,
+      updateSingleRoomCount,
       toggleCheck,
       toggleAll,
       removeItem,

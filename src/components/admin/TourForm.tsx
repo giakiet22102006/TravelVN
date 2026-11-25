@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { ImageUploadBox } from "./ImageUploadBox";
+import { TourDeparturesManager } from "./TourDeparturesManager";
 import { uploadImageFile } from "@/lib/client-image-upload";
 import { enhanceImageUrl } from "@/lib/image-quality";
 
@@ -734,6 +735,13 @@ export function TourForm({ mode, initialData }: TourFormProps) {
           </Link>
         </div>
       </form>
+
+      {mode === "edit" && initialData?.id && (
+        <TourDeparturesManager
+          tourId={initialData.id}
+          tourCode={initialData.code}
+        />
+      )}
     </div>
   );
 }

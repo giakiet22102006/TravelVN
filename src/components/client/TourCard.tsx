@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Star, Zap } from "lucide-react";
+import { Heart, Scale, Star, Zap } from "lucide-react";
 import {
   calcDiscountPercent,
   formatCurrencyVND,
   formatDateVN,
 } from "@/lib/format";
+import type { TourDeparturePublic } from "@/types/ota";
 import { SmartImage } from "./SmartImage";
+import { useWishlist } from "./WishlistContext";
+import { useCompare } from "./CompareContext";
 
 export interface TourCardData {
   id: string;
@@ -30,6 +33,11 @@ export interface TourCardData {
   departureDate: string | Date | null;
   ratingAvg?: number;
   reviewCount?: number;
+  durationDays?: number;
+  hotelStar?: number;
+  singleRoomSurcharge?: number;
+  tags?: unknown;
+  departures?: TourDeparturePublic[];
   category?: {
     id: string;
     name: string;
@@ -37,13 +45,15 @@ export interface TourCardData {
   } | null;
 }
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=800&q=80";
-
 export function TourCard({ tour }: { tour: TourCardData }) {
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const { isInCompare, toggleTour } = useCompare();
+
   const discount = calcDiscountPercent(tour.priceAdult, tour.priceNewAdult);
   const displayPrice =
     tour.priceNewAdult > 0 ? tour.priceNewAdult : tour.priceAdult;
+  const wishlisted = isWishlisted(tour.id);
+  const compared = isInCompare(tour.id);
 
   return (
     <Link
@@ -59,6 +69,48 @@ export function TourCard({ tour }: { tour: TourCardData }) {
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
+
+        {/* Top-Right Wishlist & Compare Overlay Actions */}
+        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label={wishlisted ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
+            aria-pressed={wishlisted}
+            title={wishlisted ? "Bỏ yêu thích" : "Yêu thích"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void toggleWishlist(tour);
+            }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(22,34,41,0.16)] transition-colors ${
+              wishlisted
+                ? "bg-client-accent text-white"
+                : "bg-white/95 text-ink hover:text-client-accent hover:bg-white"
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${wishlisted ? "fill-white" : ""}`} />
+          </button>
+
+          <button
+            type="button"
+            aria-label={compared ? "Bỏ so sánh tour" : "Thêm vào so sánh tour"}
+            aria-pressed={compared}
+            title={compared ? "Đang so sánh" : "So sánh"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleTour(tour);
+            }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(22,34,41,0.16)] transition-colors ${
+              compared
+                ? "bg-client-primary text-white"
+                : "bg-white/95 text-ink hover:text-client-primary hover:bg-white"
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+          </button>
+        </div>
+
         {discount > 0 && (
           <div className="absolute left-0 bottom-0 bg-client-accent text-white text-[11px] font-bold px-3 py-1.5 rounded-tr-[10px] inline-flex items-center gap-1 shadow-sm tabular-nums">
             <Zap className="w-3.5 h-3.5 fill-client-sun text-client-sun" />
@@ -103,14 +155,14 @@ export function TourCard({ tour }: { tour: TourCardData }) {
         </div>
 
         <div className="mt-auto pt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
             {(() => {
               const count = tour.reviewCount ?? 0;
               const avg = count > 0 ? (tour.ratingAvg ?? 5) : 0;
               const filledStars = count > 0 ? Math.round(avg) : 0;
               return (
                 <>
-                  <div className="flex items-center">
+                  <div className="flex items-center shrink-0">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
@@ -122,7 +174,7 @@ export function TourCard({ tour }: { tour: TourCardData }) {
                       />
                     ))}
                   </div>
-                  <span className="text-[11px] text-ink-muted font-medium tabular-nums">
+                  <span className="text-[11px] text-ink-muted font-medium tabular-nums truncate">
                     {count > 0
                       ? `${avg.toFixed(1)} (${count})`
                       : "Tour mới"}
@@ -130,9 +182,14 @@ export function TourCard({ tour }: { tour: TourCardData }) {
                 </>
               );
             })()}
+            {typeof tour.hotelStar === "number" && tour.hotelStar > 0 && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-client-soft text-client-primary border border-client-border text-[10.5px] font-bold tabular-nums shrink-0">
+                {tour.hotelStar}★
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <div className="flex items-center gap-1.5 text-[11px] text-ink-muted shrink-0">
             <span>Số chỗ còn:</span>
             <span className="inline-flex items-center justify-center min-w-[26px] h-[24px] px-1.5 rounded-[5px] bg-client-accent text-white text-[12px] font-bold tabular-nums">
               {tour.stockAdult}

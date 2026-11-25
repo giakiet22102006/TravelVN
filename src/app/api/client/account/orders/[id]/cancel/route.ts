@@ -3,6 +3,7 @@ import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/client-auth";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
+import { restoreOrderInventoryShared } from "@/lib/order-holds";
 
 export async function PATCH(
   _req: NextRequest,
@@ -56,6 +57,7 @@ export async function PATCH(
         },
         data: {
           status: OrderStatus.CANCELLED,
+          cancelReason: "CUSTOMER_CANCELLED",
         },
       });
 
@@ -63,17 +65,7 @@ export async function PATCH(
         return false;
       }
 
-      for (const item of order.items) {
-        if (!item.tourId) continue;
-        await tx.tour.update({
-          where: { id: item.tourId },
-          data: {
-            stockAdult: { increment: item.quantityAdult },
-            stockChild: { increment: item.quantityChild },
-            stockBaby: { increment: item.quantityBaby },
-          },
-        });
-      }
+      await restoreOrderInventoryShared(tx, order.items);
 
       return true;
     });

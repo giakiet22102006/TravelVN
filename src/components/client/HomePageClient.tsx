@@ -4,33 +4,48 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  BadgeCheck,
   ChevronDown,
-  Flame,
-  MapPin,
+  Headphones,
   Minus,
   Plus,
+  RefreshCw,
   Search,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
 import { SmartImage } from "@/components/client/SmartImage";
 import { DatePickerInput } from "@/components/client/DatePickerInput";
+import { SearchAutocompleteBox } from "@/components/client/SearchAutocompleteBox";
 import type { ClientNewsItem } from "@/lib/client-data";
 import { formatDateVN } from "@/lib/format";
 
-const HOT_DESTINATIONS = [
-  "Nhật Bản",
-  "Singapore",
-  "Châu Âu",
-  "Đà Lạt",
-  "Phú Quốc",
-  "Hà Nội",
-  "Sapa",
-  "Đà Nẵng",
-];
-
 const NEWS_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=900&q=80";
+
+const TRUST_COMMITMENTS = [
+  {
+    title: "Giá trọn gói minh bạch",
+    desc: "Niêm yết rõ từng hạng khách, cam kết không phụ phí ẩn.",
+    icon: BadgeCheck,
+  },
+  {
+    title: "Bảo hiểm du lịch 1 tỷ đồng",
+    desc: "Bảo vệ toàn diện suốt hành trình trong nước & quốc tế.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Hoàn hủy linh hoạt",
+    desc: "Chính sách đổi ngày, hoàn tiền rõ ràng theo từng mốc.",
+    icon: RefreshCw,
+  },
+  {
+    title: "Tư vấn & AI 24/7",
+    desc: "Báo giá nhóm tức thì, hỗ trợ đặt tour mọi lúc mọi nơi.",
+    icon: Headphones,
+  },
+];
 
 interface CountdownState {
   days: string;
@@ -63,7 +78,6 @@ export function HomePageClient({
   const [showDestinationPopup, setShowDestinationPopup] = useState(false);
   const [showDatePopup, setShowDatePopup] = useState(false);
   const [showQuantityPopup, setShowQuantityPopup] = useState(false);
-  const [liveSuggestions, setLiveSuggestions] = useState<TourCardData[]>([]);
 
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -110,29 +124,6 @@ export function HomePageClient({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
-
-  // Live keyword tour suggestions in Hero destination box
-  useEffect(() => {
-    const term = destination.trim();
-    if (!term || !showDestinationPopup) {
-      setLiveSuggestions([]);
-      return;
-    }
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/client/tours?keyword=${encodeURIComponent(term)}&limit=4`
-        );
-        const data = await res.json();
-        setLiveSuggestions(Array.isArray(data.tours) ? data.tours : []);
-      } catch {
-        setLiveSuggestions([]);
-      }
-    }, 220);
-
-    return () => window.clearTimeout(timer);
-  }, [destination, showDestinationPopup]);
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -184,98 +175,25 @@ export function HomePageClient({
           {/* Search Card (Sunlit Frosted Linen) */}
           <div
             ref={searchWrapperRef}
-            className="mt-8 sm:mt-10 max-w-[980px] mx-auto bg-white/95 backdrop-blur-md rounded-[16px] p-3 sm:p-4 border border-white/80 shadow-[0_18px_44px_rgba(31,38,33,0.18)]"
+            className="mt-8 sm:mt-10 max-w-[980px] mx-auto bg-white/95 backdrop-blur-md rounded-[16px] p-3 sm:p-4 border border-white/80 shadow-[0_18px_44px_rgba(22,34,41,0.18)]"
           >
             <form
               onSubmit={handleSearchSubmit}
               className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch"
             >
-              {/* Input 1: Bạn muốn đi đâu? */}
-              <div className="md:col-span-4 relative">
-                <div className="bg-surface-page hover:bg-white border border-border-subtle rounded-[10px] h-[54px] px-3.5 flex items-center gap-2.5 text-ink focus-within:bg-white focus-within:border-client-primary focus-within:ring-2 focus-within:ring-client-primary/20 transition-colors">
-                  <MapPin className="w-5 h-5 text-client-primary shrink-0" />
-                  <input
-                    type="text"
-                    value={destination}
-                    onFocus={() => {
-                      setShowDestinationPopup(true);
-                      setShowDatePopup(false);
-                      setShowQuantityPopup(false);
-                    }}
-                    onChange={(e) => {
-                      setDestination(e.target.value);
-                      setShowDestinationPopup(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") setShowDestinationPopup(false);
-                    }}
-                    placeholder="Bạn muốn đi đâu?"
-                    aria-label="Bạn muốn đi đâu"
-                    className="w-full bg-transparent text-[14px] font-medium placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/30 rounded"
-                  />
-                </div>
-
-                {showDestinationPopup && (
-                  <div className="absolute left-0 top-[62px] w-full sm:w-[420px] bg-white rounded-[12px] shadow-2xl border border-border-subtle p-4 z-30 text-ink">
-                    <div className="flex items-center gap-1.5 text-[14px] font-bold text-ink mb-3">
-                      <Flame className="w-4 h-4 text-client-accent" />
-                      <span>Địa Điểm Hot</span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {HOT_DESTINATIONS.map((place) => (
-                        <button
-                          key={place}
-                          type="button"
-                          onClick={() => {
-                            setDestination(place);
-                            setShowDestinationPopup(false);
-                          }}
-                          className="text-left px-3 py-2 rounded-[8px] bg-surface-muted hover:bg-client-primary hover:text-white text-[13px] font-medium transition-colors"
-                        >
-                          {place}
-                        </button>
-                      ))}
-                    </div>
-
-                    {liveSuggestions.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-border-subtle">
-                        <p className="text-[12px] font-semibold text-ink-muted mb-2">
-                          Gợi ý tour phù hợp
-                        </p>
-                        <div className="space-y-2">
-                          {liveSuggestions.map((t) => (
-                            <Link
-                              key={t.id}
-                              href={`/tours/${t.slug}`}
-                              onClick={() => setShowDestinationPopup(false)}
-                              className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-surface-page transition-colors"
-                            >
-                              <div className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-surface-muted">
-                                <SmartImage
-                                  src={t.avatar}
-                                  alt={t.name}
-                                  targetWidth={200}
-                                  quality={85}
-                                  sizes="40px"
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-semibold text-ink truncate">
-                                  {t.name}
-                                </p>
-                                <p className="text-[12px] text-client-accent font-bold tabular-nums">
-                                  {t.priceNewAdult.toLocaleString("vi-VN")}đ
-                                </p>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Input 1: Bạn muốn đi đâu? (Accessible Autocomplete Combobox) */}
+              <SearchAutocompleteBox
+                value={destination}
+                onChange={setDestination}
+                open={showDestinationPopup}
+                onOpenChange={(nextOpen) => {
+                  setShowDestinationPopup(nextOpen);
+                  if (nextOpen) {
+                    setShowDatePopup(false);
+                    setShowQuantityPopup(false);
+                  }
+                }}
+              />
 
               {/* Input 2: Ngày khởi hành */}
               <DatePickerInput
@@ -321,7 +239,7 @@ export function HomePageClient({
                 </button>
 
                 {showQuantityPopup && (
-                  <div className="absolute right-0 top-[62px] w-[260px] bg-white rounded-[12px] shadow-2xl border border-border-subtle p-4 z-30 text-ink space-y-3">
+                  <div className="absolute right-0 top-[62px] w-[260px] bg-white rounded-[12px] shadow-[0_20px_48px_rgba(22,34,41,0.18)] border border-border-subtle p-4 z-30 text-ink space-y-3">
                     {[
                       {
                         label: "Người lớn",
@@ -401,9 +319,36 @@ export function HomePageClient({
         </div>
       </section>
 
+      {/* TRUST VALUE STRIP: 4 Cam kết Vàng VN.TRAVEL */}
+      <section className="max-w-[1184px] mx-auto px-4 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+          {TRUST_COMMITMENTS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="bg-white rounded-[14px] border border-border-subtle p-4 flex items-start gap-3 shadow-[0_2px_10px_rgba(22,34,41,0.05)]"
+              >
+                <div className="w-10 h-10 rounded-[10px] bg-client-soft border border-client-border text-client-primary flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-[14px] font-bold text-ink leading-snug">
+                    {item.title}
+                  </h2>
+                  <p className="text-[12px] text-ink-muted mt-1 leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* SECTION 2: Last-Minute Deal Box (Misty Sage Woodland Surface) */}
-      <section className="max-w-[1184px] mx-auto px-4 mt-10">
-        <div className="bg-client-soft border border-client-border rounded-[20px] p-5 sm:p-8 shadow-[0_4px_20px_rgba(31,38,33,0.04)]">
+      <section className="max-w-[1184px] mx-auto px-4 mt-8 sm:mt-10">
+        <div className="bg-client-soft border border-client-border rounded-[20px] p-5 sm:p-8 shadow-[0_4px_20px_rgba(22,34,41,0.04)]">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-3 text-ink text-center lg:text-left">
               <span className="inline-block px-3 py-1 rounded-full bg-client-primary/10 text-client-primary text-[12px] font-bold tracking-wide">
@@ -452,7 +397,7 @@ export function HomePageClient({
             </div>
 
             <div className="lg:col-span-9">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {dealTours.map((tour) => (
                   <TourCard key={tour.id} tour={tour} />
                 ))}

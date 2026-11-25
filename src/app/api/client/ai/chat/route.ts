@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryClientTours } from "@/lib/client-data";
+import { RecordStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/client-auth";
-import { askTravelAssistant } from "@/lib/ai";
+import { askTravelAssistant, type AssistantTourContext } from "@/lib/ai";
 import type { AssistantPageContext } from "@/lib/ai-tools";
 import {
   checkRateLimit,
@@ -66,6 +67,81 @@ function sanitizePageContext(raw: unknown): AssistantPageContext | undefined {
   };
 }
 
+async function loadActiveToursWithDepartures(): Promise<AssistantTourContext[]> {
+  const rows = await prisma.tour.findMany({
+    where: {
+      deleted: false,
+      status: RecordStatus.ACTIVE,
+      category: { deleted: false, status: RecordStatus.ACTIVE },
+    },
+    orderBy: [{ position: "asc" }, { createdAt: "desc" }],
+    take: 60,
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      slug: true,
+      avatar: true,
+      priceAdult: true,
+      priceNewAdult: true,
+      priceNewChild: true,
+      priceNewBaby: true,
+      stockAdult: true,
+      stockChild: true,
+      stockBaby: true,
+      locations: true,
+      time: true,
+      vehicle: true,
+      departureDate: true,
+      ratingAvg: true,
+      reviewCount: true,
+      durationDays: true,
+      hotelStar: true,
+      singleRoomSurcharge: true,
+      tags: true,
+      category: {
+        select: { id: true, name: true, slug: true },
+      },
+      departures: {
+        where: { status: RecordStatus.ACTIVE },
+        orderBy: [{ departureDate: "asc" }],
+        select: {
+          id: true,
+          tourId: true,
+          code: true,
+          departureDate: true,
+          returnDate: true,
+          departureLocation: true,
+          airline: true,
+          flightOut: true,
+          flightBack: true,
+          hotelStar: true,
+          priceAdult: true,
+          priceChild: true,
+          priceBaby: true,
+          priceNewAdult: true,
+          priceNewChild: true,
+          priceNewBaby: true,
+          singleRoomSurcharge: true,
+          stockAdult: true,
+          stockChild: true,
+          stockBaby: true,
+        },
+      },
+    },
+  });
+
+  return rows.map((t) => ({
+    ...t,
+    departureDate: t.departureDate ? t.departureDate.toISOString() : null,
+    departures: t.departures.map((d) => ({
+      ...d,
+      departureDate: d.departureDate.toISOString(),
+      returnDate: d.returnDate ? d.returnDate.toISOString() : null,
+    })),
+  }));
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
@@ -108,8 +184,8 @@ export async function POST(req: NextRequest) {
         content: item.content.slice(0, 1000),
       }));
 
-    const [{ tours }, currentUser] = await Promise.all([
-      queryClientTours({ limit: 50 }),
+    const [tours, currentUser] = await Promise.all([
+      loadActiveToursWithDepartures(),
       getCurrentUser(),
     ]);
     const response = await askTravelAssistant(message, history, tours, {

@@ -2,7 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Facebook, Instagram, Youtube, Globe } from "lucide-react";
+import {
+  Award,
+  CheckCircle2,
+  CreditCard,
+  Facebook,
+  Globe,
+  Instagram,
+  ShieldCheck,
+  Youtube,
+} from "lucide-react";
 import type { WebsiteInfoData } from "./ClientHeader";
 
 export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) {
@@ -173,6 +182,39 @@ export function ClientFooter({ websiteInfo }: { websiteInfo: WebsiteInfoData }) 
             >
               <Youtube className="w-5 h-5" />
             </a>
+          </div>
+        </div>
+
+        {/* Trust, Licensing & Payment Bar */}
+        <div className="py-5 border-b border-border-subtle flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2.5 text-[12px]">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-status-success-bg text-status-success border border-status-success-border font-semibold">
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>Đã thông báo Bộ Công Thương</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-client-soft text-client-primary border border-client-border font-semibold">
+              <Award className="w-4 h-4 shrink-0" />
+              <span>Bảo hiểm Du lịch 1 tỷ đồng</span>
+            </span>
+            <span className="text-ink-muted font-medium">
+              Giấy phép Kinh doanh Lữ hành Quốc tế số:{" "}
+              <strong className="text-ink tabular-nums">79-2026/TCDL-GP LHQT</strong>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] font-semibold text-ink">
+            <span className="inline-flex items-center gap-1 text-ink-muted mr-1">
+              <CreditCard className="w-3.5 h-3.5 text-client-primary" />
+              Thanh toán:
+            </span>
+            {["VietQR", "MoMo", "Visa", "Mastercard", "Tiền mặt"].map((method) => (
+              <span
+                key={method}
+                className="px-2.5 py-1 rounded-[6px] bg-surface-muted border border-border-subtle text-ink"
+              >
+                {method}
+              </span>
+            ))}
           </div>
         </div>
 

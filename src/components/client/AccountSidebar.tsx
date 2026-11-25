@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, LogOut, User, UserCircle } from "lucide-react";
+import { ClipboardList, Heart, LogOut, User, UserCircle } from "lucide-react";
 import { useClientMeta } from "./ClientLayoutShell";
 import { enhanceImageUrl } from "@/lib/image-quality";
 
@@ -62,6 +62,18 @@ export function AccountSidebar() {
         >
           <ClipboardList className="w-4 h-4" />
           <span>Đơn hàng của tôi</span>
+        </Link>
+
+        <Link
+          href="/account/wishlist"
+          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-client-primary/40 ${
+            pathname === "/account/wishlist"
+              ? "bg-client-primary text-white font-semibold"
+              : "text-ink hover:bg-client-soft hover:text-client-primary"
+          }`}
+        >
+          <Heart className="w-4 h-4" />
+          <span>Tour yêu thích</span>
         </Link>
 
         <Link

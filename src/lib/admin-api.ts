@@ -1,13 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { slugify } from "./format";
+import {
+  type OrderItemInventoryPayload,
+  restoreOrderInventoryShared,
+} from "./order-holds";
 
-export interface OrderItemStockInput {
-  tourId: string | null;
-  quantityAdult: number;
-  quantityChild: number;
-  quantityBaby: number;
-}
+export type OrderItemStockInput = OrderItemInventoryPayload;
 
 /**
  * Restores tour seat inventory atomically inside an open Prisma transaction
@@ -17,17 +16,7 @@ export async function restoreOrderInventory(
   tx: Prisma.TransactionClient,
   items: OrderItemStockInput[]
 ) {
-  for (const item of items) {
-    if (!item.tourId) continue;
-    await tx.tour.update({
-      where: { id: item.tourId },
-      data: {
-        stockAdult: { increment: item.quantityAdult },
-        stockChild: { increment: item.quantityChild },
-        stockBaby: { increment: item.quantityBaby },
-      },
-    });
-  }
+  await restoreOrderInventoryShared(tx, items);
 }
 
 export interface TourPriceInput {

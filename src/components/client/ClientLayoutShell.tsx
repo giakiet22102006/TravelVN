@@ -2,6 +2,9 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { CartProvider } from "./CartContext";
+import { WishlistProvider } from "./WishlistContext";
+import { CompareProvider } from "./CompareContext";
+import { CompareDrawer } from "./CompareDrawer";
 import {
   ClientHeader,
   type CategoryTreeItem,
@@ -253,12 +256,17 @@ export function ClientLayoutShell({
       }}
     >
       <CartProvider>
-        <div className="min-h-screen flex flex-col bg-surface-page text-ink font-lexend-deca">
-          <ClientHeader categoryTree={categoryTree} websiteInfo={websiteInfo} />
-          <main className="flex-1">{children}</main>
-          <ClientFooter websiteInfo={websiteInfo} />
-          <AiTravelAssistant />
-        </div>
+        <WishlistProvider>
+          <CompareProvider>
+            <div className="min-h-screen flex flex-col bg-surface-page text-ink font-lexend-deca">
+              <ClientHeader categoryTree={categoryTree} websiteInfo={websiteInfo} />
+              <main className="flex-1">{children}</main>
+              <ClientFooter websiteInfo={websiteInfo} />
+              <CompareDrawer />
+              <AiTravelAssistant />
+            </div>
+          </CompareProvider>
+        </WishlistProvider>
       </CartProvider>
     </ClientMetaContext.Provider>
   );

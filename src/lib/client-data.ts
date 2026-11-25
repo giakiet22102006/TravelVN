@@ -4,6 +4,7 @@ import { Prisma, RecordStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calcDiscountPercent } from "@/lib/format";
 import { CACHE_TAGS } from "@/lib/cache-tags";
+import type { TourDeparturePublic } from "@/types/ota";
 
 export interface CategoryFlatItem {
   id: string;
@@ -51,6 +52,29 @@ const PRICE_RANGE_FILTERS: Record<string, Prisma.IntFilter> = {
   gt8: { gt: 8000000 },
 };
 
+const CLIENT_DEPARTURE_SELECT = {
+  id: true,
+  tourId: true,
+  code: true,
+  departureDate: true,
+  returnDate: true,
+  departureLocation: true,
+  airline: true,
+  flightOut: true,
+  flightBack: true,
+  hotelStar: true,
+  priceAdult: true,
+  priceChild: true,
+  priceBaby: true,
+  priceNewAdult: true,
+  priceNewChild: true,
+  priceNewBaby: true,
+  singleRoomSurcharge: true,
+  stockAdult: true,
+  stockChild: true,
+  stockBaby: true,
+} satisfies Prisma.TourDepartureSelect;
+
 const CLIENT_TOUR_SELECT = {
   id: true,
   code: true,
@@ -74,6 +98,15 @@ const CLIENT_TOUR_SELECT = {
   departureDate: true,
   ratingAvg: true,
   reviewCount: true,
+  durationDays: true,
+  hotelStar: true,
+  singleRoomSurcharge: true,
+  tags: true,
+  departures: {
+    where: { status: RecordStatus.ACTIVE },
+    orderBy: [{ departureDate: "asc" }],
+    select: CLIENT_DEPARTURE_SELECT,
+  },
   category: {
     select: { id: true, name: true, slug: true },
   },
@@ -101,14 +134,37 @@ export interface TourReviewItem {
 
 export type RatingBreakdownMap = Record<1 | 2 | 3 | 4 | 5, number>;
 
-function serializeTourDates<T extends { departureDate?: Date | string | null }>(
+type RawDepartureRow = Prisma.TourDepartureGetPayload<{
+  select: typeof CLIENT_DEPARTURE_SELECT;
+}>;
+
+function serializeDeparture(dep: RawDepartureRow): TourDeparturePublic {
+  return {
+    ...dep,
+    departureDate: dep.departureDate.toISOString(),
+    returnDate: dep.returnDate ? dep.returnDate.toISOString() : null,
+  };
+}
+
+function serializeTourDates<
+  T extends {
+    departureDate?: Date | string | null;
+    departures?: RawDepartureRow[];
+  }
+>(
   tour: T
-): Omit<T, "departureDate"> & { departureDate: string | null } {
+): Omit<T, "departureDate" | "departures"> & {
+  departureDate: string | null;
+  departures?: TourDeparturePublic[];
+} {
   return {
     ...tour,
     departureDate: tour.departureDate
       ? new Date(tour.departureDate).toISOString()
       : null,
+    ...(tour.departures
+      ? { departures: tour.departures.map(serializeDeparture) }
+      : {}),
   };
 }
 
@@ -232,10 +288,17 @@ export interface ClientToursQueryInput {
   destination?: string;
   departureLocation?: string;
   departureDate?: string;
+  departureMonth?: string;
   adult?: number;
   child?: number;
   baby?: number;
   priceRange?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  durationBucket?: string;
+  vehicle?: string;
+  hotelStar?: number;
+  tags?: string[];
   dealOnly?: boolean;
   sort?: string;
   page?: number;
@@ -248,10 +311,17 @@ interface NormalizedToursQuery {
   destination: string;
   departureLocation: string;
   departureDateRaw: string;
+  departureMonth: string;
   adult: number;
   child: number;
   baby: number;
   priceRange: string;
+  minPrice: number;
+  maxPrice: number;
+  durationBucket: string;
+  vehicle: string;
+  hotelStar: number;
+  tags: string[];
   dealOnly: boolean;
   sort: string;
   page: number;
@@ -341,27 +411,28 @@ const executeToursQueryCached = unstable_cache(
       andConditions.push({ categoryId: { in: q.categoryIds } });
     }
 
-    if (q.departureLocation) {
-      andConditions.push({
-        locations: { array_contains: [q.departureLocation] },
-      });
+    if (q.durationBucket === "1-3") {
+      andConditions.push({ durationDays: { lte: 3 } });
+    } else if (q.durationBucket === "4-5") {
+      andConditions.push({ durationDays: { gte: 4, lte: 5 } });
+    } else if (q.durationBucket === "6+") {
+      andConditions.push({ durationDays: { gte: 6 } });
     }
 
-    if (q.departureDateRaw) {
-      const parsedDate = new Date(q.departureDateRaw);
-      if (!Number.isNaN(parsedDate.getTime())) {
-        parsedDate.setHours(0, 0, 0, 0);
-        andConditions.push({ departureDate: { gte: parsedDate } });
+    if (q.hotelStar > 0) {
+      andConditions.push({ hotelStar: { gte: q.hotelStar } });
+    }
+
+    if (q.minPrice > 0 || q.maxPrice > 0) {
+      const priceCond: Prisma.IntFilter = {};
+      if (q.minPrice > 0) priceCond.gte = q.minPrice;
+      if (q.maxPrice > 0) priceCond.lte = q.maxPrice;
+      andConditions.push({ priceNewAdult: priceCond });
+    } else {
+      const priceFilter = PRICE_RANGE_FILTERS[q.priceRange];
+      if (priceFilter) {
+        andConditions.push({ priceNewAdult: priceFilter });
       }
-    }
-
-    if (q.adult > 0) andConditions.push({ stockAdult: { gte: q.adult } });
-    if (q.child > 0) andConditions.push({ stockChild: { gte: q.child } });
-    if (q.baby > 0) andConditions.push({ stockBaby: { gte: q.baby } });
-
-    const priceFilter = PRICE_RANGE_FILTERS[q.priceRange];
-    if (priceFilter) {
-      andConditions.push({ priceNewAdult: priceFilter });
     }
 
     const where: Prisma.TourWhereInput = { AND: andConditions };
@@ -369,11 +440,33 @@ const executeToursQueryCached = unstable_cache(
     const orderByMap: Record<string, Prisma.TourOrderByWithRelationInput[]> = {
       "price-asc": [{ priceNewAdult: "asc" }, { position: "asc" }],
       "price-desc": [{ priceNewAdult: "desc" }, { position: "asc" }],
+      "rating-desc": [
+        { ratingAvg: "desc" },
+        { reviewCount: "desc" },
+        { position: "asc" },
+      ],
+      "departure-asc": [{ departureDate: "asc" }, { position: "asc" }],
     };
 
     const hasTextFilter = Boolean(q.keyword || q.destination);
+    const hasPostFilters =
+      q.dealOnly ||
+      q.sort === "deal" ||
+      q.sort === "price-asc" ||
+      q.sort === "price-desc" ||
+      q.sort === "rating-desc" ||
+      q.sort === "departure-asc" ||
+      hasTextFilter ||
+      Boolean(q.departureLocation) ||
+      Boolean(q.departureDateRaw) ||
+      Boolean(q.departureMonth) ||
+      q.adult > 0 ||
+      q.child > 0 ||
+      q.baby > 0 ||
+      Boolean(q.vehicle) ||
+      q.tags.length > 0;
 
-    if (q.dealOnly || q.sort === "deal" || hasTextFilter) {
+    if (hasPostFilters) {
       const allMatching = await prisma.tour.findMany({
         where,
         select: {
@@ -383,6 +476,23 @@ const executeToursQueryCached = unstable_cache(
         orderBy:
           orderByMap[q.sort] ?? [{ position: "asc" }, { createdAt: "desc" }],
       });
+
+      const parsedDate = q.departureDateRaw
+        ? new Date(q.departureDateRaw)
+        : null;
+      const validDepartureDate =
+        parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : null;
+      if (validDepartureDate) {
+        validDepartureDate.setHours(0, 0, 0, 0);
+      }
+
+      const monthPrefix = /^\d{4}-\d{2}$/.test(q.departureMonth)
+        ? q.departureMonth
+        : "";
+      const normDepLoc = q.departureLocation
+        ? normalizeVietnameseText(q.departureLocation)
+        : "";
+      const normVehicle = q.vehicle ? normalizeVietnameseText(q.vehicle) : "";
 
       let filtered = allMatching;
 
@@ -397,6 +507,94 @@ const executeToursQueryCached = unstable_cache(
           (t) => calcDiscountPercent(t.priceAdult, t.priceNewAdult) > 0
         );
       }
+      if (normVehicle) {
+        filtered = filtered.filter((t) => {
+          const vehText = normalizeVietnameseText(
+            `${t.vehicle} ${t.departures.map((d) => d.airline || "").join(" ")}`
+          );
+          if (normVehicle.includes("may bay") || normVehicle === "may bay") {
+            return (
+              vehText.includes("may bay") ||
+              vehText.includes("air") ||
+              vehText.includes("vietjet") ||
+              vehText.includes("bamboo")
+            );
+          }
+          if (normVehicle.includes("o to") || normVehicle === "o to") {
+            return vehText.includes("o to") || vehText.includes("xe");
+          }
+          if (normVehicle.includes("du thuyen")) {
+            return vehText.includes("du thuyen") || vehText.includes("tau");
+          }
+          return vehText.includes(normVehicle);
+        });
+      }
+      if (q.tags.length > 0) {
+        filtered = filtered.filter((t) => {
+          const tourTags = Array.isArray(t.tags)
+            ? t.tags.map((x) => String(x).toUpperCase())
+            : [];
+          return q.tags.every((reqTag) =>
+            tourTags.includes(reqTag.toUpperCase())
+          );
+        });
+      }
+
+      if (
+        normDepLoc ||
+        validDepartureDate ||
+        monthPrefix ||
+        q.adult > 0 ||
+        q.child > 0 ||
+        q.baby > 0
+      ) {
+        filtered = filtered.filter((t) => {
+          const deps = t.departures ?? [];
+          if (deps.length > 0) {
+            return deps.some((dep) => {
+              if (normDepLoc) {
+                const depLoc = normalizeVietnameseText(dep.departureLocation);
+                if (!depLoc.includes(normDepLoc) && !normDepLoc.includes(depLoc)) {
+                  return false;
+                }
+              }
+              if (validDepartureDate && dep.departureDate < validDepartureDate) {
+                return false;
+              }
+              if (monthPrefix) {
+                const ym = dep.departureDate.toISOString().slice(0, 7);
+                if (ym !== monthPrefix) return false;
+              }
+              if (q.adult > 0 && dep.stockAdult < q.adult) return false;
+              if (q.child > 0 && dep.stockChild < q.child) return false;
+              if (q.baby > 0 && dep.stockBaby < q.baby) return false;
+              return true;
+            });
+          }
+
+          // Legacy tour without TourDeparture rows
+          if (normDepLoc) {
+            const locs = Array.isArray(t.locations)
+              ? t.locations.map((l) => normalizeVietnameseText(String(l)))
+              : [];
+            if (!locs.some((l) => l.includes(normDepLoc) || normDepLoc.includes(l))) {
+              return false;
+            }
+          }
+          if (validDepartureDate && (!t.departureDate || t.departureDate < validDepartureDate)) {
+            return false;
+          }
+          if (monthPrefix) {
+            if (!t.departureDate || t.departureDate.toISOString().slice(0, 7) !== monthPrefix) {
+              return false;
+            }
+          }
+          if (q.adult > 0 && t.stockAdult < q.adult) return false;
+          if (q.child > 0 && t.stockChild < q.child) return false;
+          if (q.baby > 0 && t.stockBaby < q.baby) return false;
+          return true;
+        });
+      }
 
       if (q.sort === "deal") {
         filtered = [...filtered].sort(
@@ -407,15 +605,25 @@ const executeToursQueryCached = unstable_cache(
       } else if (q.sort === "price-asc") {
         filtered = [...filtered].sort(
           (a, b) =>
-            (a.priceNewAdult - b.priceNewAdult) ||
-            (a.position - b.position)
+            a.priceNewAdult - b.priceNewAdult || a.position - b.position
         );
       } else if (q.sort === "price-desc") {
         filtered = [...filtered].sort(
           (a, b) =>
-            (b.priceNewAdult - a.priceNewAdult) ||
-            (a.position - b.position)
+            b.priceNewAdult - a.priceNewAdult || a.position - b.position
         );
+      } else if (q.sort === "rating-desc") {
+        filtered = [...filtered].sort(
+          (a, b) =>
+            (b.ratingAvg ?? 5) - (a.ratingAvg ?? 5) ||
+            (b.reviewCount ?? 0) - (a.reviewCount ?? 0)
+        );
+      } else if (q.sort === "departure-asc") {
+        filtered = [...filtered].sort((a, b) => {
+          const da = a.departureDate ? a.departureDate.getTime() : Number.MAX_SAFE_INTEGER;
+          const db = b.departureDate ? b.departureDate.getTime() : Number.MAX_SAFE_INTEGER;
+          return da - db || a.position - b.position;
+        });
       }
 
       const total = filtered.length;
@@ -453,7 +661,7 @@ const executeToursQueryCached = unstable_cache(
       totalPages,
     };
   },
-  ["client-tours-query-v3"],
+  ["client-tours-query-v4"],
   {
     revalidate: 120,
     tags: [CACHE_TAGS.clientTours],
@@ -492,10 +700,19 @@ export const queryClientTours = cache(async (input: ClientToursQueryInput) => {
     destination: input.destination?.trim() || "",
     departureLocation: input.departureLocation?.trim() || "",
     departureDateRaw: input.departureDate?.trim() || "",
+    departureMonth: input.departureMonth?.trim() || "",
     adult: input.adult && input.adult > 0 ? Math.floor(input.adult) : 0,
     child: input.child && input.child > 0 ? Math.floor(input.child) : 0,
     baby: input.baby && input.baby > 0 ? Math.floor(input.baby) : 0,
     priceRange: input.priceRange?.trim() || "",
+    minPrice: input.minPrice && input.minPrice > 0 ? Math.floor(input.minPrice) : 0,
+    maxPrice: input.maxPrice && input.maxPrice > 0 ? Math.floor(input.maxPrice) : 0,
+    durationBucket: input.durationBucket?.trim() || "",
+    vehicle: input.vehicle?.trim() || "",
+    hotelStar: input.hotelStar && input.hotelStar > 0 ? Math.floor(input.hotelStar) : 0,
+    tags: Array.isArray(input.tags)
+      ? input.tags.map((t) => t.trim().toUpperCase()).filter(Boolean)
+      : [],
     dealOnly: Boolean(input.dealOnly),
     sort: input.sort?.trim() || "",
     page,
@@ -509,6 +726,88 @@ export const queryClientTours = cache(async (input: ClientToursQueryInput) => {
   };
 });
 
+export async function suggestToursAndDestinations(query: string, limit = 6) {
+  const allTours = await prisma.tour.findMany({
+    where: {
+      deleted: false,
+      status: RecordStatus.ACTIVE,
+      category: { deleted: false, status: RecordStatus.ACTIVE },
+    },
+    select: CLIENT_TOUR_SELECT,
+    orderBy: [{ position: "asc" }, { reviewCount: "desc" }],
+  });
+
+  const popularDestinations = [
+    "Hà Nội",
+    "Sapa",
+    "Hạ Long",
+    "Đà Nẵng",
+    "Hội An",
+    "Phú Quốc",
+    "Đà Lạt",
+    "Nhật Bản",
+    "Singapore",
+    "Châu Âu",
+  ];
+
+  const q = query.trim();
+  const normQ = normalizeVietnameseText(q);
+
+  const matchedDestinations = normQ
+    ? popularDestinations.filter((d) =>
+        normalizeVietnameseText(d).includes(normQ)
+      )
+    : popularDestinations.slice(0, 5);
+
+  const matchedTours = normQ
+    ? allTours.filter((t) => matchesSearchTerm(t, q))
+    : allTours;
+
+  return {
+    destinations: matchedDestinations.slice(0, 5),
+    tours: matchedTours.slice(0, limit).map(serializeTourDates),
+  };
+}
+
+export async function getClientToursByLookups(input: {
+  slugs?: string[];
+  ids?: string[];
+}) {
+  const slugs = Array.from(
+    new Set((input.slugs ?? []).map((s) => s.trim()).filter(Boolean))
+  ).slice(0, 20);
+  const ids = Array.from(
+    new Set((input.ids ?? []).map((s) => s.trim()).filter(Boolean))
+  ).slice(0, 20);
+
+  if (slugs.length === 0 && ids.length === 0) return [];
+
+  const rows = await prisma.tour.findMany({
+    where: {
+      deleted: false,
+      status: RecordStatus.ACTIVE,
+      category: { deleted: false, status: RecordStatus.ACTIVE },
+      OR: [
+        ...(slugs.length > 0 ? [{ slug: { in: slugs } }] : []),
+        ...(ids.length > 0 ? [{ id: { in: ids } }] : []),
+      ],
+    },
+    select: CLIENT_TOUR_SELECT,
+  });
+
+  const serialized = rows.map(serializeTourDates);
+  if (slugs.length > 0) {
+    const bySlug = new Map(serialized.map((t) => [t.slug, t]));
+    return slugs
+      .map((s) => bySlug.get(s))
+      .filter((t): t is NonNullable<typeof t> => Boolean(t));
+  }
+  const byId = new Map(serialized.map((t) => [t.id, t]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
+}
+
 const getClientTourBySlugCached = unstable_cache(
   async (slug: string) => {
     const tour = await prisma.tour.findFirst({
@@ -519,6 +818,11 @@ const getClientTourBySlugCached = unstable_cache(
         category: { deleted: false, status: RecordStatus.ACTIVE },
       },
       include: {
+        departures: {
+          where: { status: RecordStatus.ACTIVE },
+          orderBy: [{ departureDate: "asc" }],
+          select: CLIENT_DEPARTURE_SELECT,
+        },
         category: {
           select: {
             id: true,
@@ -634,6 +938,7 @@ const getClientTourBySlugCached = unstable_cache(
     return {
       tour: {
         ...tour,
+        departures: tour.departures.map(serializeDeparture),
         departureDate: tour.departureDate
           ? tour.departureDate.toISOString()
           : null,
@@ -646,7 +951,7 @@ const getClientTourBySlugCached = unstable_cache(
       ratingBreakdown,
     };
   },
-  ["client-tour-detail-v2"],
+  ["client-tour-detail-v3"],
   {
     revalidate: 120,
     tags: [CACHE_TAGS.clientTours],

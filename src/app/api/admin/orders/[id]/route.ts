@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  RefundStatus,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { restoreOrderInventory } from "@/lib/admin-api";
+import { reserveOrderItemStock } from "@/lib/order-holds";
 import { revalidateClientToursCache } from "@/lib/cache-tags";
 
 class OrderUpdateError extends Error {
@@ -60,6 +66,12 @@ export async function PUT(
     const body = await req.json();
     const fullName = String(body.fullName || "").trim();
     const phone = String(body.phone || "").trim();
+    const email =
+      body.email !== undefined
+        ? body.email
+          ? String(body.email).trim()
+          : null
+        : undefined;
     const note = body.note ? String(body.note).trim() : null;
 
     if (!fullName) {
@@ -88,6 +100,11 @@ export async function PUT(
     const nextStatus = Object.values(OrderStatus).includes(body.status)
       ? (body.status as OrderStatus)
       : OrderStatus.INITIAL;
+    const nextRefundStatus = Object.values(RefundStatus).includes(
+      body.refundStatus
+    )
+      ? (body.refundStatus as RefundStatus)
+      : undefined;
 
     const updated = await prisma.$transaction(async (tx) => {
       const existing = await tx.order.findFirst({
@@ -99,30 +116,23 @@ export async function PUT(
         throw new OrderUpdateError("Không tìm thấy đơn hàng", 404);
       }
 
-      // Restore tour inventory atomically when cancelling a non-cancelled order
+      // Restore tour/departure inventory atomically when cancelling a non-cancelled order
       if (existing.status !== "CANCELLED" && nextStatus === "CANCELLED") {
         await restoreOrderInventory(tx, existing.items);
       }
 
-      // Re-reserve inventory if restoring a cancelled order back to active processing
+      // Re-reserve tour/departure inventory if restoring a cancelled order back to active processing
       if (existing.status === "CANCELLED" && nextStatus !== "CANCELLED") {
         for (const item of existing.items) {
           if (!item.tourId) continue;
-          const res = await tx.tour.updateMany({
-            where: {
-              id: item.tourId,
-              deleted: false,
-              stockAdult: { gte: item.quantityAdult },
-              stockChild: { gte: item.quantityChild },
-              stockBaby: { gte: item.quantityBaby },
-            },
-            data: {
-              stockAdult: { decrement: item.quantityAdult },
-              stockChild: { decrement: item.quantityChild },
-              stockBaby: { decrement: item.quantityBaby },
-            },
+          const ok = await reserveOrderItemStock(tx, {
+            tourId: item.tourId,
+            departureId: item.departureId,
+            quantityAdult: item.quantityAdult,
+            quantityChild: item.quantityChild,
+            quantityBaby: item.quantityBaby,
           });
-          if (res.count === 0) {
+          if (!ok) {
             throw new OrderUpdateError(
               `Tour "${item.name}" không còn đủ chỗ trống để kích hoạt lại đơn hàng`,
               409
@@ -131,15 +141,34 @@ export async function PUT(
         }
       }
 
+      const cancelReasonUpdate =
+        existing.status !== "CANCELLED" && nextStatus === "CANCELLED"
+          ? { cancelReason: "ADMIN_CANCELLED" }
+          : existing.status === "CANCELLED" && nextStatus !== "CANCELLED"
+            ? { cancelReason: null }
+            : {};
+
+      const paidAtUpdate =
+        existing.paymentStatus !== PaymentStatus.PAID &&
+        paymentStatus === PaymentStatus.PAID
+          ? { paidAt: existing.paidAt ?? new Date() }
+          : {};
+
       return tx.order.update({
         where: { id },
         data: {
           fullName,
           phone,
+          ...(email !== undefined ? { email } : {}),
           note,
           paymentMethod,
           paymentStatus,
+          ...(nextRefundStatus !== undefined
+            ? { refundStatus: nextRefundStatus }
+            : {}),
           status: nextStatus,
+          ...cancelReasonUpdate,
+          ...paidAtUpdate,
           updatedById: admin.id,
         },
         include: { items: true },

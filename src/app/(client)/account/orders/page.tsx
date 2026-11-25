@@ -5,9 +5,11 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Calendar,
+  FileText,
   Loader2,
   MapPin,
   PackageOpen,
+  Plane,
   UserCheck,
   XCircle,
 } from "lucide-react";
@@ -27,6 +29,10 @@ import {
 interface CustomerOrderItem {
   id: string;
   tourId: string | null;
+  departureCode?: string | null;
+  airline?: string | null;
+  flightOut?: string | null;
+  flightBack?: string | null;
   name: string;
   avatar: string | null;
   departureDate: string | null;
@@ -37,6 +43,8 @@ interface CustomerOrderItem {
   priceNewChild: number;
   quantityBaby: number;
   priceNewBaby: number;
+  singleRoomCount?: number;
+  singleRoomSurcharge?: number;
   tour?: { slug: string } | null;
 }
 
@@ -52,6 +60,7 @@ interface CustomerOrder {
   total: number;
   paymentMethod: "CASH" | "MOMO" | "BANK_TRANSFER";
   paymentStatus: "UNPAID" | "PAID";
+  refundStatus?: "NONE" | "REFUND_REQUIRED" | "REFUNDED";
   status: "INITIAL" | "APPROVED" | "CANCELLED";
   createdAt: string;
   items: CustomerOrderItem[];
@@ -287,7 +296,7 @@ export default function CustomerOrdersPage() {
                     {/* Header Row */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-subtle">
                       <div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[16px] font-bold text-client-primary tabular-nums">
                             #{order.code}
                           </span>
@@ -296,10 +305,24 @@ export default function CustomerOrdersPage() {
                           >
                             {badge.label}
                           </span>
+                          {order.refundStatus === "REFUND_REQUIRED" && (
+                            <span className="text-[12px] font-semibold px-2.5 py-0.5 rounded-full border bg-status-warn-bg text-status-warn border-status-warn-border">
+                              Cần hoàn tiền
+                            </span>
+                          )}
+                          {order.refundStatus === "REFUNDED" && (
+                            <span className="text-[12px] font-semibold px-2.5 py-0.5 rounded-full border bg-status-success-bg text-status-success border-status-success-border">
+                              Đã hoàn tiền
+                            </span>
+                          )}
                         </div>
                         <p className="text-[12px] text-ink-muted mt-0.5 tabular-nums">
                           Đặt lúc: {formatDateTimeVN(order.createdAt)} • Thanh
-                          toán: <strong className="text-ink">{PAYMENT_LABELS[order.paymentMethod]}</strong> (
+                          toán:{" "}
+                          <strong className="text-ink">
+                            {PAYMENT_LABELS[order.paymentMethod]}
+                          </strong>{" "}
+                          (
                           {order.paymentStatus === "PAID"
                             ? "Đã thanh toán"
                             : "Chưa thanh toán"}
@@ -355,10 +378,33 @@ export default function CustomerOrdersPage() {
                                 <MapPin className="w-3.5 h-3.5 text-client-primary" />
                                 {item.departureLocation}
                               </span>
+                              {item.departureCode && (
+                                <span className="font-semibold text-client-primary">
+                                  Mã lịch: {item.departureCode}
+                                </span>
+                              )}
                             </div>
+                            {(item.airline || item.flightOut) && (
+                              <p className="text-[12px] text-ink-muted inline-flex items-center gap-1.5">
+                                <Plane className="w-3.5 h-3.5 text-client-primary" />
+                                <span>
+                                  {item.airline}
+                                  {item.flightOut
+                                    ? ` • ${item.flightOut}${
+                                        item.flightBack
+                                          ? ` / ${item.flightBack}`
+                                          : ""
+                                      }`
+                                    : ""}
+                                </span>
+                              </p>
+                            )}
                             <p className="text-[12px] font-semibold text-client-primary tabular-nums">
                               Người lớn: {item.quantityAdult} • Trẻ em:{" "}
                               {item.quantityChild} • Em bé: {item.quantityBaby}
+                              {(item.singleRoomCount || 0) > 0
+                                ? ` • Phòng đơn: ${item.singleRoomCount}`
+                                : ""}
                             </p>
                           </div>
                         </div>
@@ -368,7 +414,10 @@ export default function CustomerOrdersPage() {
                     {order.paymentMethod === "BANK_TRANSFER" &&
                       order.paymentStatus === "UNPAID" &&
                       order.status !== "CANCELLED" && (
-                        <BankTransferInfoBox orderCode={order.code} />
+                        <BankTransferInfoBox
+                          orderCode={order.code}
+                          amount={order.total}
+                        />
                       )}
 
                     {order.paymentMethod === "MOMO" &&
@@ -382,7 +431,11 @@ export default function CustomerOrdersPage() {
                       <div>
                         {order.couponCode && (
                           <span className="tabular-nums">
-                            Mã giảm: <strong className="text-ink">{order.couponCode}</strong> (
+                            Mã giảm:{" "}
+                            <strong className="text-ink">
+                              {order.couponCode}
+                            </strong>{" "}
+                            (
                             <span className="text-client-accent font-semibold">
                               -{formatCurrencyVND(order.discount)}
                             </span>
@@ -391,16 +444,28 @@ export default function CustomerOrdersPage() {
                         )}
                       </div>
 
-                      {order.status === "INITIAL" && (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmCancelOrder(order)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] border border-status-danger-border text-status-danger hover:bg-status-danger-bg hover:text-status-danger font-semibold text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger/40"
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/orders/${encodeURIComponent(
+                            order.code
+                          )}/voucher`}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] border border-client-border bg-client-soft text-client-primary hover:bg-client-border/40 font-semibold text-[13px] transition-colors"
                         >
-                          <XCircle className="w-4 h-4" />
-                          <span>Hủy đơn hàng</span>
-                        </button>
-                      )}
+                          <FileText className="w-4 h-4" />
+                          <span>Xem e-Voucher</span>
+                        </Link>
+
+                        {order.status === "INITIAL" && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmCancelOrder(order)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] border border-status-danger-border text-status-danger hover:bg-status-danger-bg hover:text-status-danger font-semibold text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger/40"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            <span>Hủy đơn hàng</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

@@ -2,6 +2,7 @@ import { PrismaClient, Prisma, RecordStatus, OrderStatus, PaymentMethod, Payment
 import bcrypt from "bcryptjs";
 import { buildTourReviewSummary } from "../src/lib/ai";
 import { ALL_PERMISSION_KEYS } from "../src/lib/permissions";
+import { syncTourSummaryFromDepartures } from "../src/lib/departure-sync";
 
 const prisma = new PrismaClient();
 
@@ -238,9 +239,9 @@ async function main() {
   ];
   const tour1Schedules = [
     {
-      title: "NGÀY 1 | TP.HCM – THỦ ĐÔ HÀ NỘI",
+      title: "NGÀY 1 | ĐIỂM HẸN KHỞI HÀNH – THỦ ĐÔ HÀ NỘI",
       description:
-        "Đón khách tại sân bay Tân Sơn Nhất, bay ra Hà Nội. Nhận phòng khách sạn 5 sao, tham quan Hồ Hoàn Kiếm, Đền Ngọc Sơn, Văn Miếu Quốc Tử Giám và thưởng thức ẩm thực phố cổ.",
+        "Hướng dẫn viên đón khách tại điểm khởi hành (sân bay Tân Sơn Nhất / Đà Nẵng bay ra Nội Bài hoặc điểm hẹn trung tâm Hà Nội). Nhận phòng khách sạn 5 sao, tham quan Hồ Hoàn Kiếm, Đền Ngọc Sơn, Văn Miếu Quốc Tử Giám và thưởng thức ẩm thực phố cổ.",
     },
     {
       title: "NGÀY 2 | HÀ NỘI – TRÀNG AN – NINH BÌNH",
@@ -884,6 +885,259 @@ async function main() {
       updatedById: adminA.id,
     },
   });
+
+  // 4B. Enrich OTA Metadata (Duration, Hotel Star, Tags, Route Waypoints) & Multi-Date TourDepartures
+  const allToursForOta = await prisma.tour.findMany({
+    select: {
+      id: true,
+      code: true,
+      priceAdult: true,
+      priceChild: true,
+      priceBaby: true,
+      priceNewAdult: true,
+      priceNewChild: true,
+      priceNewBaby: true,
+      time: true,
+      locations: true,
+      deleted: true,
+    },
+  });
+
+  const otaMetaByCode: Record<
+    string,
+    {
+      durationDays: number;
+      hotelStar: number;
+      singleRoomSurcharge: number;
+      tags: string[];
+      airlineDefault: string;
+      flightOutDefault: string;
+      flightBackDefault: string;
+      routeWaypoints: Array<{ day: number; label: string; lat: number; lng: number; note?: string }>;
+      departureDates: string[];
+    }
+  > = {
+    TOUR00001: {
+      durationDays: 6,
+      hotelStar: 5,
+      singleRoomSurcharge: 2200000,
+      tags: ["NO_SHOP", "GIA_DINH", "NGHI_DUONG"],
+      airlineDefault: "Vietnam Airlines",
+      flightOutDefault: "VN244 · 07:30",
+      flightBackDefault: "VN257 · 19:20",
+      routeWaypoints: [
+        { day: 1, label: "Hà Nội", lat: 21.0285, lng: 105.8542, note: "Phố cổ & Văn Miếu" },
+        { day: 2, label: "Tràng An – Ninh Bình", lat: 20.2506, lng: 105.9745, note: "Quần thể di sản Tràng An" },
+        { day: 3, label: "Vịnh Hạ Long", lat: 20.9101, lng: 107.1839, note: "Du thuyền 5 sao" },
+        { day: 4, label: "Yên Tử (Quảng Ninh)", lat: 21.1583, lng: 106.7161, note: "Chùa Đồng đỉnh núi" },
+        { day: 5, label: "SaPa – Bản Cát Cát", lat: 22.3364, lng: 103.8438, note: "Chợ đêm SaPa" },
+        { day: 6, label: "Đỉnh Fansipan 3.143m", lat: 22.3033, lng: 103.775, note: "Nóc nhà Đông Dương" },
+      ],
+      departureDates: ["2026-12-06", "2026-12-13", "2026-12-20", "2026-12-27", "2027-01-10"],
+    },
+    TOUR00002: {
+      durationDays: 3,
+      hotelStar: 5,
+      singleRoomSurcharge: 1400000,
+      tags: ["BAY_THANG", "NGHI_DUONG", "GIA_DINH"],
+      airlineDefault: "Vietnam Airlines",
+      flightOutDefault: "VN1823 · 08:15",
+      flightBackDefault: "VN1828 · 18:45",
+      routeWaypoints: [
+        { day: 1, label: "Sunset Town & Cầu Hôn", lat: 10.0329, lng: 104.0059, note: "Hoàng hôn Nam Đảo" },
+        { day: 2, label: "Quần đảo An Thới – Hòn Thơm", lat: 9.9547, lng: 104.0176, note: "Cáp treo vượt biển & lặn san hô" },
+        { day: 3, label: "Grand World – Dương Đông", lat: 10.3315, lng: 103.8548, note: "Thành phố không ngủ" },
+      ],
+      departureDates: ["2026-12-05", "2026-12-12", "2026-12-24", "2027-01-02", "2027-01-16"],
+    },
+    TOUR00003: {
+      durationDays: 4,
+      hotelStar: 4,
+      singleRoomSurcharge: 1200000,
+      tags: ["NO_SHOP", "BAY_THANG", "GIA_DINH"],
+      airlineDefault: "Vietjet Air",
+      flightOutDefault: "VJ505 · 07:45",
+      flightBackDefault: "VJ522 · 20:10",
+      routeWaypoints: [
+        { day: 1, label: "Sơn Trà & Mỹ Khê", lat: 16.0544, lng: 108.2478, note: "Chùa Linh Ứng & biển" },
+        { day: 2, label: "Bà Nà Hills – Cầu Vàng", lat: 15.9977, lng: 107.9881, note: "Làng Pháp trên mây" },
+        { day: 3, label: "Cù Lao Chàm – Hội An", lat: 15.8801, lng: 108.338, note: "Phố cổ đèn lồng" },
+        { day: 4, label: "Chợ Hàn – Đà Nẵng", lat: 16.0683, lng: 108.2244, note: "Đặc sản miền Trung" },
+      ],
+      departureDates: ["2026-12-07", "2026-12-18", "2026-12-28", "2027-01-08", "2027-01-22"],
+    },
+    TOUR00004: {
+      durationDays: 4,
+      hotelStar: 3,
+      singleRoomSurcharge: 850000,
+      tags: ["NO_SHOP", "KHUYEN_MAI"],
+      airlineDefault: "Xe Limousine / Giường nằm",
+      flightOutDefault: "Xuất phát 06:30 (Mỹ Đình)",
+      flightBackDefault: "Về Hà Nội 20:30",
+      routeWaypoints: [
+        { day: 1, label: "Hà Nội – Bản Cát Cát", lat: 22.3279, lng: 103.8318, note: "Bản làng H'Mông" },
+        { day: 2, label: "Đỉnh Fansipan", lat: 22.3033, lng: 103.775, note: "Săn mây 3.143m" },
+        { day: 3, label: "Mường Hoa – Tả Van", lat: 22.3046, lng: 103.8902, note: "Ruộng bậc thang" },
+        { day: 4, label: "Hàm Rồng – Lào Cai", lat: 22.4856, lng: 103.9707, note: "Cửa khẩu Lào Cai" },
+      ],
+      departureDates: ["2026-12-08", "2026-12-15", "2026-12-22", "2026-12-30"],
+    },
+    TOUR00005: {
+      durationDays: 6,
+      hotelStar: 5,
+      singleRoomSurcharge: 3200000,
+      tags: ["NO_SHOP", "BAY_THANG", "NGHI_DUONG"],
+      airlineDefault: "Vietnam Airlines",
+      flightOutDefault: "VN310 · 23:55",
+      flightBackDefault: "VN321 · 10:30",
+      routeWaypoints: [
+        { day: 1, label: "Sân bay Quốc tế Narita", lat: 35.772, lng: 140.3929, note: "Đáp chuyến bay đêm" },
+        { day: 2, label: "Tokyo – Asakusa & Skytree", lat: 35.7148, lng: 139.7967, note: "Cổ tự Sensoji" },
+        { day: 3, label: "Núi Phú Sĩ – Oshino Hakkai", lat: 35.3606, lng: 138.7274, note: "Tắm Onsen truyền thống" },
+        { day: 4, label: "Tàu Shinkansen – Kyoto", lat: 35.0394, lng: 135.7292, note: "Chùa Vàng Kinkakuji" },
+        { day: 5, label: "Osaka Castle & Shinsaibashi", lat: 34.6873, lng: 135.5262, note: "Lâu đài Osaka" },
+        { day: 6, label: "Sân bay Kansai (KIX)", lat: 34.4342, lng: 135.244, note: "Bay về Việt Nam" },
+      ],
+      departureDates: ["2026-12-18", "2026-12-26", "2027-01-10", "2027-01-24", "2027-02-08"],
+    },
+    TOUR00006: {
+      durationDays: 4,
+      hotelStar: 4,
+      singleRoomSurcharge: 2400000,
+      tags: ["BAY_THANG", "GIA_DINH"],
+      airlineDefault: "Singapore Airlines",
+      flightOutDefault: "SQ177 · 09:20",
+      flightBackDefault: "SQ178 · 16:40",
+      routeWaypoints: [
+        { day: 1, label: "Jewel Changi & Merlion Park", lat: 1.3602, lng: 103.9898, note: "Thác nước Rain Vortex" },
+        { day: 2, label: "Gardens by the Bay – Sentosa", lat: 1.2816, lng: 103.8636, note: "Cloud Forest & Wings of Time" },
+        { day: 3, label: "Universal Studios & Orchard", lat: 1.254, lng: 103.8238, note: "Công viên điện ảnh" },
+        { day: 4, label: "Marina Barrage – Chinatown", lat: 1.2805, lng: 103.8708, note: "Chùa Răng Phật" },
+      ],
+      departureDates: ["2026-12-11", "2026-12-23", "2027-01-15", "2027-01-29"],
+    },
+    TOUR00008: {
+      durationDays: 6,
+      hotelStar: 5,
+      singleRoomSurcharge: 4500000,
+      tags: ["NO_SHOP", "NGHI_DUONG"],
+      airlineDefault: "Qatar Airways / Air France",
+      flightOutDefault: "AF253 · 22:15",
+      flightBackDefault: "AF258 · 13:30",
+      routeWaypoints: [
+        { day: 1, label: "Paris – Champs-Élysées", lat: 48.8698, lng: 2.3078, note: "Du thuyền sông Seine" },
+        { day: 2, label: "Tháp Eiffel & Louvre", lat: 48.8584, lng: 2.2945, note: "Đồi Montmartre" },
+        { day: 3, label: "Strasbourg – Colmar", lat: 48.0794, lng: 7.3585, note: "Vùng Alsace cổ tích" },
+        { day: 4, label: "Lucerne – Đỉnh Titlis", lat: 46.772, lng: 8.4378, note: "Cáp treo quay 360 độ" },
+        { day: 5, label: "Zermatt – Milan Duomo", lat: 45.4641, lng: 9.1919, note: "Matterhorn & kinh đô thời trang" },
+        { day: 6, label: "Milan Malpensa", lat: 45.6301, lng: 8.7255, note: "Kết thúc hành trình" },
+      ],
+      departureDates: ["2026-12-20", "2027-01-14", "2027-02-05", "2027-02-19"],
+    },
+    TOUR00009: {
+      durationDays: 3,
+      hotelStar: 4,
+      singleRoomSurcharge: 950000,
+      tags: ["NO_SHOP", "GIA_DINH", "NGHI_DUONG"],
+      airlineDefault: "Bamboo Airways",
+      flightOutDefault: "QH1322 · 08:40",
+      flightBackDefault: "QH1325 · 17:15",
+      routeWaypoints: [
+        { day: 1, label: "Hồ Xuân Hương – Lâm Viên", lat: 11.9404, lng: 108.4583, note: "Chợ đêm Đà Lạt" },
+        { day: 2, label: "Đồi chè Cầu Đất – Datanla", lat: 11.8891, lng: 108.5327, note: "Săn mây & chèo SUP Tuyền Lâm" },
+        { day: 3, label: "Thiền viện Trúc Lâm", lat: 11.9035, lng: 108.4357, note: "Vườn hoa thành phố" },
+      ],
+      departureDates: ["2026-12-10", "2026-12-19", "2027-01-03", "2027-01-20"],
+    },
+    TOUR00010: {
+      durationDays: 5,
+      hotelStar: 5,
+      singleRoomSurcharge: 4800000,
+      tags: ["NO_SHOP", "NGHI_DUONG"],
+      airlineDefault: "Swiss International Air Lines",
+      flightOutDefault: "LX193 · 21:40",
+      flightBackDefault: "LX189 · 14:20",
+      routeWaypoints: [
+        { day: 1, label: "Zurich – Phố cổ Altstadt", lat: 47.3769, lng: 8.5417, note: "Hồ Zurich" },
+        { day: 2, label: "Lauterbrunnen – Interlaken", lat: 46.5935, lng: 7.9091, note: "Thung lũng 72 thác nước" },
+        { day: 3, label: "Đỉnh Jungfraujoch 3.454m", lat: 46.5475, lng: 7.9851, note: "Nóc nhà Châu Âu" },
+        { day: 4, label: "Làng tuyết Zermatt", lat: 46.0207, lng: 7.7491, note: "Ngắm đỉnh Matterhorn" },
+        { day: 5, label: "Hồ Geneva", lat: 46.2044, lng: 6.1432, note: "Đài phun nước Jet d'Eau" },
+      ],
+      departureDates: ["2026-12-24", "2027-01-18", "2027-02-14", "2027-02-26"],
+    },
+  };
+
+  for (const t of allToursForOta) {
+    const meta = otaMetaByCode[t.code];
+    if (!meta || t.deleted) continue;
+
+    await prisma.tour.update({
+      where: { id: t.id },
+      data: {
+        durationDays: meta.durationDays,
+        hotelStar: meta.hotelStar,
+        singleRoomSurcharge: meta.singleRoomSurcharge,
+        tags: meta.tags,
+        routeWaypoints: meta.routeWaypoints,
+      },
+    });
+
+    const tourLocs = Array.isArray(t.locations) && t.locations.length > 0
+      ? t.locations.map(String)
+      : ["Hà Nội"];
+
+    for (let idx = 0; idx < meta.departureDates.length; idx++) {
+      const startIso = meta.departureDates[idx];
+      const depDate = new Date(`${startIso}T07:00:00.000Z`);
+      const retDate = new Date(depDate.getTime() + (meta.durationDays - 1) * 86400000);
+      const depLoc = tourLocs[idx % tourLocs.length] || "Hà Nội";
+      const depCode = `${t.code}-${startIso.replace(/-/g, "").slice(4)}`;
+      const isPeak = idx === 2;
+      const surchargeFactor = isPeak ? 1.05 : 1;
+      const stockA = idx === 0 ? 3 : idx === 1 ? 8 : 16 + idx * 2;
+
+      await prisma.tourDeparture.upsert({
+        where: { code: depCode },
+        update: {
+          departureDate: depDate,
+          returnDate: retDate,
+          departureLocation: depLoc,
+          airline: meta.airlineDefault,
+          flightOut: meta.flightOutDefault,
+          flightBack: meta.flightBackDefault,
+          hotelStar: meta.hotelStar,
+          singleRoomSurcharge: meta.singleRoomSurcharge,
+        },
+        create: {
+          tourId: t.id,
+          code: depCode,
+          departureDate: depDate,
+          returnDate: retDate,
+          departureLocation: depLoc,
+          airline: meta.airlineDefault,
+          flightOut: meta.flightOutDefault,
+          flightBack: meta.flightBackDefault,
+          hotelStar: meta.hotelStar,
+          priceAdult: Math.round((t.priceAdult * surchargeFactor) / 10000) * 10000,
+          priceChild: Math.round((t.priceChild * surchargeFactor) / 10000) * 10000,
+          priceBaby: Math.round((t.priceBaby * surchargeFactor) / 10000) * 10000,
+          priceNewAdult: Math.round((t.priceNewAdult * surchargeFactor) / 10000) * 10000,
+          priceNewChild: Math.round((t.priceNewChild * surchargeFactor) / 10000) * 10000,
+          priceNewBaby: Math.round((t.priceNewBaby * surchargeFactor) / 10000) * 10000,
+          singleRoomSurcharge: meta.singleRoomSurcharge,
+          stockAdult: stockA,
+          stockChild: Math.max(2, Math.floor(stockA / 2)),
+          stockBaby: Math.max(1, Math.floor(stockA / 3)),
+          status: RecordStatus.ACTIVE,
+        },
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await syncTourSummaryFromDepartures(tx, t.id);
+    });
+  }
 
   // 5. Sample Customer Account (for Customer Auth & Order History)
   const seededUser = await prisma.user.upsert({

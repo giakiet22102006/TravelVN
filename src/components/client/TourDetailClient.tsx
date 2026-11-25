@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  BedDouble,
   Bus,
   Calendar,
   Check,
@@ -11,24 +12,35 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Heart,
+  Hotel,
   MapPin,
   Minus,
+  Plane,
   Plus,
+  Scale,
   ShieldCheck,
   ShoppingCart,
   Star,
+  Tag,
   Ticket,
   XCircle,
 } from "lucide-react";
 import { useCart } from "@/components/client/CartContext";
+import { useWishlist } from "@/components/client/WishlistContext";
+import { useCompare } from "@/components/client/CompareContext";
 import { TourCard, type TourCardData } from "@/components/client/TourCard";
 import { TourReviewsSection } from "@/components/client/TourReviewsSection";
+import { TourDepartureCalendar } from "@/components/client/TourDepartureCalendar";
+import { TourRouteMap } from "@/components/client/TourRouteMap";
+import { RecentlyViewedSection } from "@/components/client/RecentlyViewedSection";
 import { SmartImage } from "@/components/client/SmartImage";
 import {
   calcDiscountPercent,
   formatCurrencyVND,
   formatDateVN,
 } from "@/lib/format";
+import { TOUR_TAG_LABELS, type TourDeparturePublic } from "@/types/ota";
 import type { TourAiReviewSummary } from "@/lib/ai";
 import type { RatingBreakdownMap, TourReviewItem } from "@/lib/client-data";
 
@@ -41,6 +53,7 @@ export interface TourDetailData extends TourCardData {
   information: string | null;
   images: unknown;
   schedules: unknown;
+  routeWaypoints?: unknown;
   priceChild: number;
   priceBaby: number;
   priceNewChild: number;
@@ -66,6 +79,28 @@ const DEFAULT_BREAKDOWN: RatingBreakdownMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1000&q=80";
 
+function pickEarliestDepartureForCity(
+  departures: TourDeparturePublic[],
+  city: string
+): TourDeparturePublic | null {
+  if (departures.length === 0) return null;
+  const byCity = departures.filter((d) => d.departureLocation === city);
+  const pool = byCity.length > 0 ? byCity : departures;
+  const sorted = [...pool].sort(
+    (a, b) =>
+      new Date(a.departureDate).getTime() - new Date(b.departureDate).getTime()
+  );
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const upcomingWithStock = sorted.find(
+    (d) => new Date(d.departureDate).getTime() >= cutoff && d.stockAdult > 0
+  );
+  if (upcomingWithStock) return upcomingWithStock;
+  const upcoming = sorted.find(
+    (d) => new Date(d.departureDate).getTime() >= cutoff
+  );
+  return upcoming ?? sorted[0] ?? null;
+}
+
 export function TourDetailClient({
   tour,
   relatedTours,
@@ -79,17 +114,36 @@ export function TourDetailClient({
 }) {
   const router = useRouter();
   const { addItem } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const { isInCompare, toggleTour } = useCompare();
+
   const [liveRatingStats, setLiveRatingStats] = useState({
     ratingAvg: tour.ratingAvg ?? 5.0,
     reviewCount: tour.reviewCount ?? 0,
   });
 
+  const departures = useMemo<TourDeparturePublic[]>(
+    () => (Array.isArray(tour.departures) ? tour.departures : []),
+    [tour.departures]
+  );
+
   const locationsList = useMemo(() => {
+    if (departures.length > 0) {
+      const distinct = Array.from(
+        new Set(departures.map((d) => d.departureLocation).filter(Boolean))
+      );
+      if (distinct.length > 0) return distinct;
+    }
     const locs = Array.isArray(tour.locations)
       ? (tour.locations as string[]).filter(Boolean)
       : [];
     return locs.length > 0 ? locs : ["Hà Nội"];
-  }, [tour.locations]);
+  }, [departures, tour.locations]);
+
+  const tagsList = useMemo(() => {
+    if (!Array.isArray(tour.tags)) return [];
+    return (tour.tags as string[]).filter(Boolean);
+  }, [tour.tags]);
 
   const galleryImages = useMemo(() => {
     const imgs = Array.isArray(tour.images)
@@ -102,7 +156,6 @@ export function TourDetailClient({
     const seenKeys = new Set<string>();
     const unique: string[] = [];
     for (const rawUrl of combined) {
-      // Deduplicate same CDN asset even when URL query widths/qualities differ
       const dedupeKey = /^https?:\/\//i.test(rawUrl)
         ? rawUrl.split("?")[0]
         : rawUrl;
@@ -121,23 +174,91 @@ export function TourDetailClient({
     );
   }, [tour.schedules]);
 
+  const initialCity = locationsList[0] || "Hà Nội";
+  const initialDep = pickEarliestDepartureForCity(departures, initialCity);
+
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [expandedInfo, setExpandedInfo] = useState(false);
+  const [activeDay, setActiveDay] = useState(1);
 
   // Booking Box State
-  const [departureLocation, setDepartureLocation] = useState(
-    locationsList[0] || "Hà Nội"
+  const [departureLocation, setDepartureLocation] = useState(initialCity);
+  const [selectedDepartureId, setSelectedDepartureId] = useState<string | null>(
+    initialDep?.id ?? null
   );
-  const [qtyAdult, setQtyAdult] = useState(tour.stockAdult > 0 ? 1 : 0);
+
+  const activeDeparture = useMemo(
+    () => departures.find((d) => d.id === selectedDepartureId) ?? null,
+    [departures, selectedDepartureId]
+  );
+
+  const activeCode = activeDeparture?.code || tour.code;
+  const activeDepartureDate =
+    activeDeparture?.departureDate || tour.departureDate;
+  const activeReturnDate = activeDeparture?.returnDate || null;
+  const activeAirline = activeDeparture?.airline || null;
+  const activeFlightOut = activeDeparture?.flightOut || null;
+  const activeFlightBack = activeDeparture?.flightBack || null;
+  const activeHotelStar = activeDeparture?.hotelStar ?? tour.hotelStar ?? 4;
+  const activeSingleRoomSurcharge =
+    activeDeparture?.singleRoomSurcharge ?? tour.singleRoomSurcharge ?? 0;
+
+  const oldAdult = activeDeparture?.priceAdult ?? tour.priceAdult;
+  const oldChild = activeDeparture?.priceChild ?? tour.priceChild;
+  const oldBaby = activeDeparture?.priceBaby ?? tour.priceBaby;
+
+  const rawNewAdult = activeDeparture?.priceNewAdult ?? tour.priceNewAdult;
+  const rawNewChild = activeDeparture?.priceNewChild ?? tour.priceNewChild;
+  const rawNewBaby = activeDeparture?.priceNewBaby ?? tour.priceNewBaby;
+
+  const unitAdult = rawNewAdult > 0 ? rawNewAdult : oldAdult;
+  const unitChild = rawNewChild > 0 ? rawNewChild : oldChild;
+  const unitBaby = rawNewBaby > 0 ? rawNewBaby : oldBaby;
+
+  const stockAdult = activeDeparture?.stockAdult ?? tour.stockAdult;
+  const stockChild = activeDeparture?.stockChild ?? tour.stockChild;
+  const stockBaby = activeDeparture?.stockBaby ?? tour.stockBaby;
+
+  const [qtyAdult, setQtyAdult] = useState(stockAdult > 0 ? 1 : 0);
   const [qtyChild, setQtyChild] = useState(0);
   const [qtyBaby, setQtyBaby] = useState(0);
+  const [singleRoomCount, setSingleRoomCount] = useState(0);
   const [qtyHint, setQtyHint] = useState<string | null>(null);
   const [bookingFeedback, setBookingFeedback] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
-  const minAdult = tour.stockAdult > 0 ? 1 : 0;
+  const minAdult = stockAdult > 0 ? 1 : 0;
+
+  function applyDepartureSelection(dep: TourDeparturePublic | null) {
+    if (!dep) {
+      setSelectedDepartureId(null);
+      return;
+    }
+    setSelectedDepartureId(dep.id);
+    if (dep.departureLocation) {
+      setDepartureLocation(dep.departureLocation);
+    }
+    const nextMinAdult = dep.stockAdult > 0 ? 1 : 0;
+    setQtyAdult((prev) => {
+      const clamped = Math.max(nextMinAdult, Math.min(dep.stockAdult, prev || nextMinAdult));
+      setSingleRoomCount((sr) => Math.min(sr, clamped));
+      return clamped;
+    });
+    setQtyChild((prev) => Math.min(dep.stockChild, prev));
+    setQtyBaby((prev) => Math.min(dep.stockBaby, prev));
+    setQtyHint(null);
+    setBookingFeedback(null);
+  }
+
+  function handleLocationChange(nextCity: string) {
+    setDepartureLocation(nextCity);
+    const earliest = pickEarliestDepartureForCity(departures, nextCity);
+    if (earliest) {
+      applyDepartureSelection(earliest);
+    }
+  }
 
   function scrollToBookingBox() {
     const el = document.getElementById("booking-box");
@@ -146,14 +267,13 @@ export function TourDetailClient({
     }
   }
 
-  const unitAdult =
-    tour.priceNewAdult > 0 ? tour.priceNewAdult : tour.priceAdult;
-  const unitChild =
-    tour.priceNewChild > 0 ? tour.priceNewChild : tour.priceChild;
-  const unitBaby = tour.priceNewBaby > 0 ? tour.priceNewBaby : tour.priceBaby;
+  const singleRoomTotal = singleRoomCount * activeSingleRoomSurcharge;
   const totalAmount =
-    qtyAdult * unitAdult + qtyChild * unitChild + qtyBaby * unitBaby;
-  const discount = calcDiscountPercent(tour.priceAdult, tour.priceNewAdult);
+    qtyAdult * unitAdult +
+    qtyChild * unitChild +
+    qtyBaby * unitBaby +
+    singleRoomTotal;
+  const discount = calcDiscountPercent(oldAdult, rawNewAdult);
 
   function addCurrentSelectionToCart(redirectToCart = false) {
     if (qtyAdult + qtyChild + qtyBaby <= 0) {
@@ -170,17 +290,24 @@ export function TourDetailClient({
       code: tour.code,
       name: tour.name,
       avatar: tour.avatar,
-      departureDate: tour.departureDate ? String(tour.departureDate) : null,
+      departureDate: activeDepartureDate ? String(activeDepartureDate) : null,
       departureLocation,
       priceNewAdult: unitAdult,
       priceNewChild: unitChild,
       priceNewBaby: unitBaby,
-      stockAdult: tour.stockAdult,
-      stockChild: tour.stockChild,
-      stockBaby: tour.stockBaby,
+      stockAdult,
+      stockChild,
+      stockBaby,
       quantityAdult: qtyAdult,
       quantityChild: qtyChild,
       quantityBaby: qtyBaby,
+      departureId: activeDeparture?.id,
+      departureCode: activeDeparture?.code,
+      airline: activeAirline ?? undefined,
+      flightOut: activeFlightOut ?? undefined,
+      flightBack: activeFlightBack ?? undefined,
+      singleRoomCount,
+      singleRoomSurcharge: activeSingleRoomSurcharge,
     });
 
     if (!added) {
@@ -201,6 +328,9 @@ export function TourDetailClient({
       text: "Đã thêm tour vào giỏ hàng!",
     });
   }
+
+  const wishlisted = isWishlisted(tour.id);
+  const compared = isInCompare(tour.id);
 
   return (
     <div className="max-w-[1184px] mx-auto px-4 py-4 sm:py-6">
@@ -242,14 +372,73 @@ export function TourDetailClient({
         </span>
       </nav>
 
-      {/* Main Tour Heading (H1) */}
-      <h1 className="text-[22px] sm:text-[26px] font-bold text-ink leading-snug mb-4">
-        {tour.name}
-      </h1>
+      {/* Main Tour Heading (H1) & OTA Metadata Badges */}
+      <div className="mb-5 space-y-2.5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-[22px] sm:text-[26px] font-bold text-ink leading-snug flex-1 min-w-[260px]">
+            {tour.name}
+          </h1>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => void toggleWishlist(tour)}
+              aria-pressed={wishlisted}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-[9px] border text-[12.5px] font-semibold transition-colors ${
+                wishlisted
+                  ? "bg-client-accent text-white border-client-accent"
+                  : "bg-white text-ink border-border-subtle hover:border-client-accent hover:text-client-accent"
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${wishlisted ? "fill-white" : ""}`} />
+              <span>{wishlisted ? "Đã thích" : "Yêu thích"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleTour(tour)}
+              aria-pressed={compared}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-[9px] border text-[12.5px] font-semibold transition-colors ${
+                compared
+                  ? "bg-client-primary text-white border-client-primary"
+                  : "bg-white text-ink border-border-subtle hover:border-client-primary hover:text-client-primary"
+              }`}
+            >
+              <Scale className="w-4 h-4" />
+              <span>{compared ? "Đang so sánh" : "So sánh"}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-client-soft text-client-primary border border-client-border font-semibold tabular-nums">
+            <Hotel className="w-3.5 h-3.5" />
+            <span>Khách sạn {activeHotelStar}★</span>
+            <span className="inline-flex items-center ml-0.5">
+              {Array.from({ length: activeHotelStar }).map((_, idx) => (
+                <Star
+                  key={idx}
+                  className="w-3 h-3 fill-client-star text-client-star"
+                />
+              ))}
+            </span>
+          </span>
+
+          {tagsList.map((code) => (
+            <span
+              key={code}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-muted text-ink border border-border-subtle font-semibold"
+            >
+              <Tag className="w-3 h-3 text-client-primary" />
+              <span>{TOUR_TAG_LABELS[code] || code}</span>
+            </span>
+          ))}
+        </div>
+      </div>
 
       {/* Main Detail Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
-        {/* Left Column: Gallery, Info, Schedule */}
+        {/* Left Column: Gallery, Departure Calendar, Info, Route Map, Schedule */}
         <div className="lg:col-span-7 space-y-6">
           {/* Gallery */}
           <div className="bg-white rounded-[14px] p-3 sm:p-4 border border-border-subtle shadow-sm">
@@ -327,13 +516,13 @@ export function TourDetailClient({
             )}
           </div>
 
-          {/* Mobile/Tablet Quick Price & Booking Jump Card (m4) */}
+          {/* Mobile/Tablet Quick Price & Booking Jump Card */}
           <div className="lg:hidden bg-white rounded-[14px] p-4 border border-client-border shadow-sm flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex flex-wrap items-baseline gap-2 tabular-nums">
                 {discount > 0 && (
                   <span className="text-[13px] text-ink-muted line-through tabular-nums">
-                    {formatCurrencyVND(tour.priceAdult)}
+                    {formatCurrencyVND(oldAdult)}
                   </span>
                 )}
                 <span className="text-[20px] font-extrabold text-client-accent tabular-nums">
@@ -344,10 +533,10 @@ export function TourDetailClient({
               <p className="text-[12px] text-ink-muted mt-0.5 tabular-nums">
                 Khởi hành:{" "}
                 <strong className="text-ink">
-                  {formatDateVN(tour.departureDate)}
+                  {formatDateVN(activeDepartureDate)}
                 </strong>{" "}
                 · Còn{" "}
-                <strong className="text-client-accent">{tour.stockAdult}</strong>{" "}
+                <strong className="text-client-accent">{stockAdult}</strong>{" "}
                 chỗ người lớn
               </p>
             </div>
@@ -360,6 +549,16 @@ export function TourDetailClient({
             </button>
           </div>
 
+          {/* Inline Multi-Departure Calendar & Pricing List */}
+          {departures.length > 0 && (
+            <TourDepartureCalendar
+              departures={departures}
+              selectedDepartureId={selectedDepartureId}
+              onSelectDeparture={applyDepartureSelection}
+              selectedLocation={departureLocation}
+            />
+          )}
+
           {/* Thông Tin Tour */}
           <div className="bg-white rounded-[14px] p-5 sm:p-6 border border-border-subtle shadow-sm">
             <h2 className="text-[20px] font-bold text-ink mb-4">
@@ -371,7 +570,7 @@ export function TourDetailClient({
               }`}
             >
               {tour.information ||
-                "Hành trình du lịch trọn gói tiêu chuẩn 5 sao cùng đội ngũ hướng dẫn viên chuyên nghiệp từ VN.TRAVEL."}
+                "Hành trình du lịch trọn gói tiêu chuẩn cao cấp cùng đội ngũ hướng dẫn viên chuyên nghiệp từ VN.TRAVEL."}
             </div>
 
             {(tour.information?.length || 0) > 220 && (
@@ -387,6 +586,15 @@ export function TourDetailClient({
             )}
           </div>
 
+          {/* Interactive SVG Route Map (Synced with Schedule Active Day) */}
+          <TourRouteMap
+            waypoints={tour.routeWaypoints}
+            schedules={schedulesList}
+            activeDay={activeDay}
+            onSelectDay={setActiveDay}
+            tourName={tour.name}
+          />
+
           {/* Lịch Trình Tour */}
           <div className="bg-white rounded-[14px] p-5 sm:p-6 border border-border-subtle shadow-sm">
             <h2 className="text-[20px] font-bold text-ink mb-5">
@@ -399,22 +607,47 @@ export function TourDetailClient({
               </p>
             ) : (
               <div className="relative pl-5 border-l-2 border-client-border space-y-6">
-                {schedulesList.map((sch, idx) => (
-                  <div key={idx} className="relative">
-                    <span className="absolute -left-[27px] top-1.5 w-3.5 h-3.5 rounded-full bg-client-primary ring-4 ring-client-primary/15" />
-                    <div className="inline-block bg-client-primary text-white text-[13px] font-semibold px-3.5 py-1.5 rounded-[8px] mb-2.5">
-                      {sch.title}
+                {schedulesList.map((sch, idx) => {
+                  const dayNum = idx + 1;
+                  const isDayActive = activeDay === dayNum;
+                  return (
+                    <div key={idx} className="relative">
+                      <span
+                        className={`absolute -left-[27px] top-1.5 w-3.5 h-3.5 rounded-full transition-colors ${
+                          isDayActive
+                            ? "bg-client-accent ring-4 ring-client-accent/20"
+                            : "bg-client-primary ring-4 ring-client-primary/15"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setActiveDay(dayNum)}
+                        className={`inline-block text-left text-[13px] font-semibold px-3.5 py-1.5 rounded-[8px] mb-2.5 transition-colors ${
+                          isDayActive
+                            ? "bg-client-accent text-white shadow-sm"
+                            : "bg-client-primary text-white hover:bg-client-primary-hover"
+                        }`}
+                      >
+                        {sch.title}
+                      </button>
+                      <div
+                        onClick={() => setActiveDay(dayNum)}
+                        className={`cursor-pointer border rounded-[10px] p-4 text-[14px] text-ink-muted leading-relaxed whitespace-pre-line transition-colors ${
+                          isDayActive
+                            ? "bg-client-soft/45 border-client-border"
+                            : "bg-surface-page border-border-subtle/70 hover:border-client-border"
+                        }`}
+                      >
+                        {sch.description}
+                      </div>
                     </div>
-                    <div className="bg-surface-page border border-border-subtle/70 rounded-[10px] p-4 text-[14px] text-ink-muted leading-relaxed whitespace-pre-line">
-                      {sch.description}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Dịch vụ Bao gồm & Không bao gồm (M4) */}
+          {/* Dịch vụ Bao gồm & Không bao gồm */}
           <div className="bg-white rounded-[14px] p-5 sm:p-6 border border-border-subtle shadow-sm">
             <h2 className="text-[20px] font-bold text-ink mb-4">
               Dịch Vụ Bao Gồm &amp; Lưu Ý
@@ -429,7 +662,9 @@ export function TourDetailClient({
                   <li>
                     Phương tiện di chuyển theo chương trình ({tour.vehicle || "Xe du lịch đời mới"}).
                   </li>
-                  <li>Lưu trú khách sạn tiêu chuẩn 3–5 sao (2 khách/phòng).</li>
+                  <li>
+                    Lưu trú khách sạn tiêu chuẩn {activeHotelStar} sao (2 khách/phòng).
+                  </li>
                   <li>Các bữa ăn chính và ăn sáng buffet theo lịch trình.</li>
                   <li>Vé vào cổng các điểm tham quan chính &amp; hướng dẫn viên suốt tuyến.</li>
                   <li>Bảo hiểm du lịch trọn gói &amp; nước suối phục vụ hàng ngày.</li>
@@ -443,7 +678,9 @@ export function TourDetailClient({
                 </p>
                 <ul className="space-y-1.5 text-ink list-disc pl-5 leading-relaxed">
                   <li>Chi phí cá nhân: giặt ủi, đồ uống ngoài thực đơn, mua sắm.</li>
-                  <li>Phụ thu phòng đơn (nếu đi 1 mình hoặc yêu cầu ở riêng).</li>
+                  <li>
+                    Phụ thu phòng đơn ({formatCurrencyVND(activeSingleRoomSurcharge)}/phòng nếu yêu cầu ở riêng).
+                  </li>
                   <li>Vé cáp treo / trò chơi tự túc ngoài mục bao gồm của từng ngày.</li>
                   <li>Tiền bồi dưỡng (tip) cho tài xế và hướng dẫn viên (không bắt buộc).</li>
                   <li>Thuế VAT 8–10% khi xuất hóa đơn GTGT doanh nghiệp (nếu có yêu cầu).</li>
@@ -528,9 +765,11 @@ export function TourDetailClient({
               <div className="flex items-center justify-between gap-3">
                 <span className="text-ink-muted inline-flex items-center gap-2">
                   <Ticket className="w-4 h-4 text-client-primary" />
-                  Mã Tour:
+                  Mã Đợt / Tour:
                 </span>
-                <span className="font-semibold text-client-primary tabular-nums">{tour.code}</span>
+                <span className="font-semibold text-client-primary tabular-nums">
+                  {activeCode}
+                </span>
               </div>
 
               <div className="flex items-center justify-between gap-3">
@@ -539,7 +778,10 @@ export function TourDetailClient({
                   Thời Gian:
                 </span>
                 <span className="font-semibold text-ink">
-                  {tour.time || "Đang cập nhật"}
+                  {tour.time ||
+                    (tour.durationDays
+                      ? `${tour.durationDays} ngày`
+                      : "Đang cập nhật")}
                 </span>
               </div>
 
@@ -559,9 +801,29 @@ export function TourDetailClient({
                   Ngày Khởi Hành:
                 </span>
                 <span className="font-semibold text-ink tabular-nums">
-                  {formatDateVN(tour.departureDate)}
+                  {formatDateVN(activeDepartureDate)}
+                  {activeReturnDate ? ` – ${formatDateVN(activeReturnDate)}` : ""}
                 </span>
               </div>
+
+              {(activeAirline || activeFlightOut || activeFlightBack) && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-ink-muted inline-flex items-center gap-2">
+                    <Plane className="w-4 h-4 text-client-primary" />
+                    Chuyến Bay:
+                  </span>
+                  <span className="font-semibold text-ink text-right tabular-nums">
+                    {activeAirline || "Hàng không"}
+                    {(activeFlightOut || activeFlightBack) && (
+                      <span className="block text-[11.5px] font-medium text-ink-muted">
+                        {[activeFlightOut, activeFlightBack]
+                          .filter(Boolean)
+                          .join(" / ")}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Departure Location Select */}
@@ -578,7 +840,7 @@ export function TourDetailClient({
               <select
                 id="detail-departure-location"
                 value={departureLocation}
-                onChange={(e) => setDepartureLocation(e.target.value)}
+                onChange={(e) => handleLocationChange(e.target.value)}
                 className="w-full h-[38px] px-3 rounded-[8px] border border-border-strong bg-white text-[13px] font-medium text-ink focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/30"
               >
                 {locationsList.map((loc) => (
@@ -599,7 +861,7 @@ export function TourDetailClient({
                   <div className="text-[12px] flex items-center gap-1.5 tabular-nums">
                     <span className="text-ink-muted">Giá gốc:</span>
                     <span className="text-ink-muted line-through">
-                      {formatCurrencyVND(tour.priceAdult)}
+                      {formatCurrencyVND(oldAdult)}
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-client-accent/10 text-client-accent font-bold text-[11px] tabular-nums">
                       -{discount}%
@@ -609,55 +871,168 @@ export function TourDetailClient({
               </div>
 
               <p className="text-[11px] text-ink-muted tabular-nums">
-                Chỗ còn theo hạng vé: {tour.stockAdult} Người lớn ·{" "}
-                {tour.stockChild} Trẻ em · {tour.stockBaby} Em bé
+                Chỗ còn theo hạng vé: {stockAdult} Người lớn ·{" "}
+                {stockChild} Trẻ em · {stockBaby} Em bé
               </p>
 
               {[
                 {
                   name: "Người lớn",
                   label: "Người lớn:",
-                  oldPrice: tour.priceAdult,
+                  oldPrice: oldAdult,
                   unitPrice: unitAdult,
                   qty: qtyAdult,
                   minQty: minAdult,
-                  stock: tour.stockAdult,
-                  setQty: setQtyAdult,
+                  stock: stockAdult,
+                  setQty: (next: number) => {
+                    setQtyAdult(next);
+                    setSingleRoomCount((sr) => Math.min(sr, next));
+                  },
                 },
                 {
                   name: "Trẻ em",
                   label: "Trẻ em:",
-                  oldPrice: tour.priceChild,
+                  oldPrice: oldChild,
                   unitPrice: unitChild,
                   qty: qtyChild,
                   minQty: 0,
-                  stock: tour.stockChild,
+                  stock: stockChild,
                   setQty: setQtyChild,
                 },
                 {
                   name: "Em bé",
                   label: "Em bé:",
-                  oldPrice: tour.priceBaby,
+                  oldPrice: oldBaby,
                   unitPrice: unitBaby,
                   qty: qtyBaby,
                   minQty: 0,
-                  stock: tour.stockBaby,
+                  stock: stockBaby,
                   setQty: setQtyBaby,
                 },
               ].map((tier) => {
                 const atMin = tier.qty <= tier.minQty;
                 const atMax = tier.qty >= tier.stock;
                 return (
-                <div
-                  key={tier.label}
-                  className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 text-[13px]"
-                >
-                  <div className="min-w-[82px]">
-                    <span className="font-medium text-ink">
-                      {tier.label}
+                  <div
+                    key={tier.label}
+                    className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 text-[13px]"
+                  >
+                    <div className="min-w-[82px]">
+                      <span className="font-medium text-ink">{tier.label}</span>
+                      <span className="block sm:inline sm:ml-1.5 text-[11px] text-ink-muted tabular-nums">
+                        (Còn {tier.stock})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
+                      <div className="flex items-center border border-border-strong rounded-[8px] overflow-hidden shrink-0">
+                        <button
+                          type="button"
+                          aria-label={`Giảm số lượng ${tier.name}`}
+                          aria-disabled={atMin}
+                          onClick={() => {
+                            if (atMin) {
+                              setQtyHint(
+                                tier.minQty > 0
+                                  ? `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
+                                  : null
+                              );
+                              return;
+                            }
+                            setQtyHint(null);
+                            tier.setQty(Math.max(tier.minQty, tier.qty - 1));
+                          }}
+                          className={`w-9 h-9 shrink-0 flex items-center justify-center transition-colors ${
+                            atMin
+                              ? "text-ink-muted opacity-50 cursor-not-allowed bg-surface-page"
+                              : "hover:bg-surface-muted text-ink"
+                          }`}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min={tier.minQty}
+                          max={tier.stock}
+                          aria-label={`Số lượng ${tier.name}`}
+                          value={tier.qty}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            if (!Number.isFinite(raw)) {
+                              tier.setQty(tier.minQty);
+                              return;
+                            }
+                            if (raw > tier.stock) {
+                              setQtyHint(
+                                `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
+                              );
+                              tier.setQty(tier.stock);
+                              return;
+                            }
+                            if (raw < tier.minQty) {
+                              setQtyHint(
+                                `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
+                              );
+                              tier.setQty(tier.minQty);
+                              return;
+                            }
+                            setQtyHint(null);
+                            tier.setQty(Math.floor(raw));
+                          }}
+                          className="w-9 h-9 sm:w-10 sm:h-9 text-center text-[13px] font-bold text-ink tabular-nums border-x border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-client-primary/30"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Tăng số lượng ${tier.name}`}
+                          aria-disabled={atMax}
+                          onClick={() => {
+                            if (atMax) {
+                              setQtyHint(
+                                `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
+                              );
+                              return;
+                            }
+                            setQtyHint(null);
+                            tier.setQty(Math.min(tier.stock, tier.qty + 1));
+                          }}
+                          className={`w-9 h-9 shrink-0 flex items-center justify-center transition-colors ${
+                            atMax
+                              ? "text-ink-muted opacity-40 cursor-not-allowed bg-surface-page"
+                              : "hover:bg-surface-muted text-ink"
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="min-w-[90px] sm:min-w-[104px] text-right font-semibold text-ink tabular-nums shrink-0">
+                        {tier.oldPrice > tier.unitPrice && (
+                          <div className="text-[11px] font-normal text-ink-muted line-through leading-none mb-0.5 tabular-nums">
+                            {tier.oldPrice.toLocaleString("vi-VN")}đ
+                          </div>
+                        )}
+                        <div>
+                          {tier.qty} x{" "}
+                          <span className="text-client-accent">
+                            {tier.unitPrice.toLocaleString("vi-VN")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Single Room Surcharge Stepper */}
+              {activeSingleRoomSurcharge > 0 && (
+                <div className="pt-2.5 mt-1 border-t border-border-subtle/70 flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                  <div className="min-w-[120px]">
+                    <span className="font-medium text-ink inline-flex items-center gap-1.5">
+                      <BedDouble className="w-4 h-4 text-client-primary" />
+                      Phụ thu phòng đơn:
                     </span>
-                    <span className="block sm:inline sm:ml-1.5 text-[11px] text-ink-muted tabular-nums">
-                      (Còn {tier.stock})
+                    <span className="block text-[11px] text-ink-muted tabular-nums">
+                      +{formatCurrencyVND(activeSingleRoomSurcharge)} / phòng
                     </span>
                   </div>
 
@@ -665,75 +1040,36 @@ export function TourDetailClient({
                     <div className="flex items-center border border-border-strong rounded-[8px] overflow-hidden shrink-0">
                       <button
                         type="button"
-                        aria-label={`Giảm số lượng ${tier.name}`}
-                        aria-disabled={atMin}
-                        onClick={() => {
-                          if (atMin) {
-                            setQtyHint(
-                              tier.minQty > 0
-                                ? `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
-                                : null
-                            );
-                            return;
-                          }
-                          setQtyHint(null);
-                          tier.setQty(Math.max(tier.minQty, tier.qty - 1));
-                        }}
-                        className={`w-9 h-9 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center transition-colors ${
-                          atMin
+                        aria-label="Giảm số phòng đơn"
+                        aria-disabled={singleRoomCount <= 0}
+                        onClick={() =>
+                          setSingleRoomCount((prev) => Math.max(0, prev - 1))
+                        }
+                        className={`w-9 h-9 shrink-0 flex items-center justify-center transition-colors ${
+                          singleRoomCount <= 0
                             ? "text-ink-muted opacity-50 cursor-not-allowed bg-surface-page"
                             : "hover:bg-surface-muted text-ink"
                         }`}
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
-                      <input
-                        type="number"
-                        min={tier.minQty}
-                        max={tier.stock}
-                        aria-label={`Số lượng ${tier.name}`}
-                        value={tier.qty}
-                        onChange={(e) => {
-                          const raw = Number(e.target.value);
-                          if (!Number.isFinite(raw)) {
-                            tier.setQty(tier.minQty);
-                            return;
-                          }
-                          if (raw > tier.stock) {
-                            setQtyHint(
-                              `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
-                            );
-                            tier.setQty(tier.stock);
-                            return;
-                          }
-                          if (raw < tier.minQty) {
-                            setQtyHint(
-                              `Tối thiểu ${tier.minQty} ${tier.name} để đặt tour`
-                            );
-                            tier.setQty(tier.minQty);
-                            return;
-                          }
-                          setQtyHint(null);
-                          tier.setQty(Math.floor(raw));
-                        }}
-                        className="w-9 h-9 sm:w-10 sm:h-9 text-center text-[13px] font-bold text-ink tabular-nums border-x border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-client-primary/30"
-                      />
+                      <span
+                        aria-label="Số lượng phòng đơn"
+                        className="w-9 h-9 sm:w-10 flex items-center justify-center text-[13px] font-bold text-ink tabular-nums border-x border-border-strong bg-white"
+                      >
+                        {singleRoomCount}
+                      </span>
                       <button
                         type="button"
-                        aria-label={`Tăng số lượng ${tier.name}`}
-                        aria-disabled={atMax}
-                        onClick={() => {
-                          if (atMax) {
-                            setQtyHint(
-                              `Chỉ còn tối đa ${tier.stock} chỗ cho hạng vé ${tier.name}`
-                            );
-                            return;
-                          }
-                          setQtyHint(null);
-                          tier.setQty(Math.min(tier.stock, tier.qty + 1));
-                        }}
-                        className={`w-9 h-9 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center transition-colors ${
-                          atMax
+                        aria-label="Tăng số phòng đơn"
+                        aria-disabled={singleRoomCount >= qtyAdult}
+                        onClick={() =>
+                          setSingleRoomCount((prev) =>
+                            Math.min(qtyAdult, prev + 1)
+                          )
+                        }
+                        className={`w-9 h-9 shrink-0 flex items-center justify-center transition-colors ${
+                          singleRoomCount >= qtyAdult
                             ? "text-ink-muted opacity-40 cursor-not-allowed bg-surface-page"
                             : "hover:bg-surface-muted text-ink"
                         }`}
@@ -743,22 +1079,17 @@ export function TourDetailClient({
                     </div>
 
                     <div className="min-w-[90px] sm:min-w-[104px] text-right font-semibold text-ink tabular-nums shrink-0">
-                      {tier.oldPrice > tier.unitPrice && (
-                        <div className="text-[11px] font-normal text-ink-muted line-through leading-none mb-0.5 tabular-nums">
-                          {tier.oldPrice.toLocaleString("vi-VN")}đ
-                        </div>
-                      )}
-                      <div>
-                        {tier.qty} x{" "}
+                      {singleRoomCount > 0 ? (
                         <span className="text-client-accent">
-                          {tier.unitPrice.toLocaleString("vi-VN")}
+                          +{formatCurrencyVND(singleRoomTotal)}
                         </span>
-                      </div>
+                      ) : (
+                        <span className="text-ink-muted">0đ</span>
+                      )}
                     </div>
                   </div>
                 </div>
-                );
-              })}
+              )}
 
               {qtyHint && (
                 <p
@@ -823,6 +1154,30 @@ export function TourDetailClient({
                 Đặt Tour Ngay
               </button>
             </div>
+
+            {/* Compact 3-Bullet Trust Guarantee Box */}
+            <div className="mt-4 pt-3.5 border-t border-border-subtle">
+              <ul className="space-y-1.5 text-[12px] text-ink-muted">
+                <li className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-status-success shrink-0" />
+                  <span className="font-medium text-ink">
+                    Giá trọn gói minh bạch
+                  </span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-client-primary shrink-0" />
+                  <span className="font-medium text-ink">
+                    Giữ chỗ 15 phút an toàn
+                  </span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-client-primary shrink-0" />
+                  <span className="font-medium text-ink">
+                    Hỗ trợ đổi lịch trước 7 ngày
+                  </span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -860,6 +1215,9 @@ export function TourDetailClient({
           </div>
         </section>
       )}
+
+      {/* Recently Viewed Tours */}
+      <RecentlyViewedSection currentSlug={tour.slug} />
     </div>
   );
 }

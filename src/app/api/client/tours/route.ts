@@ -13,6 +13,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const dealParam = searchParams.get("deal")?.trim().toLowerCase();
+    const rawTags = searchParams
+      .getAll("tags")
+      .flatMap((chunk) => chunk.split(","))
+      .map((tag) => tag.trim())
+      .filter(Boolean);
 
     const result = await queryClientTours({
       categorySlug: searchParams.get("category") || undefined,
@@ -20,10 +25,17 @@ export async function GET(req: NextRequest) {
       destination: searchParams.get("destination") || undefined,
       departureLocation: searchParams.get("departureLocation") || undefined,
       departureDate: searchParams.get("departureDate") || undefined,
+      departureMonth: searchParams.get("departureMonth") || undefined,
       adult: parsePositiveInt(searchParams.get("adult"), 0),
       child: parsePositiveInt(searchParams.get("child"), 0),
       baby: parsePositiveInt(searchParams.get("baby"), 0),
       priceRange: searchParams.get("priceRange") || undefined,
+      minPrice: parsePositiveInt(searchParams.get("minPrice"), 0) || undefined,
+      maxPrice: parsePositiveInt(searchParams.get("maxPrice"), 0) || undefined,
+      durationBucket: searchParams.get("durationBucket") || undefined,
+      vehicle: searchParams.get("vehicle") || undefined,
+      hotelStar: parsePositiveInt(searchParams.get("hotelStar"), 0) || undefined,
+      tags: rawTags.length > 0 ? rawTags : undefined,
       dealOnly: dealParam === "true" || dealParam === "1",
       sort: searchParams.get("sort") || undefined,
       page: parsePositiveInt(searchParams.get("page"), 1),

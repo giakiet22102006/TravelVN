@@ -4,19 +4,25 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Check,
   ChevronLeft,
   Compass,
+  GitCompare,
   Loader2,
   MapPin,
   Minus,
   RotateCcw,
   Send,
+  ShoppingCart,
   Star,
   X,
 } from "lucide-react";
 import { formatCurrencyVND } from "@/lib/format";
 import { SmartImage } from "@/components/client/SmartImage";
 import { ChatMarkdown } from "@/components/client/ChatMarkdown";
+import { useCart } from "@/components/client/CartContext";
+import { useCompare } from "@/components/client/CompareContext";
+import type { TourCardData } from "@/components/client/TourCard";
 import type { AssistantTourContext } from "@/lib/ai";
 import type { AssistantPageContext } from "@/lib/ai-tools";
 
@@ -32,32 +38,92 @@ const STORAGE_MESSAGES_KEY = "vntravel_ai_chat_messages_v1";
 const STORAGE_OPEN_KEY = "vntravel_ai_chat_open_v1";
 
 const QUICK_PROMPTS = [
+  "Gia đình 2 người lớn 1 trẻ em đi biển dưới 15 triệu",
   "Tour biển dưới 5 triệu",
   "Tour khởi hành từ Hà Nội",
   "Tour được đánh giá cao nhất",
-  "Tour nước ngoài đang giảm giá",
 ];
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Xin chào! Mình là Trợ lý Du lịch AI của VN.TRAVEL. Bạn đang muốn tìm tour theo ngân sách, điểm đến hay ngày khởi hành nào?",
+    "Xin chào! Mình là Trợ lý Du lịch AI của VN.TRAVEL. Bạn đang muốn tìm tour theo ngân sách, báo giá nhóm gia đình hay so sánh hành trình nào?",
 };
+
+function toTourCardData(t: AssistantTourContext): TourCardData {
+  return {
+    id: t.id,
+    code: t.code,
+    name: t.name,
+    slug: t.slug,
+    avatar: t.avatar,
+    priceAdult: t.priceAdult,
+    priceChild: t.priceNewChild ?? 0,
+    priceBaby: t.priceNewBaby ?? 0,
+    priceNewAdult: t.priceNewAdult,
+    priceNewChild: t.priceNewChild ?? 0,
+    priceNewBaby: t.priceNewBaby ?? 0,
+    stockAdult: t.stockAdult ?? 10,
+    stockChild: t.stockChild ?? 5,
+    stockBaby: t.stockBaby ?? 5,
+    locations: t.locations,
+    time: t.time,
+    vehicle: t.vehicle,
+    departureDate: t.departureDate,
+    ratingAvg: t.ratingAvg,
+    reviewCount: t.reviewCount,
+    durationDays: t.durationDays,
+    hotelStar: t.hotelStar,
+    singleRoomSurcharge: t.singleRoomSurcharge,
+    tags: t.tags,
+    departures: t.departures,
+    category: t.category ?? null,
+  };
+}
 
 export function AiTravelAssistant() {
   const pathname = usePathname() || "/";
+  const { addItem } = useCart();
+  const { addTour, isInCompare } = useCompare();
+
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [hydrated, setHydrated] = useState(false);
+  const [footerInView, setFooterInView] = useState(false);
+  const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
+  const [compareFullId, setCompareFullId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const isCartPage = pathname.startsWith("/cart");
+  const shiftFabUp = footerInView || isCartPage;
 
   const activeTourSlug = useMemo(() => {
     const match = pathname.match(/^\/tours\/([^/?#]+)$/);
     return match ? decodeURIComponent(match[1]) : undefined;
+  }, [pathname]);
+
+  // Observe #footer-newsletter so FAB shifts upward & never overlaps "Đăng Ký Ngay"
+  useEffect(() => {
+    const footerEl = document.getElementById("footer-newsletter");
+    if (!footerEl || typeof IntersectionObserver === "undefined") {
+      setFooterInView(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setFooterInView(Boolean(entry?.isIntersecting));
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(footerEl);
+    return () => observer.disconnect();
   }, [pathname]);
 
   // Restore persisted chat history & open state across route transitions
@@ -167,6 +233,46 @@ export function AiTravelAssistant() {
     }
   }
 
+  function handleQuickAddToCart(t: AssistantTourContext) {
+    const unitAdult = t.priceNewAdult > 0 ? t.priceNewAdult : t.priceAdult;
+    const unitChild =
+      (t.priceNewChild ?? 0) > 0
+        ? t.priceNewChild!
+        : Math.round(unitAdult * 0.7);
+    const unitBaby = t.priceNewBaby ?? 0;
+    const defaultLoc =
+      t.nextDepartureLocation ||
+      (Array.isArray(t.locations) && t.locations[0]
+        ? String(t.locations[0])
+        : "Hà Nội");
+
+    const ok = addItem({
+      tourId: t.id,
+      slug: t.slug,
+      code: t.code,
+      name: t.name,
+      avatar: t.avatar,
+      departureDate: t.departureDate ? String(t.departureDate) : null,
+      departureLocation: defaultLoc,
+      priceNewAdult: unitAdult,
+      priceNewChild: unitChild,
+      priceNewBaby: unitBaby,
+      stockAdult: Math.max(1, t.stockAdult ?? 10),
+      stockChild: t.stockChild ?? 5,
+      stockBaby: t.stockBaby ?? 5,
+      quantityAdult: t.quoteAdults ?? 1,
+      quantityChild: t.quoteChildren ?? 0,
+      quantityBaby: t.quoteBabies ?? 0,
+    });
+
+    if (ok) {
+      setAddedIds((prev) => ({ ...prev, [t.id]: true }));
+      window.setTimeout(() => {
+        setAddedIds((prev) => ({ ...prev, [t.id]: false }));
+      }, 2000);
+    }
+  }
+
   async function sendQuestion(questionText: string) {
     const trimmed = questionText.trim();
     if (!trimmed || loading) return;
@@ -225,19 +331,24 @@ export function AiTravelAssistant() {
     }
   }
 
+  const positionClass =
+    minimized && !open
+      ? shiftFabUp
+        ? "bottom-24 sm:bottom-28 right-0"
+        : "bottom-4 right-0"
+      : shiftFabUp
+        ? "bottom-24 sm:bottom-28 right-4 sm:right-6"
+        : "bottom-4 right-4 sm:bottom-6 sm:right-6";
+
   return (
     <div
-      className={`fixed z-50 font-lexend-deca ${
-        minimized && !open
-          ? "bottom-4 right-0"
-          : "bottom-4 right-4 sm:bottom-6 sm:right-6"
-      }`}
+      className={`fixed z-40 font-lexend-deca transition-[bottom] duration-200 ${positionClass}`}
     >
       {open && (
         <div
           role="dialog"
           aria-label="Trợ lý du lịch AI"
-          className="fixed bottom-[4.5rem] inset-x-3 sm:static sm:inset-x-auto sm:mb-3 sm:w-[390px] h-[520px] max-h-[75vh] bg-white rounded-[16px] shadow-[0_20px_48px_rgba(22,34,41,0.16)] border border-border-subtle flex flex-col overflow-hidden"
+          className="fixed bottom-[4.5rem] inset-x-3 sm:static sm:inset-x-auto sm:mb-3 sm:w-[400px] h-[540px] max-h-[75vh] bg-white rounded-[16px] shadow-[0_20px_48px_rgba(22,34,41,0.16)] border border-border-subtle flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="bg-client-primary text-white px-4 py-3 flex items-center justify-between">
@@ -252,7 +363,7 @@ export function AiTravelAssistant() {
                 <p className="text-[11px] text-white/80">
                   {activeTourSlug
                     ? "Đang đồng bộ ngữ cảnh tour bạn xem"
-                    : "Tư vấn tour, lịch trình & chính sách 24/7"}
+                    : "Tư vấn tour, báo giá nhóm & chính sách 24/7"}
                 </p>
               </div>
             </div>
@@ -309,44 +420,116 @@ export function AiTravelAssistant() {
                       {msg.tours.map((t) => {
                         const displayPrice =
                           t.priceNewAdult > 0 ? t.priceNewAdult : t.priceAdult;
+                        const isAdded = Boolean(addedIds[t.id]);
+                        const compared = isInCompare(t.id);
+
                         return (
-                          <Link
+                          <div
                             key={t.id}
-                            href={`/tours/${t.slug}`}
-                            onClick={() => setOpen(false)}
-                            className="flex items-center gap-2.5 p-2 rounded-[10px] bg-white border border-border-subtle hover:border-client-primary transition-colors shadow-sm"
+                            className="p-2.5 rounded-[10px] bg-white border border-border-subtle hover:border-client-border transition-colors shadow-sm"
                           >
-                            <div className="relative w-14 h-12 rounded-[6px] overflow-hidden shrink-0 bg-surface-muted">
-                              <SmartImage
-                                src={t.avatar}
-                                alt={t.name}
-                                targetWidth={200}
-                                quality={75}
-                                sizes="64px"
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[12px] font-bold text-ink truncate">
-                                {t.name}
-                              </p>
-                              <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px]">
-                                <span className="font-bold text-client-accent tabular-nums">
-                                  {formatCurrencyVND(displayPrice)}
-                                </span>
-                                <span className="text-ink-muted inline-flex items-center gap-0.5 tabular-nums">
-                                  <Star className="w-3 h-3 fill-client-star text-client-star" />
-                                  {(t.reviewCount ?? 0) > 0
-                                    ? (t.ratingAvg ?? 5).toFixed(1)
-                                    : "Mới"}
-                                </span>
+                            <Link
+                              href={`/tours/${t.slug}`}
+                              onClick={() => setOpen(false)}
+                              className="flex items-center gap-2.5 group"
+                            >
+                              <div className="relative w-14 h-12 rounded-[6px] overflow-hidden shrink-0 bg-surface-muted">
+                                <SmartImage
+                                  src={t.avatar}
+                                  alt={t.name}
+                                  targetWidth={200}
+                                  quality={75}
+                                  sizes="64px"
+                                  className="object-cover"
+                                />
                               </div>
-                              <p className="text-[10px] text-ink-muted truncate inline-flex items-center gap-1 mt-0.5">
-                                <MapPin className="w-2.5 h-2.5 text-client-primary" />
-                                {t.time}
-                              </p>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[12px] font-bold text-ink group-hover:text-client-primary truncate transition-colors">
+                                  {t.name}
+                                </p>
+                                <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px]">
+                                  <span className="font-bold text-client-accent tabular-nums">
+                                    {formatCurrencyVND(displayPrice)}/khách
+                                  </span>
+                                  <span className="text-ink-muted inline-flex items-center gap-0.5 tabular-nums">
+                                    <Star className="w-3 h-3 fill-client-star text-client-star" />
+                                    {(t.reviewCount ?? 0) > 0
+                                      ? (t.ratingAvg ?? 5).toFixed(1)
+                                      : "Mới"}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-ink-muted truncate inline-flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-2.5 h-2.5 text-client-primary shrink-0" />
+                                  <span>{t.time}</span>
+                                  {t.nextDepartureLocation && (
+                                    <span>· từ {t.nextDepartureLocation}</span>
+                                  )}
+                                </p>
+                              </div>
+                            </Link>
+
+                            {t.quoteSummary && (
+                              <div className="mt-2 px-2 py-1 rounded-[6px] bg-client-soft border border-client-border text-[11px] font-semibold text-client-primary tabular-nums">
+                                {t.quoteSummary}
+                              </div>
+                            )}
+
+                            <div className="mt-2 pt-2 border-t border-border-subtle flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAddToCart(t)}
+                                className={`flex-1 h-7 px-2.5 rounded-[7px] text-[11px] font-semibold inline-flex items-center justify-center gap-1 transition-colors ${
+                                  isAdded
+                                    ? "bg-status-success text-white"
+                                    : "bg-client-primary hover:bg-client-primary-hover text-white"
+                                }`}
+                              >
+                                {isAdded ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Đã thêm!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShoppingCart className="w-3 h-3" />
+                                    <span>Thêm vào giỏ</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const ok = addTour(toTourCardData(t));
+                                  if (!ok) {
+                                    setCompareFullId(t.id);
+                                    window.setTimeout(() => {
+                                      setCompareFullId((cur) =>
+                                        cur === t.id ? null : cur
+                                      );
+                                    }, 2000);
+                                  }
+                                }}
+                                disabled={compared}
+                                className={`h-7 px-2.5 rounded-[7px] text-[11px] font-semibold border inline-flex items-center justify-center gap-1 transition-colors ${
+                                  compared
+                                    ? "bg-client-soft border-client-primary text-client-primary"
+                                    : compareFullId === t.id
+                                      ? "bg-status-warn-bg border-status-warn-border text-status-warn"
+                                      : "bg-white border-border-strong text-ink hover:border-client-primary hover:text-client-primary"
+                                }`}
+                              >
+                                <GitCompare className="w-3 h-3" />
+                                <span>
+                                  {compared
+                                    ? "Đang so sánh"
+                                    : compareFullId === t.id
+                                      ? "Tối đa 3 tour"
+                                      : "So sánh"}
+                                </span>
+                              </button>
                             </div>
-                          </Link>
+                          </div>
                         );
                       })}
                     </div>
@@ -389,7 +572,7 @@ export function AiTravelAssistant() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Hỏi AI: Đi Đà Nẵng dưới 5 triệu..."
+              placeholder="Hỏi AI: Gia đình 2 NL 1 TE đi biển dưới 15tr..."
               maxLength={500}
               className="flex-1 h-9 px-3 rounded-[8px] border border-border-strong text-[13px] text-ink placeholder:text-ink-muted focus:outline-none focus:border-client-primary focus-visible:ring-2 focus-visible:ring-client-primary/40"
             />

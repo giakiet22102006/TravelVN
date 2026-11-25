@@ -3,12 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { OrderStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import { AlertTriangle, ArrowLeft, Loader2, Plane, Users } from "lucide-react";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  RefundStatus,
+} from "@prisma/client";
 import { formatCurrencyVND, formatDateTimeVN, formatDateVN } from "@/lib/format";
+import type { OrderPassengerInput } from "@/types/ota";
 
 interface OrderDetailItem {
   id: string;
+  departureCode?: string | null;
+  airline?: string | null;
+  flightOut?: string | null;
+  flightBack?: string | null;
   name: string;
   avatar: string | null;
   departureDate: string | null;
@@ -19,6 +29,9 @@ interface OrderDetailItem {
   priceNewChild: number;
   quantityBaby: number;
   priceNewBaby: number;
+  singleRoomCount?: number;
+  singleRoomSurcharge?: number;
+  passengers?: OrderPassengerInput[] | unknown;
 }
 
 interface OrderDetail {
@@ -26,6 +39,7 @@ interface OrderDetail {
   code: string;
   fullName: string;
   phone: string;
+  email: string | null;
   note: string | null;
   subTotal: number;
   discount: number;
@@ -33,10 +47,23 @@ interface OrderDetail {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  refundStatus: RefundStatus;
   status: OrderStatus;
   createdAt: string;
   items: OrderDetailItem[];
 }
+
+const GENDER_LABELS: Record<string, string> = {
+  MALE: "Nam",
+  FEMALE: "Nữ",
+  OTHER: "Khác",
+};
+
+const TIER_LABELS: Record<string, string> = {
+  ADULT: "Người lớn",
+  CHILD: "Trẻ em",
+  BABY: "Em bé",
+};
 
 export function OrderEditForm({ id }: { id: string }) {
   const router = useRouter();
@@ -44,9 +71,11 @@ export function OrderEditForm({ id }: { id: string }) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("UNPAID");
+  const [refundStatus, setRefundStatus] = useState<RefundStatus>("NONE");
   const [status, setStatus] = useState<OrderStatus>("INITIAL");
 
   const [loading, setLoading] = useState(true);
@@ -67,9 +96,11 @@ export function OrderEditForm({ id }: { id: string }) {
         setOrder(ord);
         setFullName(ord.fullName);
         setPhone(ord.phone);
+        setEmail(ord.email || "");
         setNote(ord.note || "");
         setPaymentMethod(ord.paymentMethod);
         setPaymentStatus(ord.paymentStatus);
+        setRefundStatus(ord.refundStatus || "NONE");
         setStatus(ord.status);
       })
       .catch((err: unknown) => {
@@ -100,9 +131,11 @@ export function OrderEditForm({ id }: { id: string }) {
         body: JSON.stringify({
           fullName,
           phone,
+          email: email.trim() || null,
           note: note || null,
           paymentMethod,
           paymentStatus,
+          refundStatus,
           status,
         }),
       });
@@ -146,6 +179,14 @@ export function OrderEditForm({ id }: { id: string }) {
     );
   }
 
+  const allPassengers = order.items.flatMap((it) => {
+    if (!Array.isArray(it.passengers)) return [];
+    return (it.passengers as OrderPassengerInput[]).map((p) => ({
+      ...p,
+      tourName: it.name,
+    }));
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -153,6 +194,23 @@ export function OrderEditForm({ id }: { id: string }) {
           Đơn hàng: {order.code}
         </h1>
       </div>
+
+      {order.refundStatus === "REFUND_REQUIRED" && (
+        <div className="rounded-xl bg-[#FEF3C7] border border-[#F59E0B] text-[#92400E] px-5 py-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[#D97706]" />
+          <div className="text-sm">
+            <p className="font-bold">
+              CẢNH BÁO HOÀN TIỀN (Late Webhook / Hết chỗ):
+            </p>
+            <p className="mt-0.5">
+              Khách hàng đã chuyển khoản thanh toán sau khi đơn hàng bị hủy hoặc
+              hết hạn giữ chỗ và tour không còn đủ chỗ để tự động duyệt lại. Vui
+              lòng liên hệ hoàn tiền và cập nhật Trạng thái hoàn tiền sang{" "}
+              <strong>Đã hoàn tiền</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}
@@ -201,6 +259,39 @@ export function OrderEditForm({ id }: { id: string }) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="order-email"
+              className="block text-sm font-semibold text-[#606060] mb-2"
+            >
+              Email khách hàng
+            </label>
+            <input
+              id="order-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Chưa có email"
+              className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="order-created-at"
+              className="block text-sm font-semibold text-[#606060] mb-2"
+            >
+              Ngày đặt
+            </label>
+            <input
+              id="order-created-at"
+              type="text"
+              readOnly
+              value={formatDateTimeVN(order.createdAt)}
+              className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#EAECEE] text-sm text-[#606060] cursor-not-allowed"
             />
           </div>
 
@@ -264,22 +355,6 @@ export function OrderEditForm({ id }: { id: string }) {
 
           <div>
             <label
-              htmlFor="order-created-at"
-              className="block text-sm font-semibold text-[#606060] mb-2"
-            >
-              Ngày đặt
-            </label>
-            <input
-              id="order-created-at"
-              type="text"
-              readOnly
-              value={formatDateTimeVN(order.createdAt)}
-              className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#EAECEE] text-sm text-[#606060] cursor-not-allowed"
-            />
-          </div>
-
-          <div>
-            <label
               htmlFor="order-status"
               className="block text-sm font-semibold text-[#606060] mb-2"
             >
@@ -294,6 +369,25 @@ export function OrderEditForm({ id }: { id: string }) {
               <option value="INITIAL">Khởi tạo</option>
               <option value="APPROVED">Đã duyệt</option>
               <option value="CANCELLED">Đã hủy</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="order-refund-status"
+              className="block text-sm font-semibold text-[#606060] mb-2"
+            >
+              Trạng thái hoàn tiền
+            </label>
+            <select
+              id="order-refund-status"
+              value={refundStatus}
+              onChange={(e) => setRefundStatus(e.target.value as RefundStatus)}
+              className="w-full h-11 px-4 rounded-lg border border-[#D5D5D5] bg-[#F5F6FA] text-sm focus:outline-none focus:border-[#4880FF] focus:bg-white"
+            >
+              <option value="NONE">Không</option>
+              <option value="REFUND_REQUIRED">Cần hoàn tiền</option>
+              <option value="REFUNDED">Đã hoàn tiền</option>
             </select>
           </div>
         </div>
@@ -318,7 +412,14 @@ export function OrderEditForm({ id }: { id: string }) {
                   ) : null}
                 </div>
                 <div className="flex-1 text-sm space-y-1">
-                  <div className="font-bold text-[#202224]">{it.name}</div>
+                  <div className="font-bold text-[#202224]">
+                    {it.name}
+                    {it.departureCode && (
+                      <span className="ml-2 text-xs font-semibold text-[#4880FF]">
+                        ({it.departureCode})
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-[#606060] flex flex-wrap gap-x-4 gap-y-1">
                     {it.quantityAdult > 0 && (
                       <span>
@@ -338,15 +439,87 @@ export function OrderEditForm({ id }: { id: string }) {
                         {formatCurrencyVND(it.priceNewBaby)}
                       </span>
                     )}
+                    {(it.singleRoomCount || 0) > 0 && (
+                      <span>
+                        Phụ thu phòng đơn: <b>{it.singleRoomCount}</b> x{" "}
+                        {formatCurrencyVND(it.singleRoomSurcharge || 0)}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-[#606060]">
                     Ngày khởi hành: <b>{formatDateVN(it.departureDate)}</b> •
                     Khởi hành tại: <b>{it.departureLocation}</b>
                   </div>
+                  {(it.airline || it.flightOut) && (
+                    <div className="text-xs text-[#4880FF] inline-flex items-center gap-1.5">
+                      <Plane className="w-3.5 h-3.5" />
+                      <span>
+                        {it.airline}
+                        {it.flightOut ? ` • Đi: ${it.flightOut}` : ""}
+                        {it.flightBack ? ` • Về: ${it.flightBack}` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Passenger Manifest Table */}
+        <div className="space-y-3 pt-2 border-t border-[#E0E0E0]">
+          <h2 className="text-sm font-bold text-[#202224] flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#4880FF]" />
+            <span>Danh sách hành khách ({allPassengers.length})</span>
+          </h2>
+          {allPassengers.length === 0 ? (
+            <p className="text-xs text-[#606060] italic">
+              Đơn hàng này không có danh sách hành khách chi tiết.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-[#F5F6FA] border-y border-[#E0E0E0] text-[#606060]">
+                    <th className="py-2 px-3 font-semibold">STT</th>
+                    <th className="py-2 px-3 font-semibold">Họ và tên</th>
+                    <th className="py-2 px-3 font-semibold">Hạng vé</th>
+                    <th className="py-2 px-3 font-semibold">Giới tính</th>
+                    <th className="py-2 px-3 font-semibold">Ngày sinh</th>
+                    <th className="py-2 px-3 font-semibold">CCCD / Hộ chiếu</th>
+                    <th className="py-2 px-3 font-semibold">Tour</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E0E0E0]">
+                  {allPassengers.map((p, idx) => (
+                    <tr key={idx}>
+                      <td className="py-2 px-3 tabular-nums text-[#606060]">
+                        {idx + 1}
+                      </td>
+                      <td className="py-2 px-3 font-semibold text-[#202224]">
+                        {p.fullName}
+                      </td>
+                      <td className="py-2 px-3 font-medium text-[#4880FF]">
+                        {TIER_LABELS[p.tier] || p.tier}
+                      </td>
+                      <td className="py-2 px-3">
+                        {GENDER_LABELS[p.gender] || p.gender}
+                      </td>
+                      <td className="py-2 px-3 tabular-nums">
+                        {formatDateVN(p.birthDate)}
+                      </td>
+                      <td className="py-2 px-3 tabular-nums text-[#606060]">
+                        {p.documentNumber || "—"}
+                      </td>
+                      <td className="py-2 px-3 text-[#606060] max-w-[200px] truncate">
+                        {p.tourName}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Readonly Payment Breakdown */}

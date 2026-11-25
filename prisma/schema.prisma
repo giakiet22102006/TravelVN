@@ -30,6 +30,12 @@ enum PaymentStatus {
   PAID
 }
 
+enum RefundStatus {
+  NONE
+  REFUND_REQUIRED
+  REFUNDED
+}
+
 enum ContactStatus {
   NEW
   PROCESSED
@@ -88,11 +94,16 @@ model Tour {
   time          String       @default("")
   vehicle       String       @default("")
   departureDate DateTime?
-  information   String?      @db.Text
-  schedules     Json         @default("[]")
-  deleted       Boolean      @default(false)
-  ratingAvg     Float        @default(5.0)
-  reviewCount   Int          @default(0)
+  information     String?      @db.Text
+  schedules       Json         @default("[]")
+  durationDays    Int          @default(3)
+  hotelStar       Int          @default(4)
+  singleRoomSurcharge Int      @default(500000)
+  tags            Json         @default("[]")
+  routeWaypoints  Json         @default("[]")
+  deleted         Boolean      @default(false)
+  ratingAvg       Float        @default(5.0)
+  reviewCount     Int          @default(0)
   aiReviewSummary Json?
 
   createdById String?
@@ -103,13 +114,46 @@ model Tour {
   deletedBy   AdminAccount? @relation("TourDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   deletedAt   DateTime?
 
-  orderItems OrderItem[]
-  reviews    Review[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  departures    TourDeparture[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@index([deleted, status, position])
   @@index([categoryId])
+}
+
+model TourDeparture {
+  id                  String       @id @default(cuid())
+  tourId              String
+  tour                Tour         @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  code                String       @unique
+  departureDate       DateTime
+  returnDate          DateTime?
+  departureLocation   String       @default("Hà Nội")
+  airline             String?
+  flightOut           String?
+  flightBack          String?
+  hotelStar           Int          @default(4)
+  priceAdult          Int          @default(0)
+  priceChild          Int          @default(0)
+  priceBaby           Int          @default(0)
+  priceNewAdult       Int          @default(0)
+  priceNewChild       Int          @default(0)
+  priceNewBaby        Int          @default(0)
+  singleRoomSurcharge Int          @default(500000)
+  stockAdult          Int          @default(20)
+  stockChild          Int          @default(10)
+  stockBaby           Int          @default(5)
+  status              RecordStatus @default(ACTIVE)
+  orderItems          OrderItem[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([tourId, status, departureDate])
+  @@index([departureDate, departureLocation])
 }
 
 model Order {
@@ -119,6 +163,7 @@ model Order {
   user          User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
   fullName      String
   phone         String
+  email         String?
   note          String?       @db.Text
   subTotal      Int
   discount      Int           @default(0)
@@ -126,7 +171,13 @@ model Order {
   total         Int
   paymentMethod PaymentMethod @default(CASH)
   paymentStatus PaymentStatus @default(UNPAID)
+  refundStatus  RefundStatus  @default(NONE)
   status        OrderStatus   @default(INITIAL)
+  expiresAt     DateTime?
+  paidAt        DateTime?
+  paymentRef    String?
+  cancelReason  String?
+  agreedTerms   Boolean       @default(false)
   deleted       Boolean       @default(false)
   updatedById   String?
   updatedBy     AdminAccount? @relation("OrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -137,24 +188,35 @@ model Order {
 
   @@index([deleted, status, createdAt])
   @@index([userId, createdAt])
+  @@index([status, paymentStatus, expiresAt])
+  @@index([paymentRef])
 }
 
 model OrderItem {
-  id                String    @id @default(cuid())
-  orderId           String
-  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  tourId            String?
-  tour              Tour?     @relation(fields: [tourId], references: [id], onDelete: SetNull)
-  name              String
-  avatar            String?
-  departureDate     DateTime?
-  departureLocation String    @default("Hà Nội")
-  quantityAdult     Int       @default(0)
-  priceNewAdult     Int       @default(0)
-  quantityChild     Int       @default(0)
-  priceNewChild     Int       @default(0)
-  quantityBaby      Int       @default(0)
-  priceNewBaby      Int       @default(0)
+  id                  String         @id @default(cuid())
+  orderId             String
+  order               Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tourId              String?
+  tour                Tour?          @relation(fields: [tourId], references: [id], onDelete: SetNull)
+  departureId         String?
+  departure           TourDeparture? @relation(fields: [departureId], references: [id], onDelete: SetNull)
+  departureCode       String?
+  airline             String?
+  flightOut           String?
+  flightBack          String?
+  name                String
+  avatar              String?
+  departureDate       DateTime?
+  departureLocation   String         @default("Hà Nội")
+  quantityAdult       Int            @default(0)
+  priceNewAdult       Int            @default(0)
+  quantityChild       Int            @default(0)
+  priceNewChild       Int            @default(0)
+  quantityBaby        Int            @default(0)
+  priceNewBaby        Int            @default(0)
+  singleRoomCount     Int            @default(0)
+  singleRoomSurcharge Int            @default(0)
+  passengers          Json           @default("[]")
 
   @@index([orderId])
 }
@@ -226,8 +288,35 @@ model User {
   deleted    Boolean      @default(false)
   orders     Order[]      @relation("UserOrders")
   reviews    Review[]     @relation("UserReviews")
+  wishlist   WishlistItem[] @relation("UserWishlist")
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserWishlist", fields: [userId], references: [id], onDelete: Cascade)
+  tourId    String
+  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tourId])
+  @@index([userId, createdAt])
+}
+
+model PaymentWebhookLog {
+  id             String   @id @default(cuid())
+  provider       String   @default("SEPAY_VIETQR")
+  eventId        String   @unique
+  orderCode      String
+  amount         Int      @default(0)
+  signatureValid Boolean  @default(false)
+  outcome        String   @default("IGNORED")
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  @@index([orderCode, createdAt])
 }
 
 model Review {

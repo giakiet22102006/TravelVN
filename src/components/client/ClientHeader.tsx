@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronDown,
   ClipboardList,
+  Heart,
   LogOut,
   Mail,
   MapPin,
@@ -17,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useCart } from "./CartContext";
+import { useWishlist } from "./WishlistContext";
 import { useClientMeta } from "./ClientLayoutShell";
 import { enhanceImageUrl } from "@/lib/image-quality";
 
@@ -53,6 +55,7 @@ export function ClientHeader({
   const pathname = usePathname();
   const router = useRouter();
   const { totalItemCount, hydrated } = useCart();
+  const { count: wishlistCount, hydrated: wishlistHydrated } = useWishlist();
   const { currentUser, logoutUser } = useClientMeta();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMobileCategory, setOpenMobileCategory] = useState<string | null>(
@@ -195,6 +198,14 @@ export function ClientHeader({
                   >
                     <ClipboardList className="w-4 h-4" />
                     <span>Đơn hàng của tôi</span>
+                  </Link>
+                  <Link
+                    href="/account/wishlist"
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-[13px] hover:bg-client-soft hover:text-client-primary transition-colors"
+                  >
+                    <Heart className="w-4 h-4" />
+                    <span>Tour yêu thích</span>
                   </Link>
                   <Link
                     href="/account"
@@ -373,21 +384,38 @@ export function ClientHeader({
             </Link>
           </nav>
 
-          {/* Right Cart Trigger */}
-          <Link
-            href="/cart"
-            aria-label="Giỏ hàng"
-            className="relative inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[10px] hover:bg-client-soft text-client-primary transition-colors shrink-0"
-          >
-            <ShoppingCart className="w-6 h-6" />
-            <span
-              className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-client-accent text-white text-[11px] font-bold tabular-nums transition-opacity duration-150 ${
-                hydrated ? "opacity-100" : "opacity-0"
-              }`}
+          {/* Right Wishlist & Cart Triggers */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              href="/account/wishlist"
+              aria-label="Tour yêu thích"
+              className="relative inline-flex items-center gap-1.5 px-2.5 py-2 min-h-[44px] rounded-[10px] hover:bg-client-soft text-client-primary transition-colors shrink-0"
             >
-              {hydrated ? totalItemCount : 0}
-            </span>
-          </Link>
+              <Heart className="w-5 h-5" />
+              <span
+                className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-client-primary text-white text-[11px] font-bold tabular-nums transition-opacity duration-150 ${
+                  wishlistHydrated && wishlistCount > 0 ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {wishlistHydrated ? wishlistCount : 0}
+              </span>
+            </Link>
+
+            <Link
+              href="/cart"
+              aria-label="Giỏ hàng"
+              className="relative inline-flex items-center gap-2 px-2.5 sm:px-3 py-2 min-h-[44px] rounded-[10px] hover:bg-client-soft text-client-primary transition-colors shrink-0"
+            >
+              <ShoppingCart className="w-6 h-6" />
+              <span
+                className={`inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-client-accent text-white text-[11px] font-bold tabular-nums transition-opacity duration-150 ${
+                  hydrated ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {hydrated ? totalItemCount : 0}
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -509,6 +537,14 @@ export function ClientHeader({
                 className="block px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors"
               >
                 Liên Hệ
+              </Link>
+
+              <Link
+                href="/account/wishlist"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-ink hover:bg-client-soft hover:text-client-primary transition-colors tabular-nums"
+              >
+                Tour Yêu Thích ({wishlistHydrated ? wishlistCount : 0})
               </Link>
 
               <Link

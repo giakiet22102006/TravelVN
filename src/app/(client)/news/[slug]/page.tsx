@@ -20,6 +20,10 @@ import { NewsViewTracker } from "@/components/client/NewsViewTracker";
 
 export const dynamic = "force-dynamic";
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://travel-vn-kappa.vercel.app"
+).replace(/\/$/, "");
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1200&q=85";
 
@@ -35,9 +39,24 @@ export async function generateMetadata({
       title: "Bài viết không tồn tại | VN.TRAVEL",
     };
   }
+  const title = `${data.article.title} | Tin Tức VN.TRAVEL`;
+  const url = `${SITE_URL}/news/${encodeURIComponent(data.article.slug)}`;
+  const images = data.article.avatar
+    ? [{ url: data.article.avatar, alt: data.article.title }]
+    : [{ url: FALLBACK_IMAGE, alt: data.article.title }];
+
   return {
-    title: `${data.article.title} | Tin Tức VN.TRAVEL`,
+    title,
     description: data.article.excerpt,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description: data.article.excerpt,
+      url,
+      type: "article",
+      publishedTime: data.article.publishedAt,
+      images,
+    },
   };
 }
 
@@ -137,9 +156,33 @@ export default async function NewsDetailPage({
 
   const { article, relatedNews, relatedTours } = data;
   const readMinutes = estimateReadingMinutes(article.content);
+  const articleUrl = `${SITE_URL}/news/${encodeURIComponent(article.slug)}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: article.title,
+    description: article.excerpt,
+    image: [article.avatar || FALLBACK_IMAGE],
+    datePublished: article.publishedAt,
+    articleSection: article.category,
+    mainEntityOfPage: articleUrl,
+    author: {
+      "@type": "Person",
+      name: article.createdBy?.fullName || "VN.TRAVEL Editorial",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "VN.TRAVEL",
+    },
+  };
+  const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   return (
     <div className="max-w-[1184px] mx-auto px-4 py-6 sm:py-9">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdText }}
+      />
       <NewsViewTracker slug={article.slug} />
 
       {/* Breadcrumb */}
