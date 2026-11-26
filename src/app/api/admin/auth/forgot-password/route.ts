@@ -1,18 +1,18 @@
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendPasswordResetOtpEmail } from "@/lib/email";
+import {
+  OTP_TTL_MS,
+  buildOtpStorageKey,
+  generateNumericOtp,
+  hashOtp,
+  packOtpRecord,
+} from "@/lib/otp";
 import {
   checkRateLimit,
   getClientIp,
   rateLimitExceededResponse,
 } from "@/lib/rate-limit";
-
-function hashOtp(email: string, otp: string): string {
-  return crypto
-    .createHash("sha256")
-    .update(`${email}:${otp}`)
-    .digest("hex");
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,17 +50,27 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const otp = crypto.randomInt(100000, 1000000).toString();
-    const storedOtp = `0:${hashOtp(email, otp)}`;
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const storageKey = buildOtpStorageKey("admin", email);
+    const otp = generateNumericOtp();
+    const storedOtp = packOtpRecord(0, hashOtp(storageKey, otp));
+    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
 
-    await prisma.forgotPassword.deleteMany({ where: { email } });
+    await prisma.forgotPassword.deleteMany({ where: { email: storageKey } });
     await prisma.forgotPassword.create({
-      data: { email, otp: storedOtp, expiresAt },
+      data: { email: storageKey, otp: storedOtp, expiresAt },
     });
 
-    if (process.env.NODE_ENV !== "production") {
-      console.info(`[TravelVN Auth][DEV] OTP for ${email}: ${otp}`);
+    const emailResult = await sendPasswordResetOtpEmail({
+      to: email,
+      otp,
+      scope: "admin",
+      expiresMinutes: 5,
+    });
+
+    if (!emailResult.sent && process.env.NODE_ENV !== "production") {
+      console.info(`[TravelVN Auth][DEV] Admin OTP for ${email}: ${otp}`);
+    } else if (emailResult.error) {
+      console.error("[TravelVN Auth] Failed to send admin OTP email:", emailResult.error);
     }
 
     return NextResponse.json({

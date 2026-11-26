@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 export const ADMIN_TOKEN_COOKIE = "admin_token";
 export const CLIENT_TOKEN_COOKIE = "client_token";
 export const RESET_TOKEN_COOKIE = "admin_reset_token";
+export const CLIENT_RESET_TOKEN_COOKIE = "client_reset_token";
 export const OAUTH_STATE_COOKIE = "oauth_state";
 
 function getSecretKey(): Uint8Array {
@@ -153,6 +154,43 @@ export async function verifyResetToken(
     });
     if (
       payload.purpose === "password_reset" &&
+      typeof payload.email === "string"
+    ) {
+      return {
+        email: payload.email,
+        pwdSig: typeof payload.pwdSig === "string" ? payload.pwdSig : undefined,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function signClientResetToken(
+  email: string,
+  pwdSig?: string
+): Promise<string> {
+  return new SignJWT({
+    email,
+    purpose: "client_password_reset",
+    ...(pwdSig ? { pwdSig } : {}),
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(getSecretKey());
+}
+
+export async function verifyClientResetToken(
+  token: string
+): Promise<ResetTokenPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ["HS256"],
+    });
+    if (
+      payload.purpose === "client_password_reset" &&
       typeof payload.email === "string"
     ) {
       return {

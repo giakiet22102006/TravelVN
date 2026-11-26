@@ -137,3 +137,82 @@ export async function sendOrderConfirmationEmail(
     };
   }
 }
+
+export interface SendPasswordResetOtpEmailInput {
+  to: string;
+  otp: string;
+  scope: "admin" | "client";
+  expiresMinutes?: number;
+}
+
+export async function sendPasswordResetOtpEmail(
+  input: SendPasswordResetOtpEmailInput
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const to = input.to.trim();
+
+  if (!apiKey || !to) {
+    return { sent: false, skipped: true };
+  }
+
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL?.trim() || "VN.TRAVEL <onboarding@resend.dev>";
+  const expiresMinutes = input.expiresMinutes ?? 5;
+  const portalLabel =
+    input.scope === "admin"
+      ? "Cổng Quản Trị VN.TRAVEL"
+      : "Tài Khoản Khách Hàng VN.TRAVEL";
+  const safeOtp = escapeHtml(input.otp);
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#F8F7F3;padding:24px;border-radius:12px;">
+      <div style="background:#FFFFFF;border:1px solid #E2E0D8;border-radius:12px;padding:24px;">
+        <h1 style="margin:0 0 8px;font-size:20px;color:#1E6078;">Mã OTP Khôi Phục Mật Khẩu</h1>
+        <p style="margin:0 0 16px;font-size:14px;color:#53626B;">
+          Bạn vừa yêu cầu đặt lại mật khẩu cho <strong>${portalLabel}</strong>. Vui lòng nhập mã xác thực bên dưới:
+        </p>
+        <div style="background:#EAF2F5;border:1px solid #C4D9E2;border-radius:10px;padding:16px;text-align:center;margin-bottom:16px;">
+          <span style="font-size:28px;font-weight:700;letter-spacing:6px;color:#162229;">${safeOtp}</span>
+        </div>
+        <p style="margin:0 0 8px;font-size:13px;color:#53626B;">
+          Mã OTP có hiệu lực trong <strong>${expiresMinutes} phút</strong> và sẽ bị khóa nếu nhập sai quá 5 lần.
+        </p>
+        <p style="margin:0;font-size:12px;color:#7A8790;">
+          Nếu bạn không yêu cầu khôi phục mật khẩu, vui lòng bỏ qua email này và không chia sẻ mã cho bất kỳ ai.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [to],
+        subject: `[VN.TRAVEL] Mã OTP khôi phục mật khẩu (${input.otp})`,
+        html,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      return {
+        sent: false,
+        error: `Resend API ${res.status}: ${errText.slice(0, 200)}`,
+      };
+    }
+
+    return { sent: true };
+  } catch (err) {
+    return {
+      sent: false,
+      error: err instanceof Error ? err.message : "Email send failed",
+    };
+  }
+}

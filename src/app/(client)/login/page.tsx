@@ -195,12 +195,20 @@ function LoginFormContent() {
           </div>
 
           <div>
-            <label
-              htmlFor="login-password"
-              className="block text-[13px] font-semibold text-ink mb-1.5"
-            >
-              Mật khẩu
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="login-password"
+                className="block text-[13px] font-semibold text-ink"
+              >
+                Mật khẩu
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-[12.5px] font-semibold text-client-primary hover:underline"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
