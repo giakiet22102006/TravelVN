@@ -13,6 +13,7 @@
 
 - **Live Production (Singapore `sin1`):** https://travel-vn-kappa.vercel.app
 - **Source Repository:** https://github.com/giakiet22102006/TravelVN
+- **API Specification (OpenAPI 3.0):** [`openapi.json`](./openapi.json)
 
 ---
 
@@ -164,6 +165,7 @@ TravelVN/
 │   └── middleware.ts           # Edge route guard & session normalization
 ├── Dockerfile                  # Multi-stage standalone build (non-root + HEALTHCHECK)
 ├── next.config.mjs             # Security headers & image remotePatterns
+├── openapi.json                # Đặc tả OpenAPI 3.0.3 cho toàn bộ 70 API routes
 └── vercel.json                 # Pin region sin1 + cron /api/cron/expire-orders
 ```
 
